@@ -92,4 +92,3 @@ export class TestStepHelper {
         fs.writeFileSync(docPath, content);
     }
 }
-
