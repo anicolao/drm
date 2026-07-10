@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { page } from '$app/stores';
+  import { onMount } from 'svelte';
   import { base } from '$app/paths';
   import Logo from '$lib/components/Logo.svelte';
   let ruleset: 'tetris' | 'doctor' = 'tetris';
-  $: code = $page.url.searchParams.get('code') ?? 'DEMO';
+  let code = 'DEMO';
+  onMount(() => { code = new URL(window.location.href).searchParams.get('code') ?? 'DEMO'; });
 </script>
 <div class="shell"><nav><Logo compact /><span>HOST CONSOLE</span></nav>
   <header><div><p class="eyebrow">Room code</p><h1>{code}</h1></div><div class="links"><a class="button secondary" href={`${base}/play?code=${code}`}>Open controller</a><a class="button secondary" href={`${base}/cast?code=${code}`}>Open cast view</a></div></header>
