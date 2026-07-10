@@ -28,10 +28,19 @@ Firebase configuration with `VITE_FIREBASE_*` variables and build SvelteKit with
 the `/drm` base path. No service-account credentials belong in this repository or
 in the browser bundle.
 
-## Status
+## Prototype
 
-No application code or Firebase project exists yet. The initial pull request is
-intended to settle product scope and architecture before implementation begins.
+The initial SvelteKit prototype provides local room, controller, and cast views.
+It deliberately does not persist gameplay yet; Firebase adapters initialize only
+when a complete environment configuration is supplied.
+
+```sh
+npm install
+npm run dev
+```
+
+Copy `.env.example` to `.env` when the dedicated Firebase project is ready. Run
+`npm run check` and `npm run build` before submitting changes.
 
 ## License
 

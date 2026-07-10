@@ -1,0 +1,15 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+
+:root { --bg: #12131a; --panel: #1c1e28; --ink: #07080c; --text: #f4f1e8; --muted: #999baa; --cyan: #30d9d4; --pink: #ff4f91; --yellow: #f5d547; font-family: 'Space Mono', monospace; color: var(--text); background: var(--bg); }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; min-height: 100vh; background: radial-gradient(circle at 85% 10%, #24203a 0, transparent 28rem), var(--bg); }
+button, input, select { font: inherit; }
+button, .button { border: 0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; background: var(--cyan); color: var(--ink); font-weight: 900; padding: .9rem 1.2rem; text-decoration: none; box-shadow: 4px 4px 0 var(--ink); text-transform: uppercase; }
+button:hover, .button:hover { transform: translate(-1px,-1px); box-shadow: 6px 6px 0 var(--ink); }
+.secondary { background: var(--panel); color: var(--text); border: 1px solid #3c3f50; }
+.eyebrow { color: var(--pink); font-size: .75rem; font-weight: bold; letter-spacing: .18em; text-transform: uppercase; }
+.shell { width: min(1120px, calc(100% - 2rem)); margin: auto; }
+nav { height: 80px; display: flex; align-items: center; justify-content: space-between; }
+.card { background: color-mix(in srgb, var(--panel), transparent 5%); border: 1px solid #343746; box-shadow: 8px 8px 0 var(--ink); padding: 1.5rem; }
+input, select { width: 100%; background: #101118; border: 1px solid #484b5c; color: var(--text); padding: .9rem; }
+label { display: grid; gap: .5rem; color: var(--muted); font-size: .76rem; font-weight: bold; letter-spacing: .08em; text-transform: uppercase; }
