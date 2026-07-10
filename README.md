@@ -35,5 +35,5 @@ intended to settle product scope and architecture before implementation begins.
 
 ## License
 
-Copyright (C) 2026 Alex Nicolao. Licensed under the GNU General Public License,
+Copyright (C) 2026 Alex Nicolaou. Licensed under the GNU General Public License,
 version 3 or later. See [LICENSE](LICENSE).
