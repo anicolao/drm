@@ -5,3 +5,7 @@ build
 .env.*
 !.env.example
 firebase-debug.log
+database-debug.log
+firestore-debug.log
+playwright-report
+test-results
