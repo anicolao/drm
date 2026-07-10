@@ -1,8 +1,8 @@
 import { browser } from '$app/environment';
 import { getApps, initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getDatabase } from 'firebase/database';
-import { getFirestore } from 'firebase/firestore';
+import { connectAuthEmulator, getAuth } from 'firebase/auth';
+import { connectDatabaseEmulator, getDatabase } from 'firebase/database';
+import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
 
 export const firebaseConfigured = Boolean(import.meta.env.VITE_FIREBASE_API_KEY);
 
@@ -22,3 +22,9 @@ export const app = browser && firebaseConfigured
 export const auth = app ? getAuth(app) : undefined;
 export const firestore = app ? getFirestore(app) : undefined;
 export const realtimeDatabase = app ? getDatabase(app) : undefined;
+
+if (browser && import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true' && auth && firestore && realtimeDatabase) {
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+  connectFirestoreEmulator(firestore, '127.0.0.1', 8085);
+  connectDatabaseEmulator(realtimeDatabase, '127.0.0.1', 9000);
+}

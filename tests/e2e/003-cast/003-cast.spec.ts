@@ -1,0 +1,4 @@
+import { test, expect } from '@playwright/test';
+import { TestStepHelper } from '../helpers/test-step-helper';
+test.use({viewport:{width:1280,height:720}});
+test('US-003: spectators see the shared arena',async({page},testInfo)=>{const tester=new TestStepHelper(page,testInfo);await page.goto('/cast?code=TEST');await tester.step('arena',{description:'Cast arena presents the whole match',networkStatus:'skip',verifications:[{spec:'Room, timer, mode, and three boards are visible',check:async()=>{await expect(page.getByText('ROOM TEST')).toBeVisible();await expect(page.getByText('01:42')).toBeVisible();await expect(page.getByText('BLOCK STACK')).toBeVisible();await expect(page.locator('.board')).toHaveCount(3);}},{spec:'Attack and win condition are visible',check:async()=>{await expect(page.getByText(/NEXT ATTACK/)).toBeVisible();await expect(page.getByText('FIRST TO SURVIVE WINS')).toBeVisible();}}]});tester.generateDocs();});

@@ -40,7 +40,9 @@ npm run dev
 ```
 
 Copy `.env.example` to `.env` when the dedicated Firebase project is ready. Run
-`npm run check` and `npm run build` before submitting changes.
+`npm run check` and `npm run build` before submitting changes. See
+[E2E_GUIDE.md](E2E_GUIDE.md) for emulator-backed, zero-pixel-tolerance scenarios.
+Pull requests deploy under `/drm/pr<PR number>/` and receive a preview link.
 
 ## License
 

@@ -1,34 +1,33 @@
 name: Deploy to GitHub Pages
 on:
-  push:
-    branches: [main]
+  push: { branches: [main] }
+  pull_request: { branches: [main] }
   workflow_dispatch:
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-concurrency:
-  group: pages
-  cancel-in-progress: true
+permissions: { contents: write, pull-requests: write }
+concurrency: { group: "pages-${{ github.ref }}", cancel-in-progress: true }
 jobs:
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
       - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
+        with: { node-version: '22', cache: npm }
       - run: npm ci
+      - name: Determine base path
+        id: base_path
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "path=/drm/pr${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+            echo "dir=pr${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=/drm" >> "$GITHUB_OUTPUT"
+            echo "dir=" >> "$GITHUB_OUTPUT"
+          fi
       - run: npm run check
       - run: npm run build
         env:
           NODE_ENV: production
-          PUBLIC_BASE_PATH: /drm
+          PUBLIC_BASE_PATH: ${{ steps.base_path.outputs.path }}
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
           VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
           VITE_FIREBASE_DATABASE_URL: ${{ vars.VITE_FIREBASE_DATABASE_URL }}
@@ -36,8 +35,21 @@ jobs:
           VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
-      - uses: actions/upload-pages-artifact@v3
+      - name: Deploy production
+        if: github.event_name != 'pull_request'
+        uses: peaceiris/actions-gh-pages@v4
+        with: { github_token: "${{ secrets.GITHUB_TOKEN }}", publish_dir: build, keep_files: true }
+      - name: Deploy PR preview
+        if: github.event_name == 'pull_request'
+        uses: peaceiris/actions-gh-pages@v4
+        with: { github_token: "${{ secrets.GITHUB_TOKEN }}", publish_dir: build, destination_dir: "${{ steps.base_path.outputs.dir }}", keep_files: true }
+      - name: Comment preview URL
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
         with:
-          path: build
-      - uses: actions/deploy-pages@v4
-        id: deployment
+          script: |
+            const body = `Preview deployed to: https://${context.repo.owner}.github.io/${context.repo.repo}/pr${context.issue.number}/`;
+            const comments = await github.rest.issues.listComments({ ...context.repo, issue_number: context.issue.number });
+            const existing = comments.data.find(c => c.user.login === 'github-actions[bot]' && c.body.includes('Preview deployed to:'));
+            if (existing) await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body });
+            else await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
