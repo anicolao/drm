@@ -9,7 +9,9 @@ ways:
   displays the game.
 
 The project is at the design stage. See [VISION.md](VISION.md) for the intended
-experience and [MVP_DESIGN.md](MVP_DESIGN.md) for the proposed first release.
+experience, [MVP_DESIGN.md](MVP_DESIGN.md) for the proposed first release, and
+[PILL_BOTTLE.md](PILL_BOTTLE.md) for the protocol and animation design of the
+Dr. Mario-style mode.
 
 ## Proposed architecture
 
