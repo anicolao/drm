@@ -6,6 +6,7 @@
 
 **Verifications:**
 - [x] Firebase is configured
+- [x] Deterministic E2E build identifier is visible
 - [x] UI does not render a fabricated game board
 
 ---

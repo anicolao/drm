@@ -19,6 +19,7 @@ jobs:
         env:
           NODE_ENV: production
           PUBLIC_BASE_PATH: /drm
+          COMMIT_HASH: ${{ github.event.pull_request.head.sha || github.sha }}
   e2e:
     runs-on: macos-latest
     timeout-minutes: 30
