@@ -14,8 +14,8 @@
     void initialize();
     const release=()=>void releaseDown();
     const visibility=()=>{if(document.hidden)release();};
-    window.addEventListener('blur',release);document.addEventListener('visibilitychange',visibility);
-    return()=>{roomUnsubscribe();controller?.destroy();window.removeEventListener('blur',release);document.removeEventListener('visibilitychange',visibility);};
+    window.addEventListener('blur',release);window.addEventListener('keydown',keyDown);window.addEventListener('keyup',keyUp);document.addEventListener('visibilitychange',visibility);
+    return()=>{roomUnsubscribe();controller?.destroy();window.removeEventListener('blur',release);window.removeEventListener('keydown',keyDown);window.removeEventListener('keyup',keyUp);document.removeEventListener('visibilitychange',visibility);};
   });
 
   async function initialize(){
@@ -52,6 +52,18 @@
     send({type:'input/soft-drop-start',payload:{}});
   }
   function releaseDown(){if(!downHeld)return;downHeld=false;send({type:'input/soft-drop-end',payload:{}});}
+  function typingTarget(target:EventTarget|null){return target instanceof HTMLElement&&(target.matches('input,textarea,select')||target.isContentEditable);}
+  function keyDown(event:KeyboardEvent){
+    if(typingTarget(event.target)||!state.ready)return;
+    if(event.key==='ArrowDown'){event.preventDefault();if(!event.repeat&&!downHeld){downHeld=true;send({type:'input/soft-drop-start',payload:{}});}return;}
+    const command = event.key==='ArrowLeft'?{type:'input/move',payload:{dx:-1}} as PillCommand
+      :event.key==='ArrowRight'?{type:'input/move',payload:{dx:1}} as PillCommand
+      :event.key==='ArrowUp'&&!event.repeat?{type:'input/hard-drop',payload:{}} as PillCommand
+      :event.key.toLowerCase()==='r'&&!event.repeat?{type:'input/rotate',payload:{direction:'clockwise'}} as PillCommand
+      :event.key.toLowerCase()==='t'&&!event.repeat?{type:'input/rotate',payload:{direction:'counterclockwise'}} as PillCommand:undefined;
+    if(command){event.preventDefault();send(command);}
+  }
+  function keyUp(event:KeyboardEvent){if(event.key==='ArrowDown'){event.preventDefault();releaseDown();}}
 </script>
 
 <div class="controller-shell"><nav><Logo compact/><span>{code||'NO ROOM'}</span></nav>
@@ -62,14 +74,14 @@
 {:else}<main class="landscape-controller" aria-label="Pill Bottle controller">
   <section class="session"><strong>{playerName}</strong><span>room {code}</span>{#if state.bottle}<PillBottle state={state.bottle}/><span>{state.bottle.viruses} viruses · {state.bottle.phase}</span>{/if}<span class="tick">tick {state.tick}</span><small>{state.ready?'connected':'loading game…'}</small>{#if state.lastCommand}<small class="command-status">{state.lastCommand}</small>{/if}</section>
   <section class="dpad" aria-label="Movement controls">
-    <button class="up" aria-label="Hard drop" disabled={!state.ready} on:pointerdown={()=>send({type:'input/hard-drop',payload:{}})}>↑</button>
-    <button class="left" aria-label="Move left" disabled={!state.ready} on:pointerdown={()=>send({type:'input/move',payload:{dx:-1}})}>←</button>
-    <button class:held={downHeld} class="down" aria-label="Accelerate down" disabled={!state.ready} on:pointerdown={pressDown} on:pointerup={releaseDown} on:pointercancel={releaseDown} on:lostpointercapture={releaseDown}>↓</button>
-    <button class="right" aria-label="Move right" disabled={!state.ready} on:pointerdown={()=>send({type:'input/move',payload:{dx:1}})}>→</button>
+    <button class="up" aria-label="Hard drop" title="Arrow Up" disabled={!state.ready} on:pointerdown={()=>send({type:'input/hard-drop',payload:{}})}>↑</button>
+    <button class="left" aria-label="Move left" title="Arrow Left" disabled={!state.ready} on:pointerdown={()=>send({type:'input/move',payload:{dx:-1}})}>←</button>
+    <button class:held={downHeld} class="down" aria-label="Accelerate down" title="Arrow Down" disabled={!state.ready} on:pointerdown={pressDown} on:pointerup={releaseDown} on:pointercancel={releaseDown} on:lostpointercapture={releaseDown}>↓</button>
+    <button class="right" aria-label="Move right" title="Arrow Right" disabled={!state.ready} on:pointerdown={()=>send({type:'input/move',payload:{dx:1}})}>→</button>
   </section>
   <section class="rotations" aria-label="Rotation controls">
-    <button aria-label="Rotate counterclockwise" disabled={!state.ready} on:pointerdown={()=>send({type:'input/rotate',payload:{direction:'counterclockwise'}})}>↺</button>
-    <button aria-label="Rotate clockwise" disabled={!state.ready} on:pointerdown={()=>send({type:'input/rotate',payload:{direction:'clockwise'}})}>↻</button>
+    <button aria-label="Rotate counterclockwise" title="T" disabled={!state.ready} on:pointerdown={()=>send({type:'input/rotate',payload:{direction:'counterclockwise'}})}>↺</button>
+    <button aria-label="Rotate clockwise" title="R" disabled={!state.ready} on:pointerdown={()=>send({type:'input/rotate',payload:{direction:'clockwise'}})}>↻</button>
   </section>
   <div class="portrait-warning">Rotate your phone to landscape to use the controller.</div>
 </main>{/if}</div>

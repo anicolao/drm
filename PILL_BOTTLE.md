@@ -496,9 +496,11 @@ haptic feedback where supported; neither waits for RTDB. The center displays onl
 real session facts such as room, player, tick, and connection/write status.
 
 Portrait orientation shows an instruction to rotate the device and does not
-silently rearrange the production controls into an unreviewed layout. Keyboard
-bindings may be added for accessibility and desktop development but must emit the
-same command records.
+silently rearrange the production controls into an unreviewed layout. On a
+keyboard, the arrow keys emit the corresponding D-pad commands: Arrow Up hard
+drops and holding Arrow Down starts soft drop until key release. `R` rotates
+clockwise and `T` rotates counterclockwise. Keyboard input emits the same command
+records as pointer input and is ignored while the player is typing in a field.
 
 ## Suspension and background behavior
 
