@@ -281,7 +281,7 @@ Fields:
 | `epochId` | Controller session that produced the command |
 | `clientSeq` | Strictly increasing sequence within the epoch |
 | `tick` | Player tick on which the input was applied locally |
-| `payload` | Command-specific JSON |
+| `payload` | Command-specific JSON; omitted by RTDB for commands with no fields |
 | `serverTime` | Firebase server timestamp assigned on receipt |
 
 For one player's simulation, commands are ordered by:

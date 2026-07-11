@@ -14,7 +14,7 @@
             "commands": {
               "$commandId": {
                 ".write": "auth != null && auth.uid == $playerId && !data.exists() && root.child('games/'+$gameId+'/start/players/'+$playerId).exists()",
-                ".validate": "newData.hasChildren(['type','playerId','epochId','clientSeq','tick','payload','serverTime']) && newData.child('playerId').val() == $playerId && newData.child('clientSeq').isNumber() && newData.child('clientSeq').val() >= 1 && newData.child('tick').isNumber() && newData.child('tick').val() >= 0 && newData.child('serverTime').isNumber() && (newData.child('type').val() == 'input/move' || newData.child('type').val() == 'input/rotate' || newData.child('type').val() == 'input/soft-drop-start' || newData.child('type').val() == 'input/soft-drop-end' || newData.child('type').val() == 'input/hard-drop')"
+                ".validate": "newData.hasChildren(['type','playerId','epochId','clientSeq','tick','serverTime']) && newData.child('playerId').val() == $playerId && newData.child('clientSeq').isNumber() && newData.child('clientSeq').val() >= 1 && newData.child('tick').isNumber() && newData.child('tick').val() >= 0 && newData.child('serverTime').isNumber() && (newData.child('type').val() == 'input/move' || newData.child('type').val() == 'input/rotate' || newData.child('type').val() == 'input/soft-drop-start' || newData.child('type').val() == 'input/soft-drop-end' || newData.child('type').val() == 'input/hard-drop')"
               }
             },
             "epochs": {
