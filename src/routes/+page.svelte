@@ -18,7 +18,12 @@
     if (!name || name.length > 24) { error = 'Player name must be between 1 and 24 characters.'; return; }
     localStorage.setItem('drm-player-name', name); playerName = name; nameConfirmed = true; error = '';
   }
-  const makeCode = () => import.meta.env.VITE_E2E_ROOM_CODE || Math.random().toString(36).slice(2, 6).toUpperCase();
+  const makeCode = () => {
+    if (import.meta.env.VITE_E2E_ROOM_CODE) return import.meta.env.VITE_E2E_ROOM_CODE;
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const values = crypto.getRandomValues(new Uint32Array(4));
+    return Array.from(values, (value) => alphabet[value % alphabet.length]).join('');
+  };
   async function newRoom() {
     if (!firebaseConfigured) { error = 'Firebase configuration is required.'; return; }
     busy = true; error = '';
@@ -27,7 +32,7 @@
     catch (cause) { error = cause instanceof Error ? cause.message : String(cause); busy = false; }
   }
   async function join() {
-    const roomCode = code.trim().toUpperCase(); if (!roomCode) return;
+    const roomCode = code.trim().toUpperCase(); if (!/^[A-Z]{4}$/.test(roomCode)) { error = 'Room code must be four letters.'; return; }
     busy = true; error = '';
     try { if (!firebaseConfigured) throw new Error('Firebase configuration is required.'); if (!(await roomExists(roomCode))) throw new Error('Room not found.'); await goto(`${base}/play?code=${roomCode}`); }
     catch (cause) { error = cause instanceof Error ? cause.message : String(cause); busy = false; }
@@ -55,7 +60,7 @@
   </main>
   <section id="join" class="join card">
     <div><p class="eyebrow">Already invited?</p><h2>ENTER ROOM CODE</h2></div>
-    <form on:submit|preventDefault={join}><input aria-label="Room code" maxlength="6" bind:value={code} placeholder="ABCD" /><button>Join game</button></form>
+    <form on:submit|preventDefault={join}><input aria-label="Room code" maxlength="4" pattern="[A-Za-z]{4}" bind:value={code} placeholder="ABCD" /><button>Join game</button></form>
   </section>
 </div>
 

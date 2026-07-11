@@ -7,10 +7,12 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await expect(page.getByText('ANONYMOUS PLAYER READY')).toBeVisible({ timeout: 10000 });
   await page.getByRole('button', { name: 'Create a room' }).click(); await expect(page).toHaveURL(/room\?code=TEST/, { timeout: 10000 });
   const context = await browser.newContext({ viewport: { width: 393, height: 852 } }); const playerPage = await context.newPage();
-  const tester = new TestStepHelper(playerPage, testInfo); await playerPage.goto('/'); await playerPage.getByLabel('Player name').fill('Jo'); await playerPage.getByRole('button', { name: 'Continue' }).click(); await playerPage.goto('/play?code=TEST');
+  const tester = new TestStepHelper(playerPage, testInfo); await playerPage.goto('/play?code=TEST');
+  await expect(playerPage.getByRole('heading', { name: 'WHAT SHOULD PLAYERS CALL YOU?' })).toBeVisible({ timeout: 10000 });
+  await playerPage.getByLabel('Player name').fill('Jo'); await playerPage.getByRole('button', { name: 'Join room' }).click();
   await expect(playerPage.getByText('WAITING FOR A GAME')).toBeVisible({ timeout: 10000 });
   await tester.step('joined-room', { description: 'Second device creates a real room membership', networkStatus: 'skip', verifications: [
-    { spec: 'Player joined the requested room', check: async () => await expect(playerPage.getByText('Joined room TEST')).toBeVisible() },
+    { spec: 'Direct invitation URL joined the requested room', check: async () => await expect(playerPage.getByText('Joined room TEST')).toBeVisible() },
     { spec: 'No nonfunctional controls are displayed', check: async () => await expect(playerPage.getByRole('button')).toHaveCount(0) },
     { spec: 'UI states why controls are unavailable', check: async () => await expect(playerPage.getByText(/canonical game event stream/)).toBeVisible() }
   ]});
