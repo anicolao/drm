@@ -11,7 +11,13 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create, update: if request.auth != null && request.auth.uid == uid
         && request.resource.data.uid == uid
-        && request.resource.data.keys().hasOnly(['uid', 'displayName', 'role', 'joinedAt']);
+        && request.resource.data.keys().hasOnly(['uid', 'displayName', 'role', 'joinedAt'])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() >= 1
+        && request.resource.data.displayName.size() <= 24
+        && request.resource.data.role == (
+          get(/databases/$(database)/documents/rooms/$(roomId)).data.hostUid == uid ? 'host' : 'player'
+        );
     }
     match /roomCodes/{code} {
       allow create: if request.auth != null && request.resource.data.hostUid == request.auth.uid;

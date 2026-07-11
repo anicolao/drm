@@ -4,6 +4,8 @@ import { resetEmulators } from '../helpers/reset-emulators';
 test.beforeEach(resetEmulators);
 test('US-001: host creates and configures a real room', async ({ page }, testInfo) => {
   const tester = new TestStepHelper(page, testInfo); await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'WHAT SHOULD PLAYERS CALL YOU?' })).toBeVisible();
+  await page.getByLabel('Player name').fill('Alex'); await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page.getByRole('button', { name: 'Play anonymously' })).toBeEnabled({ timeout: 30000 });
   await page.getByRole('button', { name: 'Play anonymously' }).click();
   await expect(page.getByText('ANONYMOUS PLAYER READY')).toBeVisible({ timeout: 10000 });
@@ -16,7 +18,7 @@ test('US-001: host creates and configures a real room', async ({ page }, testInf
   await expect(page.getByText('Joined players · 1')).toBeVisible({ timeout: 10000 });
   await tester.step('room-created', { description: 'Firestore room contains only its real host', networkStatus: 'skip', verifications: [
     { spec: 'Room code is persisted', check: async () => await expect(page.locator('header h1')).toHaveText('TEST') },
-    { spec: 'Exactly one host membership exists', check: async () => await expect(page.getByText('Joined players · 1')).toBeVisible() },
+    { spec: 'Exactly one named host membership exists', check: async () => { await expect(page.getByText('Joined players · 1')).toBeVisible(); await expect(page.getByText('Alex')).toBeVisible(); } },
     { spec: 'Unavailable gameplay is identified honestly', check: async () => await expect(page.getByText(/Starting a match is unavailable/)).toBeVisible() }
   ]});
   await page.getByText('COLOR CURE').click();
