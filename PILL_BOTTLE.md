@@ -43,12 +43,15 @@ from the top row to the bottom in 360 ticks (6 seconds). Soft drop advances ever
 around the first capsule segment and has no kicks: it succeeds only when both
 cells of the new orientation fit.
 
-Matches clear deterministically when the pill locks. Freed capsule segments fall
-one row every 24 ticks, the same speed as normal gravity, and stop on the first
-occupied cell or the bottle floor. The engine checks for the next chain only
-after all freed segments have come to rest. A hidden controller pauses its tick
-and disconnected players do not automatically lose. Scoring and multiplayer
-attacks are deferred; win and top-out are implemented for each bottle.
+Matches clear deterministically when the pill locks. A capsule remains a rigid,
+joined pair unless the match removes one of its two segments; only that affected
+capsule becomes a single segment. Joined pairs and separated segments fall one
+row every 24 ticks, the same speed as normal gravity, and stop on the first
+occupied cell or the bottle floor. One supported half supports its still-joined
+partner. The engine checks for the next chain only after all falling pieces have
+come to rest. A hidden controller pauses its tick and disconnected players do
+not automatically lose. Scoring and multiplayer attacks are deferred; win and
+top-out are implemented for each bottle.
 
 ## Design goals
 
