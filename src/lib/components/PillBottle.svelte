@@ -4,6 +4,7 @@
 
   export let state: BottleState;
   let canvas: HTMLCanvasElement;
+  let lastFrame = '';
 
   const CELL = 10;
   const LEFT = 6;
@@ -50,6 +51,9 @@
 
   function draw() {
     if (!canvas) return;
+    const frame = `${state.phase}|${state.board.map(cell => cell ? `${cell.id}:${cell.color}` : '').join(',')}|${state.active ? `${state.active.id}:${state.active.row}:${state.active.col}:${state.active.orientation}:${state.active.colors.join(':')}` : ''}`;
+    if (frame === lastFrame) return;
+    lastFrame = frame;
     const context = canvas.getContext('2d');
     if (!context) return;
     context.imageSmoothingEnabled = false;
