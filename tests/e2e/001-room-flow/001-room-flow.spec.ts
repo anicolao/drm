@@ -11,6 +11,7 @@ test('US-001: host creates and configures a real room', async ({ page }, testInf
   await expect(page.getByText('ANONYMOUS PLAYER READY')).toBeVisible({ timeout: 10000 });
   await tester.step('authenticated', { description: 'Anonymous Firebase player is ready', networkStatus: 'skip', verifications: [
     { spec: 'Firebase is configured', check: async () => await expect(page.getByText('FIREBASE READY')).toBeVisible() },
+    { spec: 'Deterministic E2E build identifier is visible', check: async () => await expect(page.getByLabel('Build commit')).toHaveText('build e2e-tes') },
     { spec: 'UI does not render a fabricated game board', check: async () => await expect(page.locator('.board')).toHaveCount(0) }
   ]});
   await page.getByRole('button', { name: 'Create a room' }).click();

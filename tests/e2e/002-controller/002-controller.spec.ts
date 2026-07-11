@@ -17,5 +17,13 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
     { spec: 'UI states why controls are unavailable', check: async () => await expect(playerPage.getByText(/canonical game event stream/)).toBeVisible() }
   ]});
   await expect(page.getByText('Joined players · 2')).toBeVisible({ timeout: 10000 }); await expect(page.getByText('Jo', { exact: true })).toBeVisible();
-  await context.close(); tester.generateDocs();
+  const returningContext = await browser.newContext({ viewport: { width: 393, height: 852 } });
+  const returningPage = await returningContext.newPage();
+  await returningPage.addInitScript(() => localStorage.setItem('drm-player-name', 'Sam'));
+  await returningPage.goto('/play?code=TEST');
+  await expect(returningPage.getByText('Joined room TEST')).toBeVisible({ timeout: 10000 });
+  await expect(returningPage.getByLabel('Player name')).not.toBeVisible();
+  await expect(page.getByText('Joined players · 3')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText('Sam', { exact: true })).toBeVisible();
+  await returningContext.close(); await context.close(); tester.generateDocs();
 });
