@@ -27,3 +27,23 @@
 - [x] Color Cure is selected
 
 ---
+
+## The match starts without leaving the room URL
+
+![The match starts without leaving the room URL](./screenshots/003-match-started.png)
+
+**Verifications:**
+- [x] URL remains the canonical room URL
+- [x] Active game and selected rules are visible
+
+---
+
+## Reload restores the active match
+
+![Reload restores the active match](./screenshots/004-match-reloaded.png)
+
+**Verifications:**
+- [x] URL still contains the room code
+- [x] Persisted active game is restored instead of the lobby
+
+---
