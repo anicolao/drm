@@ -30,9 +30,25 @@ Horizontal or vertical runs of four or more cells of one color clear. Unsupporte
 capsule segments fall after a clear, possibly causing chains. Viruses never fall.
 Clearing every virus wins; being unable to spawn the next capsule loses.
 
-The precise virus generator, rotation behavior, speed curve, lock delay, scoring,
-and multiplayer attack rules remain review decisions. They become part of an
-immutable rules version before implementation.
+For the initial `pill-bottle/1` implementation, the deterministic PRNG is
+xorshift32. All players use the same seed and therefore receive the same virus
+layout and capsule sequence. Twelve viruses are scattered without replacement through rows 6–15;
+candidate placements that create an initial run of four are rejected. Capsule
+colors use the same three-color PRNG stream.
+
+Normal gravity advances one row every 12 ticks, moving an unobstructed capsule
+from the top row to the bottom in 180 ticks (3 seconds). Soft drop advances every
+2 ticks. Hard drop locks immediately. A grounded capsule locks after 30 ticks
+(0.5 seconds); a successful move or rotation resets that delay. Rotation pivots
+around the first capsule segment and has no kicks: it succeeds only when both
+cells of the new orientation fit.
+
+Matches, clears, unsupported-segment settling, and chains resolve
+deterministically when the pill locks. The first renderer uses CSS interpolation
+and short color/position transitions while engine resolution remains tick
+deterministic. A hidden controller pauses its tick and disconnected players do
+not automatically lose. Scoring and multiplayer attacks are deferred; win and
+top-out are implemented for each bottle.
 
 ## Design goals
 
@@ -408,8 +424,8 @@ game state.
 
 ### Seed derivation
 
-The global seed is combined with the stable player seat, not UID or device data,
-to derive:
+The global seed, without UID or device data, derives the same sequence for every
+player:
 
 - the virus layout;
 - the capsule color sequence; and
