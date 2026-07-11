@@ -15,7 +15,7 @@
 
 **Verifications:**
 - [x] Room code is persisted
-- [x] Exactly one host membership exists
+- [x] Exactly one named host membership exists
 - [x] Unavailable gameplay is identified honestly
 
 ---

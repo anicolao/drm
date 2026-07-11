@@ -1,5 +1,5 @@
 import { signInAnonymously } from 'firebase/auth';
-import { collection, doc, getDoc, getDocs, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, firestore } from './config';
 
 let anonymousSignIn: ReturnType<typeof signInAnonymously> | undefined;
@@ -12,14 +12,20 @@ export async function ensureAnonymousUser() {
   finally { anonymousSignIn = undefined; }
 }
 
-export async function createRoom(code: string) {
+function validName(displayName: string) {
+  const name = displayName.trim();
+  if (!name || name.length > 24) throw new Error('Player name must be between 1 and 24 characters.');
+  return name;
+}
+
+export async function createRoom(code: string, displayName: string) {
   if (!firestore) throw new Error('Firebase is not configured.');
   const user = await ensureAnonymousUser();
   const roomId = crypto.randomUUID();
   await setDoc(doc(firestore, 'rooms', roomId), { code, hostUid: user.uid, ruleset: 'tetris', status: 'lobby', createdAt: serverTimestamp() });
   await setDoc(doc(firestore, 'roomCodes', code), { roomId, hostUid: user.uid });
   await setDoc(doc(firestore, 'rooms', roomId, 'players', user.uid), {
-    uid: user.uid, displayName: `Player ${user.uid.slice(0, 4).toUpperCase()}`, role: 'host', joinedAt: serverTimestamp()
+    uid: user.uid, displayName: validName(displayName), role: 'host', joinedAt: serverTimestamp()
   });
   return roomId;
 }
@@ -50,18 +56,18 @@ export async function updateRoomRuleset(code: string, ruleset: 'tetris' | 'docto
 
 export interface RoomPlayer { uid: string; displayName: string; role: 'host' | 'player' }
 
-export async function joinRoom(code: string) {
+export async function joinRoom(code: string, displayName: string) {
   if (!firestore) throw new Error('Firebase is not configured.');
   const user = await ensureAnonymousUser();
   const room = await getRoom(code);
   await setDoc(doc(firestore, 'rooms', room.id, 'players', user.uid), {
-    uid: user.uid, displayName: `Player ${user.uid.slice(0, 4).toUpperCase()}`, role: user.uid === room.hostUid ? 'host' : 'player', joinedAt: serverTimestamp()
+    uid: user.uid, displayName: validName(displayName), role: user.uid === room.hostUid ? 'host' : 'player', joinedAt: serverTimestamp()
   }, { merge: true });
   return room;
 }
 
-export async function getRoomPlayers(roomId: string) {
+export function subscribeRoomPlayers(roomId: string, receive: (players: RoomPlayer[]) => void, fail: (error: Error) => void) {
   if (!firestore) throw new Error('Firebase is not configured.');
-  const snapshot = await getDocs(collection(firestore, 'rooms', roomId, 'players'));
-  return snapshot.docs.map((entry) => entry.data() as RoomPlayer);
+  return onSnapshot(collection(firestore, 'rooms', roomId, 'players'),
+    (snapshot) => receive(snapshot.docs.map((entry) => entry.data() as RoomPlayer)), fail);
 }
