@@ -20,7 +20,8 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   const returningContext = await browser.newContext({ viewport: { width: 393, height: 852 } });
   const returningPage = await returningContext.newPage();
   await returningPage.addInitScript(() => localStorage.setItem('drm-player-name', 'Sam'));
-  await returningPage.goto('/play?code=TEST');
+  await returningPage.goto('/room?code=TEST');
+  await expect(returningPage).toHaveURL(/\/play\?code=TEST$/, { timeout: 10000 });
   await expect(returningPage.getByText('Joined room TEST')).toBeVisible({ timeout: 10000 });
   await expect(returningPage.getByLabel('Player name')).not.toBeVisible();
   await expect(page.getByText('Joined players · 3')).toBeVisible({ timeout: 10000 });

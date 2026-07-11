@@ -9,6 +9,8 @@ test('US-001: host creates and configures a real room', async ({ page }, testInf
   await expect(page.getByRole('button', { name: 'Play anonymously' })).toBeEnabled({ timeout: 30000 });
   await page.getByRole('button', { name: 'Play anonymously' }).click();
   await expect(page.getByText('ANONYMOUS PLAYER READY')).toBeVisible({ timeout: 10000 });
+  await page.getByLabel('Room code').fill('HWQX');
+  expect(await page.getByLabel('Room code').evaluate((input: HTMLInputElement) => input.validity.valid)).toBe(true);
   await tester.step('authenticated', { description: 'Anonymous Firebase player is ready', networkStatus: 'skip', verifications: [
     { spec: 'Firebase is configured', check: async () => await expect(page.getByText('FIREBASE READY')).toBeVisible() },
     { spec: 'Deterministic E2E build identifier is visible', check: async () => await expect(page.getByLabel('Build commit')).toHaveText('build e2e-tes') },

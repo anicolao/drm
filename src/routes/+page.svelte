@@ -60,7 +60,7 @@
   </main>
   <section id="join" class="join card">
     <div><p class="eyebrow">Already invited?</p><h2>ENTER ROOM CODE</h2></div>
-    <form on:submit|preventDefault={join}><input aria-label="Room code" maxlength="4" pattern="[A-Za-z]{4}" bind:value={code} placeholder="ABCD" /><button>Join game</button></form>
+    <form on:submit|preventDefault={join} novalidate><input aria-label="Room code" maxlength="4" bind:value={code} placeholder="ABCD" /><button>Join game</button></form>
   </section>
 </div>
 

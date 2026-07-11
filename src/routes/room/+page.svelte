@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
+  import { goto } from '$app/navigation';
   import Logo from '$lib/components/Logo.svelte';
   import { firebaseConfigured } from '$lib/firebase/config';
-  import { getRoom, subscribeRoomPlayers, updateRoomRuleset, type RoomPlayer } from '$lib/firebase/rooms';
+  import { ensureAnonymousUser, getRoom, subscribeRoomPlayers, updateRoomRuleset, type RoomPlayer } from '$lib/firebase/rooms';
   let code = ''; let ruleset: 'tetris' | 'doctor' = 'tetris'; let players: RoomPlayer[] = [];
   let loading = true; let error = '';
   let unsubscribe: () => void = () => {};
@@ -13,7 +14,10 @@
     try {
       if (!code) throw new Error('A room code is required.');
       if (!firebaseConfigured) throw new Error('Firebase configuration is required.');
-      const room = await getRoom(code); ruleset = room.ruleset;
+      const user = await ensureAnonymousUser();
+      const room = await getRoom(code);
+      if (user.uid !== room.hostUid) { await goto(`${base}/play?code=${code}`, { replaceState: true }); return; }
+      ruleset = room.ruleset;
       unsubscribe = subscribeRoomPlayers(room.id, (next) => { players = next; }, (cause) => { error = cause.message; });
     } catch (cause) { error = cause instanceof Error ? cause.message : String(cause); }
     finally { loading = false; }
