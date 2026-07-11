@@ -43,12 +43,12 @@ from the top row to the bottom in 360 ticks (6 seconds). Soft drop advances ever
 around the first capsule segment and has no kicks: it succeeds only when both
 cells of the new orientation fit.
 
-Matches, clears, unsupported-segment settling, and chains resolve
-deterministically when the pill locks. The first renderer uses CSS interpolation
-and short color/position transitions while engine resolution remains tick
-deterministic. A hidden controller pauses its tick and disconnected players do
-not automatically lose. Scoring and multiplayer attacks are deferred; win and
-top-out are implemented for each bottle.
+Matches clear deterministically when the pill locks. Freed capsule segments fall
+one row every 24 ticks, the same speed as normal gravity, and stop on the first
+occupied cell or the bottle floor. The engine checks for the next chain only
+after all freed segments have come to rest. A hidden controller pauses its tick
+and disconnected players do not automatically lose. Scoring and multiplayer
+attacks are deferred; win and top-out are implemented for each bottle.
 
 ## Design goals
 
