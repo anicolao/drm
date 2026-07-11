@@ -22,7 +22,10 @@
     try { if (firebaseConfigured && !(await roomExists(roomCode))) throw new Error('Room not found.'); await goto(`${base}/play?code=${roomCode}`); }
     catch (cause) { error = cause instanceof Error ? cause.message : String(cause); busy = false; }
   }
-  async function playAnonymous() { if (firebaseConfigured) await ensureAnonymousUser(); authMessage = 'ANONYMOUS PLAYER READY'; }
+  async function playAnonymous() {
+    try { if (firebaseConfigured) await ensureAnonymousUser(); authMessage = 'ANONYMOUS PLAYER READY'; }
+    catch (cause) { error = cause instanceof Error ? cause.message : String(cause); }
+  }
 </script>
 
 <div class="shell">
