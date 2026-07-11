@@ -1,49 +1,31 @@
-# Test: US-001: host creates an emulator-backed room
+# Test: US-001: host creates and configures a real room
 
-## Landing page is ready
+## Anonymous Firebase player is ready
 
-![Landing page is ready](./screenshots/000-landing.png)
+![Anonymous Firebase player is ready](./screenshots/000-authenticated.png)
 
 **Verifications:**
-- [x] Firebase emulator environment is connected
-- [x] Anonymous and Google choices are visible
+- [x] Firebase is configured
+- [x] UI does not render a fabricated game board
 
 ---
-## Created room opens in the host console
+## Firestore room contains only its real host
 
-![Created room opens in the host console](./screenshots/001-host-room.png)
-
-**Verifications:**
-- [x] Generated room code is shown
-- [x] Both game modes and the roster are shown
-
----
-
-## Host chooses Color Cure
-
-![Host chooses Color Cure](./screenshots/002-choose-rules.png)
+![Firestore room contains only its real host](./screenshots/001-room-created.png)
 
 **Verifications:**
-- [x] Color Cure is selected
+- [x] Room code is persisted
+- [x] Exactly one host membership exists
+- [x] Unavailable gameplay is identified honestly
 
 ---
 
-## The match starts without leaving the room URL
+## Ruleset configuration persists in Firestore
 
-![The match starts without leaving the room URL](./screenshots/003-match-started.png)
-
-**Verifications:**
-- [x] URL remains the canonical room URL
-- [x] Active game and selected rules are visible
-
----
-
-## Reload restores the active match
-
-![Reload restores the active match](./screenshots/004-match-reloaded.png)
+![Ruleset configuration persists in Firestore](./screenshots/002-configuration-reloaded.png)
 
 **Verifications:**
-- [x] URL still contains the room code
-- [x] Persisted active game is restored instead of the lobby
+- [x] Color Cure remains selected
+- [x] No match is represented
 
 ---

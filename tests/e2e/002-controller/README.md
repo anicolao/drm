@@ -1,27 +1,12 @@
-# Test: US-002: player uses the phone controller
+# Test: US-002: a second authenticated device joins the room
 
-## Phone controller fits the mobile viewport
+## Second device creates a real room membership
 
-![Phone controller fits the mobile viewport](./screenshots/000-controller.png)
-
-**Verifications:**
-- [x] Room and five controls are visible
-
----
-## Rotate input receives immediate feedback
-
-![Rotate input receives immediate feedback](./screenshots/001-rotate.png)
+![Second device creates a real room membership](./screenshots/000-joined-room.png)
 
 **Verifications:**
-- [x] Rotate acknowledgement is visible
-
----
-
-## Hard drop receives immediate feedback
-
-![Hard drop receives immediate feedback](./screenshots/002-drop.png)
-
-**Verifications:**
-- [x] Drop acknowledgement is visible
+- [x] Player joined the requested room
+- [x] No nonfunctional controls are displayed
+- [x] UI states why controls are unavailable
 
 ---

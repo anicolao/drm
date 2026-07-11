@@ -1,11 +1,13 @@
-# Test: US-003: spectators see the shared arena
+# Test: US-003: shared display reads real room configuration
 
-## Cast arena presents the whole match
+## Shared display waits for canonical game state
 
-![Cast arena presents the whole match](./screenshots/000-arena.png)
+![Shared display waits for canonical game state](./screenshots/000-waiting-display.png)
 
 **Verifications:**
-- [x] Room, timer, mode, and three boards are visible
-- [x] Attack and win condition are visible
+- [x] Display loaded the real room code
+- [x] Display loaded the persisted ruleset
+- [x] No invented game board is displayed
+- [x] Display states its event-stream dependency
 
 ---

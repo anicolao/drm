@@ -28,11 +28,12 @@ Firebase configuration with `VITE_FIREBASE_*` variables and build SvelteKit with
 the `/drm` base path. No service-account credentials belong in this repository or
 in the browser bundle.
 
-## Prototype
+## Implementation status
 
-The initial SvelteKit prototype provides local room, controller, and cast views.
-It deliberately does not persist gameplay yet; Firebase adapters initialize only
-when a complete environment configuration is supplied.
+The production foundation currently implements Firebase authentication, room
+creation, room joining, player membership, and ruleset configuration. The game
+engine, RTDB event sequencer, controls, and shared game rendering are not yet
+implemented and are not simulated by the UI.
 
 ```sh
 npm install
