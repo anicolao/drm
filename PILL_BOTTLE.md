@@ -94,7 +94,8 @@ time.
 one player's bottle.
 
 - Tick zero is established by `game/started`.
-- The game definition fixes a tick duration, proposed initially as 1/60 second.
+- The game definition fixes the tick rate at 60 ticks per second for
+  `pill-bottle/1`.
 - Gravity, soft drop, lock delay, clears, falling segments, and animations use
   ticks rather than wall-clock timestamps.
 - Commands for one player are evaluated at the tick recorded by that controller.
@@ -425,8 +426,11 @@ provably identical to processing each tick.
 
 ## Local controller loop
 
-The controller uses a monotonic clock such as `performance.now()` to schedule
-fixed simulation ticks. A typical loop:
+The controller uses `requestAnimationFrame` and its monotonic callback timestamp
+to schedule fixed 60 Hz simulation ticks. RAF requests rendering opportunities;
+an accumulator determines how many 1/60-second game ticks must run, so 90 Hz or
+120 Hz displays do not speed up the bottle and a delayed frame does not discard
+simulation time. A typical loop:
 
 1. Accumulate elapsed monotonic time.
 2. Run zero or more fixed ticks to catch up.
@@ -437,11 +441,48 @@ fixed simulation ticks. A typical loop:
 7. Periodically publish progress.
 
 Input must not wait for the next Firebase operation. It may be sampled for the
-current tick or queued for the immediately following tick; the chosen convention
-must be consistent and versioned.
+current tick or queued for the immediately following tick. `pill-bottle/1`
+records and applies an input on the current completed tick at the time the input
+handler runs.
 
 If rendering falls behind, the simulation processes multiple ticks before the
 next frame. Rendering may drop frames; simulation may not drop ticks.
+
+## Mobile controller layout
+
+The initial controller is designed for a phone held in landscape orientation.
+It uses the screen corners so the player's hands do not cover the center status
+area.
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│  room / player / tick                         connection     │
+│                                                              │
+│       [ ↑ ]                                      [ ↺ ] [ ↻ ] │
+│  [ ← ][ ↓ ][ → ]                                             │
+└──────────────────────────────────────────────────────────────┘
+```
+
+The left side is a four-direction D-pad:
+
+- left emits `input/move { dx: -1 }`;
+- right emits `input/move { dx: 1 }`;
+- down emits `input/soft-drop-start` on press and
+  `input/soft-drop-end` on release, cancellation, blur, or visibility loss; and
+- up emits `input/hard-drop`.
+
+The right side has separate counterclockwise and clockwise rotation buttons,
+emitting `input/rotate` with the corresponding direction.
+
+Controls use pointer events so touch, pen, and mouse share semantics. Each button
+captures its pointer until release. Buttons provide immediate pressed-state and
+haptic feedback where supported; neither waits for RTDB. The center displays only
+real session facts such as room, player, tick, and connection/write status.
+
+Portrait orientation shows an instruction to rotate the device and does not
+silently rearrange the production controls into an unreviewed layout. Keyboard
+bindings may be added for accessibility and desktop development but must emit the
+same command records.
 
 ## Suspension and background behavior
 
@@ -779,23 +820,22 @@ RTDB protocol.
 
 ## Decisions required before implementation
 
-1. Tick rate and exact input sampling boundary.
-2. Virus layout algorithm and valid level range.
-3. Capsule color PRNG and seed derivation.
-4. Gravity speeds and progression.
-5. Rotation directions, states, and kick behavior.
-6. Lock delay and reset behavior.
-7. Hard-drop availability.
-8. Board-resolution duration in ticks and whether animation duration is identical
+1. Virus layout algorithm and valid level range.
+2. Capsule color PRNG and seed derivation.
+3. Gravity speeds and progression.
+4. Rotation states and kick behavior (both directions are exposed by the
+   controller).
+5. Lock delay and reset behavior.
+6. Board-resolution duration in ticks and whether animation duration is identical
    to simulation duration.
-9. Suspension/disconnect loss policy.
-10. Controller epoch handoff and multi-device conflict behavior.
-11. Observer/cast tick buffer and correction thresholds.
-12. Checkpoint cadence and validation.
-13. Scoring, if any.
-14. Attack generation, targets, cancellation, colors, placement, lead ticks, and
+7. Suspension/disconnect loss policy.
+8. Controller epoch handoff and multi-device conflict behavior.
+9. Observer/cast tick buffer and correction thresholds.
+10. Checkpoint cadence and validation.
+11. Scoring, if any.
+12. Attack generation, targets, cancellation, colors, placement, lead ticks, and
     interaction receipts.
-15. Finish ordering, settlement window, and tie behavior.
+13. Finish ordering, settlement window, and tie behavior.
 
 These choices define `pill-bottle/1`. Any state-affecting change requires a new
 rules version so recorded command streams remain replayable.

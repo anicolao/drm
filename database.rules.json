@@ -1,6 +1,35 @@
 {
   "rules": {
-    ".read": "auth != null",
-    ".write": "auth != null"
+    ".read": false,
+    ".write": false,
+    "games": {
+      "$gameId": {
+        ".read": "auth != null && data.child('start/players').child(auth.uid).exists()",
+        "start": {
+          ".write": "auth != null && !data.exists() && newData.child('hostUid').val() == auth.uid",
+          ".validate": "newData.hasChildren(['type','roomId','ruleset','rulesVersion','seed','tickRate','hostUid','players','serverTime']) && newData.child('type').val() == 'game/started' && newData.child('ruleset').val() == 'pill-bottle' && newData.child('rulesVersion').val() == 'pill-bottle/controller-1' && newData.child('tickRate').val() == 60 && newData.child('seed').isNumber() && newData.child('serverTime').isNumber()"
+        },
+        "players": {
+          "$playerId": {
+            "commands": {
+              "$commandId": {
+                ".write": "auth != null && auth.uid == $playerId && !data.exists() && root.child('games/'+$gameId+'/start/players/'+$playerId).exists()",
+                ".validate": "newData.hasChildren(['type','playerId','epochId','clientSeq','tick','payload','serverTime']) && newData.child('playerId').val() == $playerId && newData.child('clientSeq').isNumber() && newData.child('clientSeq').val() >= 1 && newData.child('tick').isNumber() && newData.child('tick').val() >= 0 && newData.child('serverTime').isNumber() && (newData.child('type').val() == 'input/move' || newData.child('type').val() == 'input/rotate' || newData.child('type').val() == 'input/soft-drop-start' || newData.child('type').val() == 'input/soft-drop-end' || newData.child('type').val() == 'input/hard-drop')"
+              }
+            },
+            "epochs": {
+              "$epochId": {
+                ".write": "auth != null && auth.uid == $playerId && !data.exists() && root.child('games/'+$gameId+'/start/players/'+$playerId).exists()",
+                ".validate": "newData.hasChildren(['clientId','startedFromTick','startedFromCommandSeq','serverTime']) && newData.child('serverTime').isNumber()"
+              }
+            },
+            "progress": {
+              ".write": "auth != null && auth.uid == $playerId && root.child('games/'+$gameId+'/start/players/'+$playerId).exists()",
+              ".validate": "newData.hasChildren(['epochId','tick','lastClientSeq','phase','serverTime']) && newData.child('tick').isNumber() && newData.child('tick').val() >= 0 && newData.child('lastClientSeq').isNumber() && newData.child('serverTime').isNumber()"
+            }
+          }
+        }
+      }
+    }
   }
 }
