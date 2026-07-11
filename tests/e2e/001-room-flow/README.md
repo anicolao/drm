@@ -14,7 +14,7 @@
 ![Firestore room contains only its real host](./screenshots/001-room-created.png)
 
 **Verifications:**
-- [x] Room code is persisted
+- [x] Room code contains exactly four letters
 - [x] Exactly one named host membership exists
 - [x] Unavailable gameplay is identified honestly
 

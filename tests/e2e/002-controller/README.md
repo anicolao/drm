@@ -5,7 +5,7 @@
 ![Second device creates a real room membership](./screenshots/000-joined-room.png)
 
 **Verifications:**
-- [x] Player joined the requested room
+- [x] Direct invitation URL joined the requested room
 - [x] No nonfunctional controls are displayed
 - [x] UI states why controls are unavailable
 
