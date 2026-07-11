@@ -7,7 +7,7 @@ service cloud.firestore {
         && request.resource.data.code.matches('^[A-Z]{4}$');
       allow read: if request.auth != null;
       allow update: if request.auth != null && resource.data.hostUid == request.auth.uid
-        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['ruleset']);
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['ruleset', 'status', 'activeGameId', 'startedAt']);
     }
     match /rooms/{roomId}/players/{uid} {
       allow read: if request.auth != null;

@@ -1,5 +1,5 @@
 import { signInAnonymously } from 'firebase/auth';
-import { collection, doc, getDoc, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot, serverTimestamp, setDoc, updateDoc, type Unsubscribe } from 'firebase/firestore';
 import { auth, firestore } from './config';
 
 let anonymousSignIn: ReturnType<typeof signInAnonymously> | undefined;
@@ -47,7 +47,7 @@ async function roomRefForCode(code: string) {
 export async function getRoom(code: string) {
   const snapshot = await getDoc(await roomRefForCode(code));
   if (!snapshot.exists()) throw new Error('Room not found.');
-  return { id: snapshot.id, ...snapshot.data() } as { id: string; hostUid: string; status: 'lobby'; ruleset: 'tetris' | 'doctor' };
+  return { id: snapshot.id, ...snapshot.data() } as { id: string; hostUid: string; status: 'lobby' | 'active'; ruleset: 'tetris' | 'doctor'; activeGameId?: string };
 }
 
 export async function updateRoomRuleset(code: string, ruleset: 'tetris' | 'doctor') {
@@ -70,4 +70,10 @@ export function subscribeRoomPlayers(roomId: string, receive: (players: RoomPlay
   if (!firestore) throw new Error('Firebase is not configured.');
   return onSnapshot(collection(firestore, 'rooms', roomId, 'players'),
     (snapshot) => receive(snapshot.docs.map((entry) => entry.data() as RoomPlayer)), fail);
+}
+
+export function subscribeRoom(roomId: string, receive: (room: { status: 'lobby' | 'active'; activeGameId?: string }) => void, fail: (error: Error) => void): Unsubscribe {
+  if (!firestore) throw new Error('Firebase is not configured.');
+  return onSnapshot(doc(firestore, 'rooms', roomId),
+    (snapshot) => { if (snapshot.exists()) receive(snapshot.data() as { status: 'lobby' | 'active'; activeGameId?: string }); }, fail);
 }

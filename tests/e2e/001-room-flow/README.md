@@ -17,7 +17,7 @@
 **Verifications:**
 - [x] Room code contains exactly four letters
 - [x] Exactly one named host membership exists
-- [x] Unavailable gameplay is identified honestly
+- [x] Only the implemented Color Cure controller can start
 
 ---
 
