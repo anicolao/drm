@@ -17,6 +17,7 @@
 **Verifications:**
 - [x] D-pad exposes left, right, accelerate, and hard drop
 - [x] Both rotation directions are available
+- [x] Keyboard bindings expose arrows, R, and T
 - [x] Recorded command includes its player tick
 
 ---
