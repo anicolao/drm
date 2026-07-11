@@ -36,8 +36,8 @@ layout and capsule sequence. Twelve viruses are scattered without replacement th
 candidate placements that create an initial run of four are rejected. Capsule
 colors use the same three-color PRNG stream.
 
-Normal gravity advances one row every 12 ticks, moving an unobstructed capsule
-from the top row to the bottom in 180 ticks (3 seconds). Soft drop advances every
+Normal gravity advances one row every 24 ticks, moving an unobstructed capsule
+from the top row to the bottom in 360 ticks (6 seconds). Soft drop advances every
 2 ticks. Hard drop locks immediately. A grounded capsule locks after 30 ticks
 (0.5 seconds); a successful move or rotation resets that delay. Rotation pivots
 around the first capsule segment and has no kicks: it succeeds only when both
@@ -738,6 +738,17 @@ lock capsule
 The renderer may not reorder these transitions. Reduced-motion mode replaces
 movement with immediate placement and short fades while retaining match, virus,
 attack, and result information.
+
+### Bottle rendering
+
+The bottle is drawn into a fixed 92 × 180 logical-pixel canvas and scaled with
+nearest-neighbour rendering. Every wall, grid line, capsule, highlight, and
+virus sprite is placed on an integer logical coordinate. Capsule halves join
+into one stepped, rounded capsule silhouette; unsupported halves render as
+individual rounded segments. Viruses use colored pixel sprites with dark eyes
+and a mouth. The renderer does not use DOM cell borders, fractional grid tracks,
+curves, or platform font glyphs for game pieces, avoiding platform-dependent
+edge antialiasing.
 
 ### Catch-up
 
