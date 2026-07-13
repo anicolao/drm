@@ -49,7 +49,7 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await expect(playerPage.getByText(/input\/soft-drop-start · tick/)).toBeVisible({ timeout: 10000 });
   await playerPage.keyboard.up('ArrowDown');
   await expect(playerPage.getByText(/input\/soft-drop-end · tick/)).toBeVisible({ timeout: 10000 });
-  await playerPage.waitForFunction(() => Number(document.querySelector('.tick')?.textContent?.replace('tick ', '')) % 24 === 0, undefined, { polling: 'raf' });
+  await playerPage.waitForFunction(() => Number(document.querySelector('.tick')?.textContent?.replace('tick ', '')) % 15 === 0, undefined, { polling: 'raf' });
   await playerPage.keyboard.press('ArrowUp');
   await expect(playerPage.getByText(/input\/hard-drop · tick/)).toBeVisible({ timeout: 10000 });
   await playerPage.locator('.tick').evaluate((element: HTMLElement) => { element.style.visibility = 'hidden'; });

@@ -30,23 +30,30 @@ Horizontal or vertical runs of four or more cells of one color clear. Unsupporte
 capsule segments fall after a clear, possibly causing chains. Viruses never fall.
 Clearing every virus wins; being unable to spawn the next capsule loses.
 
-For the initial `pill-bottle/1` implementation, the deterministic PRNG is
+For the `pill-bottle/2` implementation, the deterministic PRNG is
 xorshift32. All players use the same seed and therefore receive the same virus
 layout and capsule sequence. Twelve viruses are scattered without replacement through rows 6–15;
 candidate placements that create an initial run of four are rejected. Capsule
 colors use the same three-color PRNG stream.
 
-Normal gravity advances one row every 24 ticks, moving an unobstructed capsule
-from the top row to the bottom in 360 ticks (6 seconds). Soft drop advances every
-2 ticks. Hard drop locks immediately. A grounded capsule locks after 30 ticks
-(0.5 seconds); a successful move or rotation resets that delay. Rotation pivots
-around the first capsule segment and has no kicks: it succeeds only when both
-cells of the new orientation fit.
+Normal gravity advances one row every 15 ticks: four rows per second at the 60 Hz
+tick rate. Soft drop advances every 2 ticks. Hard drop locks immediately. A
+grounded capsule locks after 30 ticks (0.5 seconds); a successful move or rotation
+resets that delay.
+
+Rotation uses the fixed 2 × 2 bounding box in `ROTATION_SYSTEM.md`. `(row, col)`
+is the bottom-left cell of that box and is occupied in every orientation. The
+four orientation states preserve segment colors while alternating which segment
+occupies the bottom-left anchor. A vertical-to-horizontal rotation that is
+blocked on the right tries the box one column left. A horizontal-to-vertical
+rotation blocked above tries the column to the right and then the column to the
+left; it fails if neither complete vertical placement fits. There are no down or
+down-and-right kicks.
 
 Matches clear deterministically when the pill locks. A capsule remains a rigid,
 joined pair unless the match removes one of its two segments; only that affected
 capsule becomes a single segment. Joined pairs and separated segments fall one
-row every 24 ticks, the same speed as normal gravity, and stop on the first
+row every 15 ticks, the same speed as normal gravity, and stop on the first
 occupied cell or the bottle floor. One supported half supports its still-joined
 partner. The engine checks for the next chain only after all falling pieces have
 come to rest. A hidden controller pauses its tick and disconnected players do
@@ -114,7 +121,7 @@ one player's bottle.
 
 - Tick zero is established by `game/started`.
 - The game definition fixes the tick rate at 60 ticks per second for
-  `pill-bottle/1`.
+  `pill-bottle/2`.
 - Gravity, soft drop, lock delay, clears, falling segments, and animations use
   ticks rather than wall-clock timestamps.
 - Commands for one player are evaluated at the tick recorded by that controller.
@@ -172,7 +179,7 @@ games/{gameId}/start
   "type": "game/started",
   "roomId": "room-id",
   "ruleset": "pill-bottle",
-  "rulesVersion": "pill-bottle/1",
+  "rulesVersion": "pill-bottle/2",
   "seed": 123456789,
   "tickRate": 60,
   "players": [
@@ -434,7 +441,7 @@ player:
 - the capsule color sequence; and
 - any rules-approved attack randomness.
 
-The exact derivation and PRNG are part of `pill-bottle/1` and covered by fixtures.
+The exact derivation and PRNG are part of `pill-bottle/2` and covered by fixtures.
 
 ### Tick processing
 
@@ -460,7 +467,7 @@ simulation time. A typical loop:
 7. Periodically publish progress.
 
 Input must not wait for the next Firebase operation. It may be sampled for the
-current tick or queued for the immediately following tick. `pill-bottle/1`
+current tick or queued for the immediately following tick. `pill-bottle/2`
 records and applies an input on the current completed tick at the time the input
 handler runs.
 
@@ -869,5 +876,5 @@ RTDB protocol.
     interaction receipts.
 13. Finish ordering, settlement window, and tie behavior.
 
-These choices define `pill-bottle/1`. Any state-affecting change requires a new
+These choices define `pill-bottle/2`. Any state-affecting change requires a new
 rules version so recorded command streams remain replayable.
