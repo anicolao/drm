@@ -48,6 +48,17 @@ export interface ReplayCommand {
   input: PillInput;
 }
 
+export type ControllerRecord = {
+  commandId: string;
+  playerId: string;
+  epochId: string;
+  clientSeq: number;
+  tick: number;
+} & (PillInput | {
+  type: 'progress/tick';
+  payload: { phase: BottlePhase; stateHash: string };
+});
+
 export interface SerializedBottleState {
   rulesVersion: 'pill-bottle/2';
   tick: number;

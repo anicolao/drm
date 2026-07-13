@@ -13,9 +13,10 @@
   onMount(()=>{
     void initialize();
     const release=()=>void releaseDown();
-    const visibility=()=>{if(document.hidden)release();};
-    window.addEventListener('blur',release);window.addEventListener('keydown',keyDown);window.addEventListener('keyup',keyUp);document.addEventListener('visibilitychange',visibility);
-    return()=>{roomUnsubscribe();controller?.destroy();window.removeEventListener('blur',release);window.removeEventListener('keydown',keyDown);window.removeEventListener('keyup',keyUp);document.removeEventListener('visibilitychange',visibility);};
+    const visibility=()=>{if(document.hidden){release();controller?.suspend();}else controller?.resume();};
+    const pagehide=()=>{release();controller?.suspend();};
+    window.addEventListener('blur',release);window.addEventListener('keydown',keyDown);window.addEventListener('keyup',keyUp);window.addEventListener('pagehide',pagehide);document.addEventListener('visibilitychange',visibility);
+    return()=>{roomUnsubscribe();controller?.destroy();window.removeEventListener('blur',release);window.removeEventListener('keydown',keyDown);window.removeEventListener('keyup',keyUp);window.removeEventListener('pagehide',pagehide);document.removeEventListener('visibilitychange',visibility);};
   });
 
   async function initialize(){

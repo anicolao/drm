@@ -10,6 +10,7 @@
 - [x] UI does not render a fabricated game board
 
 ---
+
 ## Firestore room contains only its real host
 
 ![Firestore room contains only its real host](./screenshots/001-room-created.png)
