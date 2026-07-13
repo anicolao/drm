@@ -20,8 +20,10 @@ Dr. Mario-style mode.
 - A new, dedicated Firebase project.
 - Cloud Firestore for lobbies, game setup, participants, and presence/coordination
   metadata.
-- Firebase Realtime Database for append-only, ordered game event streams.
-- A deterministic, shared game engine that rebuilds state by replaying events.
+- Firebase Realtime Database for immutable, tick-tagged player command streams
+  plus lightweight progress/hash projections.
+- A deterministic, shared game engine that rebuilds every observed board by
+  replaying commands. Materialized board state is never synchronized.
 
 Firebase's browser configuration is public configuration, not a secret; access
 is protected by Authentication, Firestore Rules, and Realtime Database Rules.
@@ -32,10 +34,12 @@ in the browser bundle.
 
 ## Implementation status
 
-The production foundation currently implements Firebase authentication, room
-creation, room joining, player membership, and ruleset configuration. The game
-engine, RTDB event sequencer, controls, and shared game rendering are not yet
-implemented and are not simulated by the UI.
+The production prototype implements Firebase authentication, room coordination,
+a versioned `pill-bottle/2` Color Cure engine, immediate local controls,
+tick-tagged RTDB commands, deterministic replay/state hashes, and a shared canvas
+display reconstructed from commands. Reload recovery, durable local caching,
+presence, match completion, attacks, and the Tetris-style ruleset remain to be
+implemented.
 
 ```sh
 npm install

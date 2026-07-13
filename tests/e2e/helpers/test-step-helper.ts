@@ -89,6 +89,6 @@ export class TestStepHelper {
             content += `\n---\n\n`;
         }
 
-        fs.writeFileSync(docPath, content);
+        fs.writeFileSync(docPath, `${content.trimEnd()}\n`);
     }
 }

@@ -24,7 +24,9 @@ not anti-cheat authority.
 ## Game summary
 
 Each player has an 8×16 visible bottle. A deterministic initial arrangement of
-colored viruses is generated from the game seed and player seat. A two-segment
+colored viruses is generated from the game seed. The seat remains protocol
+metadata, but `pill-bottle/2` deliberately gives every seat the same layout and
+capsule stream. A two-segment
 capsule falls from the top. The player moves and rotates it until it locks.
 Horizontal or vertical runs of four or more cells of one color clear. Unsupported
 capsule segments fall after a clear, possibly causing chains. Viruses never fall.
@@ -182,15 +184,16 @@ games/{gameId}/start
   "rulesVersion": "pill-bottle/2",
   "seed": 123456789,
   "tickRate": 60,
-  "players": [
-    { "playerId": "uid-a", "seat": 0 },
-    { "playerId": "uid-b", "seat": 1 }
-  ],
+  "hostUid": "uid-a",
+  "members": { "uid-a": true, "uid-b": true },
+  "players": {
+    "uid-a": { "seat": 0 },
+    "uid-b": { "seat": 1 }
+  },
   "settings": {
-    "virusLevel": 10,
+    "virusCount": 12,
     "speed": "medium",
-    "hardDrop": false,
-    "attackRules": "pill-bottle-attack/1"
+    "hardDrop": true
   },
   "serverTime": { ".sv": "timestamp" }
 }
@@ -218,9 +221,6 @@ games/{gameId}/players/{playerId}/epochs/{epochId}
 games/{gameId}/players/{playerId}/progress
   replaceable current-tick and connection projection
 
-games/{gameId}/players/{playerId}/checkpoints/{tickKey}
-  optional derived engine checkpoint
-
 games/{gameId}/interactions/{pushId}
   immutable cross-player facts ordered by server timestamp
 
@@ -233,7 +233,8 @@ games/{gameId}/presence/{playerId}/{clientId}
 
 Commands, interactions, start records, and finish declarations are append-only.
 Progress and presence are explicitly mutable projections and are never replay
-authority. Checkpoints are derived caches and can be discarded.
+authority. Derived checkpoints exist only in local browser storage and can be
+discarded.
 
 ## Controller epochs
 
@@ -383,8 +384,8 @@ games/{gameId}/players/{playerId}/progress
   "epochId": "epoch-id",
   "tick": 1902,
   "lastClientSeq": 42,
-  "stateHash": "canonical-hash",
-  "phase": "falling",
+  "stateHash": "pb2-1234abcd",
+  "phase": "playing",
   "serverTime": { ".sv": "timestamp" }
 }
 ```
@@ -404,7 +405,7 @@ The controller continues to render while its progress writes are delayed.
 The pure engine API is conceptually:
 
 ```text
-state = createBottle(rulesVersion, gameSeed, playerSeat, settings)
+state = createBottle(gameSeed, playerSeat)
 state = advanceToTick(state, targetTick, commands)
 ```
 
@@ -420,7 +421,7 @@ BottleState
   activeCapsule
   nextCapsuleId
   virusCount
-  phase: falling | grounded | resolving | won | lost
+  phase: playing | won | lost
   softDropHeld
   lockDeadlineTick
   chain
@@ -537,7 +538,7 @@ On reload the controller:
 
 1. reads `game/started`;
 2. loads the player's active epoch and command history;
-3. loads the newest valid local/RTDB checkpoint if available;
+3. loads the newest valid controller-local checkpoint if available;
 4. replays commands in `(tick, clientSeq, pushId)` order;
 5. verifies any available progress state hash;
 6. creates/resumes an allowed controller epoch; and
@@ -546,31 +547,16 @@ On reload the controller:
 The URL remains tied to the room/game identity. Recovery never returns an active
 player to the lobby merely because the page reloaded.
 
-## Checkpoints
+## Local checkpoints
 
-Long games should not require replay from tick zero on every observer.
+Long games may use serialized engine checkpoints in browser-local storage such as
+IndexedDB. A checkpoint records its tick, last command identity, serialized state,
+and state hash. It never crosses the network: Firestore and RTDB must not contain
+a board, checkpoint, or serialized engine state.
 
-```text
-games/{gameId}/players/{playerId}/checkpoints/{tickKey}
-```
-
-```json
-{
-  "tick": 1800,
-  "lastClientSeq": 40,
-  "state": { "...": "serialized deterministic state" },
-  "stateHash": "canonical-hash",
-  "createdByEpoch": "epoch-id",
-  "serverTime": { ".sv": "timestamp" }
-}
-```
-
-Checkpoints are controller-produced caches, not trusted authority. An observer
-may validate one by replaying from an earlier known checkpoint. If validation
-fails, it discards the checkpoint and replays commands.
-
-For the MVP, full command replay may be sufficient until measured game lengths
-show a need for checkpoints.
+A client validates a local checkpoint against its rules version and known hash.
+If validation fails, it discards the cache and replays commands from tick zero.
+Clearing browser data must affect recovery performance only, never replay results.
 
 ## Derived bottle outcomes
 
@@ -819,14 +805,14 @@ new immutable game stream and seed.
 
 ### Engine unit tests
 
-- Seeded virus layout and capsule stream fixtures per seat.
+- Seeded virus layout and capsule stream fixtures proving the shared seat stream.
 - Identical state from live stepping and command replay.
 - Multiple commands on one tick in `clientSeq` order.
 - Blocked commands remain no-ops during replay.
 - Gravity, grounding, lock, clear, fall, and chain tick boundaries.
 - Horizontal, vertical, crossing, and greater-than-four matches.
 - Joined and detached capsule settling.
-- Reload from tick zero and from checkpoints.
+- Reload from tick zero and from a controller-local checkpoint.
 - Stable state hashes across browsers.
 
 ### RTDB rule tests
@@ -859,24 +845,15 @@ No test may substitute invented board state or mocked gameplay. Emulator tests
 must produce all displayed gameplay through the real deterministic engine and
 RTDB protocol.
 
-## Decisions required before implementation
+## Frozen `pill-bottle/2` rules and remaining decisions
 
-1. Virus layout algorithm and valid level range.
-2. Capsule color PRNG and seed derivation.
-3. Gravity speeds and progression.
-4. Rotation states and kick behavior (both directions are exposed by the
-   controller).
-5. Lock delay and reset behavior.
-6. Board-resolution duration in ticks and whether animation duration is identical
-   to simulation duration.
-7. Suspension/disconnect loss policy.
-8. Controller epoch handoff and multi-device conflict behavior.
-9. Observer/cast tick buffer and correction thresholds.
-10. Checkpoint cadence and validation.
-11. Scoring, if any.
-12. Attack generation, targets, cancellation, colors, placement, lead ticks, and
-    interaction receipts.
-13. Finish ordering, settlement window, and tie behavior.
+The implementation freezes xorshift32, twelve-virus placement in rows 6–15, the
+shared per-seat stream, 60 Hz ticks, 15-tick gravity, two-tick soft drop,
+immediate hard drop, 30-tick lock delay, the four-state rotation/kick system, and
+15-tick resolution gravity. State hashes use FNV-1a over the versioned canonical
+JSON serialization and are diagnostic rather than authority.
 
-These choices define `pill-bottle/2`. Any state-affecting change requires a new
-rules version so recorded command streams remain replayable.
+Still to decide are suspension/disconnect match policy, epoch handoff,
+observer-buffer and correction thresholds, local-checkpoint cadence, scoring,
+attacks, and finish/tie policy. Any change to a state-affecting frozen choice
+requires a new rules version so recorded command streams remain replayable.

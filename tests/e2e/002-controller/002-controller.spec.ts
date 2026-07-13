@@ -36,6 +36,7 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '12');
   await expect(page.getByRole('heading', { name: 'Jo' })).toBeVisible({ timeout: 10000 });
   await expect(page.getByLabel('Pill bottle', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Replay hash mismatch')).not.toBeVisible();
   await expect.poll(async () => Number((await playerPage.locator('.tick').textContent())?.replace('tick ', ''))).toBeGreaterThan(0);
   await playerPage.getByRole('button', { name: 'Move left' }).dispatchEvent('pointerdown', { pointerId: 1 });
   await expect(playerPage.getByText(/input\/move · tick/)).toBeVisible({ timeout: 10000 });
