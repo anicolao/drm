@@ -19,7 +19,7 @@ interface Checkpoint {
 }
 
 function advanceDisplayState(state: BottleState, targetTick: number) {
-  while (state.tick < targetTick && state.phase === 'playing') advanceTick(state);
+  while (state.tick < targetTick && state.phase !== 'lost') advanceTick(state);
 }
 
 export class PillBottleObserver {

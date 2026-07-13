@@ -60,25 +60,34 @@ function spawn(state: BottleState) {
   if (!state.active) state.phase = 'lost';
 }
 
-export function createBottle(seed: number, _seat = 0): BottleState {
-  // pill-bottle/2 intentionally gives every seat the same layout and capsule stream.
-  const state: BottleState = {
-    rulesVersion: PILL_BOTTLE_RULES_VERSION,
-    tick: 0,
-    board: Array(WIDTH * HEIGHT).fill(null),
-    active: null,
-    rng: normalizeSeed(seed),
-    nextId: 1,
-    viruses: PILL_BOTTLE_RULES.virusCount,
-    phase: 'playing',
-    softDrop: false,
-    chain: 0,
-    resolving: false
-  };
+export function virusCountForLevel(level: number) {
+  return Math.min(PILL_BOTTLE_RULES.maxVirusCount, (level + 1) * PILL_BOTTLE_RULES.virusesPerLevel);
+}
+
+export function gravityTicksForState(state: Pick<BottleState, 'level' | 'pills'>) {
+  return Math.max(
+    PILL_BOTTLE_RULES.minimumGravityTicks,
+    PILL_BOTTLE_RULES.initialGravityTicks
+      - state.level * PILL_BOTTLE_RULES.gravityTicksPerLevel
+      - Math.floor(state.pills / PILL_BOTTLE_RULES.pillsPerSpeedIncrease)
+  );
+}
+
+function populateLevel(state: BottleState) {
+  state.board.fill(null);
+  state.active = null;
+  state.pills = 0;
+  state.gravityCounter = 0;
+  state.viruses = virusCountForLevel(state.level);
+  state.phase = 'playing';
+  state.softDrop = false;
+  state.chain = 0;
+  state.resolving = false;
+  delete state.countdownEndsAt;
 
   let placed = 0;
   let attempts = 0;
-  while (placed < PILL_BOTTLE_RULES.virusCount && attempts++ < 10_000) {
+  while (placed < state.viruses && attempts++ < 100_000) {
     const row = PILL_BOTTLE_RULES.virusRowStart
       + Math.floor(random(state) * (PILL_BOTTLE_RULES.virusRowEnd - PILL_BOTTLE_RULES.virusRowStart + 1));
     const col = Math.floor(random(state) * WIDTH);
@@ -87,7 +96,7 @@ export function createBottle(seed: number, _seat = 0): BottleState {
     state.board[cellIndex] = {
       kind: 'virus',
       color: PILL_BOTTLE_RULES.colors[Math.floor(random(state) * PILL_BOTTLE_RULES.colors.length)],
-      id: `v${placed}`
+      id: `l${state.level}v${placed}`
     };
     if (hasMatch(state.board)) {
       state.board[cellIndex] = null;
@@ -98,6 +107,28 @@ export function createBottle(seed: number, _seat = 0): BottleState {
 
   state.viruses = placed;
   spawn(state);
+}
+
+export function createBottle(seed: number, _seat = 0): BottleState {
+  // pill-bottle/3 intentionally gives every seat the same layout and capsule stream.
+  const state: BottleState = {
+    rulesVersion: PILL_BOTTLE_RULES_VERSION,
+    tick: 0,
+    level: 0,
+    pills: 0,
+    gravityCounter: 0,
+    board: Array(WIDTH * HEIGHT).fill(null),
+    active: null,
+    rng: normalizeSeed(seed),
+    nextId: 1,
+    viruses: 0,
+    phase: 'playing',
+    softDrop: false,
+    chain: 0,
+    resolving: false
+  };
+
+  populateLevel(state);
   return state;
 }
 
@@ -127,7 +158,10 @@ function clearMatches(state: BottleState) {
     state.board[clearedIndex] = null;
   }
   if (cleared.size && state.viruses === 0) {
-    state.phase = 'won';
+    state.phase = 'countdown';
+    state.countdownEndsAt = state.tick + PILL_BOTTLE_RULES.levelCountdownTicks;
+    state.active = null;
+    state.softDrop = false;
     state.resolving = false;
   }
   return cleared.size > 0;
@@ -191,6 +225,8 @@ function lock(state: BottleState) {
     state.board[index(row, col)] = { kind: 'pill', color: pill.colors[half], id: `p${pill.id}${half}` };
   });
   state.active = null;
+  state.pills++;
+  state.gravityCounter = 0;
   state.chain = 0;
   if (clearMatches(state)) {
     state.chain = 1;
@@ -239,8 +275,16 @@ export function applyInput(state: BottleState, input: PillInput) {
 }
 
 export function advanceTick(state: BottleState) {
-  if (state.phase !== 'playing') return;
+  if (state.phase === 'lost') return;
   state.tick++;
+
+  if (state.phase === 'countdown') {
+    if (state.countdownEndsAt !== undefined && state.tick >= state.countdownEndsAt) {
+      state.level++;
+      populateLevel(state);
+    }
+    return;
+  }
 
   if (state.resolving) {
     if (state.tick % PILL_BOTTLE_RULES.resolutionGravityTicks !== 0) return;
@@ -255,8 +299,12 @@ export function advanceTick(state: BottleState) {
   }
 
   if (!state.active) return;
-  const interval = state.softDrop ? PILL_BOTTLE_RULES.softDropTicks : PILL_BOTTLE_RULES.gravityTicks;
-  if (state.tick % interval === 0 && !move(state, 1, 0)) state.active.groundedAt ??= state.tick;
+  const interval = state.softDrop ? PILL_BOTTLE_RULES.softDropTicks : gravityTicksForState(state);
+  state.gravityCounter++;
+  if (state.gravityCounter >= interval) {
+    state.gravityCounter = 0;
+    if (!move(state, 1, 0)) state.active.groundedAt ??= state.tick;
+  }
   if (state.active?.groundedAt !== undefined
     && state.tick - state.active.groundedAt >= PILL_BOTTLE_RULES.lockDelayTicks) lock(state);
 }

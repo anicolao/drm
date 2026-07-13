@@ -24,14 +24,14 @@ const commands: ReplayCommand[] = [
   { commandId: 'e', tick: 18, clientSeq: 5, input: { type: 'input/soft-drop-end', payload: {} } }
 ];
 
-test('pill-bottle/2 has a stable seeded layout and capsule fixture', () => {
+test('pill-bottle/3 has a stable seeded layout and capsule fixture', () => {
   const state = createBottle(123456789, 0);
-  assert.equal(hashState(state), 'pb2-d91850e3');
-  assert.deepEqual(state.active?.colors, ['yellow', 'cyan']);
-  assert.equal(state.viruses, 12);
+  assert.equal(hashState(state), 'pb3-61cf80f4');
+  assert.deepEqual(state.active?.colors, ['cyan', 'yellow']);
+  assert.equal(state.viruses, 5);
 });
 
-test('pill-bottle/2 deliberately gives every seat the same deterministic stream', () => {
+test('pill-bottle/3 deliberately gives every seat the same deterministic stream', () => {
   assert.equal(hashState(createBottle(123456789, 0)), hashState(createBottle(123456789, 3)));
 });
 
@@ -65,22 +65,22 @@ test('replay deduplicates identical command identities and rejects conflicts', (
 test('serialized state is local-cache data with strict version validation', () => {
   const serialized = serializeBottle(createBottle(42, 0));
   assert.equal(hashState(deserializeBottle(serialized)), hashState(deserializeBottle(structuredClone(serialized))));
-  assert.throws(() => deserializeBottle({ ...serialized, rulesVersion: 'pill-bottle/3' }), /Invalid serialized bottle state/);
+  assert.throws(() => deserializeBottle({ ...serialized, rulesVersion: 'pill-bottle/2' }), /Invalid serialized bottle state/);
 });
 
 test('replay rejects a progress tick beyond a terminal state instead of hanging', () => {
   const terminal = createBottle(42, 0);
-  terminal.phase = 'won';
+  terminal.phase = 'lost';
   assert.throws(() => advanceToTick(terminal, 1, []), /beyond a terminal bottle state/);
 });
 
 test('runtime protocol validation accepts only the frozen start definition', () => {
   const start = parsePillStart({
-    type: 'game/started', roomId: 'room', ruleset: 'pill-bottle', rulesVersion: 'pill-bottle/2',
+    type: 'game/started', roomId: 'room', ruleset: 'pill-bottle', rulesVersion: 'pill-bottle/3',
     seed: 7, tickRate: 60, hostUid: 'host', members: { host: true, player: true },
     players: { player: { seat: 0 } }, settings: PILL_BOTTLE_SETTINGS, serverTime: 100
   });
-  assert.equal(start.settings.virusCount, 12);
+  assert.equal(start.settings.initialVirusCount, 5);
   assert.throws(() => parsePillStart({ ...start, settings: { ...start.settings, hardDrop: false } }), /start definition/);
 });
 
@@ -93,7 +93,7 @@ test('network validators reject materialized state and invalid command payloads'
   }), /command input/);
   const tick = {
     type: 'progress/tick', playerId: 'player', epochId: 'epoch', clientSeq: 1, tick: 15,
-    payload: { phase: 'playing', stateHash: 'pb2-1234abcd' }, serverTime: 100
+    payload: { phase: 'playing', stateHash: 'pb3-1234abcd' }, serverTime: 100
   };
   assert.equal(parsePillControllerRecord('record', tick).type, 'progress/tick');
   assert.throws(() => parsePillControllerRecord('record', { ...tick, state: serializeBottle(createBottle(1, 0)) }), /controller record/);

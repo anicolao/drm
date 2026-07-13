@@ -8,7 +8,7 @@ ways:
 - players use phones as controllers while a shared Chromecast-compatible screen
   displays the game.
 
-The project is at the design stage. See [VISION.md](VISION.md) for the intended
+The project has a playable Color Cure prototype. See [VISION.md](VISION.md) for the intended
 experience, [MVP_DESIGN.md](MVP_DESIGN.md) for the proposed first release, and
 [PILL_BOTTLE.md](PILL_BOTTLE.md) for the protocol and animation design of the
 Dr. Mario-style mode.
@@ -35,11 +35,11 @@ in the browser bundle.
 ## Implementation status
 
 The production prototype implements Firebase authentication, room coordination,
-a versioned `pill-bottle/2` Color Cure engine, immediate local controls,
-tick-tagged RTDB commands, deterministic replay/state hashes, and a shared canvas
-display reconstructed from commands. Reload recovery, durable local caching,
-presence, match completion, attacks, and the Tetris-style ruleset remain to be
-implemented.
+a versioned `pill-bottle/3` Color Cure engine, immediate local controls,
+tick-tagged RTDB commands, deterministic replay/state hashes, level progression,
+last-player-standing results, rematch voting, and a shared canvas display
+reconstructed from commands. Presence, attacks, and the Tetris-style ruleset
+remain to be implemented.
 
 ```sh
 npm install

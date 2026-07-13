@@ -168,13 +168,16 @@ unless needed for playability testing.
 ### Dr. Mario-style
 
 - Two-color capsule pieces on an 8×16 board.
-- For `pill-bottle/2`, twelve seeded viruses in rows 6–15 and an identical
-  layout/capsule stream for every seat.
+- For `pill-bottle/3`, level zero starts with five seeded viruses in rows 6–15;
+  each level adds five viruses and every seat uses the same layout/capsule stream.
 - Horizontal or vertical groups of four matching colors clear.
 - Unsupported capsule halves fall after clears; viruses do not.
-- Clearing all viruses wins; topping out loses.
-- Normal gravity every 15 ticks, soft drop every two ticks, immediate hard drop,
-  a 30-tick lock delay, and 15-tick resolution gravity at 60 Hz.
+- Clearing all viruses starts a three-second countdown and the next level;
+  topping out eliminates the player and the last surviving player wins.
+- Normal gravity starts at 50 ticks per row, accelerates by one tick every ten
+  pills, and resets to `50 - 5 × level` at each level. Soft drop remains every
+  two ticks, with immediate hard drop, a 30-tick lock delay, and 15-tick
+  resolution gravity at 60 Hz.
 - Multiplayer garbage remains a future versioned rule.
 
 The implementation must use original visual assets, names, sounds, and trade

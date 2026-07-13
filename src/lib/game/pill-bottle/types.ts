@@ -2,7 +2,7 @@ export const WIDTH = 8;
 export const HEIGHT = 16;
 
 export type Color = 'cyan' | 'pink' | 'yellow';
-export type BottlePhase = 'playing' | 'won' | 'lost';
+export type BottlePhase = 'playing' | 'countdown' | 'lost';
 export type Orientation = 0 | 1 | 2 | 3;
 
 export interface Cell {
@@ -21,8 +21,12 @@ export interface ActivePill {
 }
 
 export interface BottleState {
-  rulesVersion: 'pill-bottle/2';
+  rulesVersion: 'pill-bottle/3';
   tick: number;
+  level: number;
+  pills: number;
+  gravityCounter: number;
+  countdownEndsAt?: number;
   board: Array<Cell | null>;
   active: ActivePill | null;
   rng: number;
@@ -60,8 +64,12 @@ export type ControllerRecord = {
 });
 
 export interface SerializedBottleState {
-  rulesVersion: 'pill-bottle/2';
+  rulesVersion: 'pill-bottle/3';
   tick: number;
+  level: number;
+  pills: number;
+  gravityCounter: number;
+  countdownEndsAt?: number;
   board: Array<Cell | null>;
   active: ActivePill | null;
   rng: number;

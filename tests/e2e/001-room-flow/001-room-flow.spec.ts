@@ -36,5 +36,17 @@ test('US-001: host creates and configures a real room', async ({ page }, testInf
   await page.getByRole('button', { name: 'Play', exact: true }).click();
   await expect(page).toHaveURL(/\/play\?code=TEST$/, { timeout: 10000 });
   await expect(page.getByLabel('Pill Bottle controller')).toBeVisible({ timeout: 10000 });
+  for (let pill = 0; pill < 80 && !(await page.getByText('GAME OVER').isVisible()); pill++) {
+    await page.keyboard.press('ArrowUp');
+    await page.waitForTimeout(20);
+  }
+  await expect(page.getByText('GAME OVER')).toBeVisible({ timeout: 30000 });
+  await tester.step('game-over', { description: 'A terminal bottle declares the match result', networkStatus: 'skip', verifications: [
+    { spec: 'Single-player top-out ends the match', check: async () => await expect(page.getByText('GAME OVER')).toBeVisible() },
+    { spec: 'The player can request a rematch', check: async () => await expect(page.getByRole('button', { name: 'PLAY AGAIN' })).toBeEnabled() }
+  ]});
+  await page.getByRole('button', { name: 'PLAY AGAIN' }).click();
+  await expect(page.getByText('GAME OVER')).not.toBeVisible({ timeout: 15000 });
+  await expect(page.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '5');
   tester.generateDocs();
 });

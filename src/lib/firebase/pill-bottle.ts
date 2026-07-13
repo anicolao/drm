@@ -1,5 +1,5 @@
 import { doc, serverTimestamp as firestoreTimestamp, updateDoc } from 'firebase/firestore';
-import { get, onChildAdded, onValue, push, ref, serverTimestamp, set, type Unsubscribe } from 'firebase/database';
+import { get, onChildAdded, onValue, push, ref, runTransaction, serverTimestamp, set, type Unsubscribe } from 'firebase/database';
 import { auth, firestore, realtimeDatabase } from './config';
 import type { RoomPlayer } from './rooms';
 import {
@@ -8,6 +8,7 @@ import {
   applyInput,
   createBottle,
   deserializeBottle,
+  derivePillMatchLifecycle,
   hashState,
   PillBottleObserver,
   PILL_BOTTLE_RULES,
@@ -15,8 +16,10 @@ import {
   PILL_BOTTLE_SETTINGS,
   type BottleState,
   type ControllerRecord,
-  type PillInput
+  type PillInput,
+  type PillMatchLifecycle
 } from '$lib/game/pill-bottle';
+export type { PillMatchLifecycle } from '$lib/game/pill-bottle';
 import {
   loadControllerCheckpoint,
   loadControllerOutbox,
@@ -25,11 +28,17 @@ import {
 } from '$lib/local/pill-bottle';
 import {
   parsePillControllerRecord,
+  parsePillRematchReady,
   parsePillStart,
+  parsePillTerminal,
   type PendingPillControllerRecord
 } from '$lib/protocol/pill-bottle';
 
 export type PillCommand = PillInput;
+
+function gameSeed() {
+  return Number(import.meta.env.VITE_E2E_GAME_SEED) || crypto.getRandomValues(new Uint32Array(1))[0];
+}
 
 export async function startPillBottleGame(roomId: string, members: RoomPlayer[], hostMode: 'player' | 'display') {
   if (!auth?.currentUser || !firestore || !realtimeDatabase) throw new Error('Firebase is unavailable.');
@@ -41,7 +50,7 @@ export async function startPillBottleGame(roomId: string, members: RoomPlayer[],
   if (participants.length === 0) throw new Error('A TV game requires at least one joined controller.');
 
   const gameId = crypto.randomUUID();
-  const seed = Number(import.meta.env.VITE_E2E_GAME_SEED) || crypto.getRandomValues(new Uint32Array(1))[0];
+  const seed = gameSeed();
   const players = Object.fromEntries(participants.map((player, seat) => [player.uid, { seat }]));
   const allowedMembers = Object.fromEntries(members.map((member) => [member.uid, true]));
   await set(ref(realtimeDatabase, `games/${gameId}/start`), {
@@ -56,11 +65,13 @@ export async function startPillBottleGame(roomId: string, members: RoomPlayer[],
 }
 
 export interface ControllerState {
+  playerId?: string;
   tick: number;
   ready: boolean;
   bottle?: BottleState;
   lastCommand?: string;
   error?: string;
+  lifecycle?: PillMatchLifecycle;
 }
 
 export interface PlayerProgress {
@@ -74,19 +85,136 @@ export interface PlayerProgress {
   hashMatches: boolean;
 }
 
+export function subscribePillBottleLifecycle(
+  gameId: string,
+  receive: (lifecycle: PillMatchLifecycle) => void,
+  fail: (error: Error) => void
+) {
+  if (!realtimeDatabase) throw new Error('Firebase is unavailable.');
+  let destroyed = false;
+  let playerIds: string[] = [];
+  let terminalPlayerIds: string[] = [];
+  let readyPlayerIds: string[] = [];
+  const listeners: Unsubscribe[] = [];
+  const publish = () => {
+    if (playerIds.length > 0) receive(derivePillMatchLifecycle(playerIds, terminalPlayerIds, readyPlayerIds));
+  };
+
+  void (async () => {
+    try {
+      const snapshot = await get(ref(realtimeDatabase!, `games/${gameId}/start`));
+      if (destroyed || !snapshot.exists()) return;
+      const start = parsePillStart(snapshot.val());
+      playerIds = Object.keys(start.players);
+      listeners.push(onValue(ref(realtimeDatabase!, `games/${gameId}/terminals`), (terminals) => {
+        try {
+          terminalPlayerIds = [];
+          terminals.forEach((terminal) => {
+            const value = parsePillTerminal(terminal.val());
+            if (terminal.key === value.playerId && playerIds.includes(value.playerId)) terminalPlayerIds.push(value.playerId);
+          });
+          publish();
+        } catch (cause) {
+          fail(cause instanceof Error ? cause : new Error(String(cause)));
+        }
+      }, fail));
+      listeners.push(onValue(ref(realtimeDatabase!, `games/${gameId}/rematch/ready`), (readiness) => {
+        try {
+          readyPlayerIds = [];
+          readiness.forEach((ready) => {
+            const value = parsePillRematchReady(ready.val());
+            if (ready.key === value.playerId && playerIds.includes(value.playerId)) readyPlayerIds.push(value.playerId);
+          });
+          publish();
+        } catch (cause) {
+          fail(cause instanceof Error ? cause : new Error(String(cause)));
+        }
+      }, fail));
+      publish();
+    } catch (cause) {
+      fail(cause instanceof Error ? cause : new Error(String(cause)));
+    }
+  })();
+
+  return () => {
+    destroyed = true;
+    for (const unsubscribe of listeners) unsubscribe();
+  };
+}
+
+export async function requestPillBottleRematch(gameId: string) {
+  if (!auth?.currentUser || !realtimeDatabase) throw new Error('Firebase is unavailable.');
+  const playerId = auth.currentUser.uid;
+  const readyRef = ref(realtimeDatabase, `games/${gameId}/rematch/ready/${playerId}`);
+  if ((await get(readyRef)).exists()) return;
+  await set(readyRef, {
+    playerId,
+    serverTime: serverTimestamp()
+  });
+}
+
+export async function startPillBottleRematch(gameId: string) {
+  if (!auth?.currentUser || !firestore || !realtimeDatabase) throw new Error('Firebase is unavailable.');
+  const startSnapshot = await get(ref(realtimeDatabase, `games/${gameId}/start`));
+  if (!startSnapshot.exists()) throw new Error('The previous game no longer exists.');
+  const start = parsePillStart(startSnapshot.val());
+  if (start.hostUid !== auth.currentUser.uid) return;
+  const readiness = await get(ref(realtimeDatabase, `games/${gameId}/rematch/ready`));
+  const ready = new Set<string>();
+  readiness.forEach((child) => { ready.add(parsePillRematchReady(child.val()).playerId); });
+  if (!Object.keys(start.players).every((playerId) => ready.has(playerId))) return;
+
+  const proposedGameId = crypto.randomUUID();
+  const claim = await runTransaction(ref(realtimeDatabase, `games/${gameId}/rematch/nextGameId`), (current) => current ?? proposedGameId, {
+    applyLocally: false
+  });
+  const nextGameId = claim.snapshot.val();
+  if (typeof nextGameId !== 'string') throw new Error('Could not reserve the rematch.');
+  const nextStart = ref(realtimeDatabase, `games/${nextGameId}/start`);
+  if (!(await get(nextStart)).exists()) {
+    await set(nextStart, {
+      type: 'game/started', roomId: start.roomId, ruleset: start.ruleset, rulesVersion: start.rulesVersion,
+      seed: gameSeed(), tickRate: start.tickRate, hostUid: start.hostUid, members: start.members,
+      players: start.players, settings: start.settings, serverTime: serverTimestamp()
+    });
+  }
+  await updateDoc(doc(firestore, 'rooms', start.roomId), {
+    status: 'active', activeGameId: nextGameId, startedAt: firestoreTimestamp()
+  });
+  return nextGameId;
+}
+
 function withoutServerTime(record: ReturnType<typeof parsePillControllerRecord>): ControllerRecord {
   const { serverTime: _serverTime, ...controllerRecord } = record as ReturnType<typeof parsePillControllerRecord> & { serverTime?: number };
   return controllerRecord;
 }
 
-export function subscribePillBottleProgress(gameId: string, receive: (players: PlayerProgress[]) => void, fail: (error: Error) => void) {
+export function subscribePillBottleProgress(
+  gameId: string,
+  receive: (players: PlayerProgress[]) => void,
+  fail: (error: Error) => void,
+  receiveLifecycle?: (lifecycle: PillMatchLifecycle) => void
+) {
   if (!realtimeDatabase) throw new Error('Firebase is unavailable.');
   let destroyed = false;
   let frame = 0;
   let lastTime: number | undefined;
   let accumulator = 0;
+  let matchFinished = false;
+  let rematchStarting = false;
   const listeners: Unsubscribe[] = [];
   const observers = new Map<string, PillBottleObserver>();
+  const stopLifecycle = subscribePillBottleLifecycle(gameId, (lifecycle) => {
+    matchFinished = lifecycle.finished;
+    receiveLifecycle?.(lifecycle);
+    if (lifecycle.allReady && !rematchStarting) {
+      rematchStarting = true;
+      void startPillBottleRematch(gameId).catch((error) => {
+        rematchStarting = false;
+        fail(error);
+      });
+    }
+  }, fail);
 
   const publish = () => receive([...observers.entries()].map(([playerId, observer]) => {
     const snapshot = observer.snapshot();
@@ -99,7 +227,7 @@ export function subscribePillBottleProgress(gameId: string, receive: (players: P
     accumulator += Math.min(now - lastTime, 250);
     lastTime = now;
     while (accumulator >= 1000 / PILL_BOTTLE_RULES.tickRate) {
-      for (const observer of observers.values()) observer.advance();
+      if (!matchFinished) for (const observer of observers.values()) observer.advance();
       accumulator -= 1000 / PILL_BOTTLE_RULES.tickRate;
     }
     publish();
@@ -151,6 +279,7 @@ export function subscribePillBottleProgress(gameId: string, receive: (players: P
   return () => {
     destroyed = true;
     cancelAnimationFrame(frame);
+    stopLifecycle();
     for (const unsubscribe of listeners) unsubscribe();
   };
 }
@@ -182,15 +311,36 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
   let initializing = false;
   let destroyed = false;
   let suspended = false;
+  let matchFinished = false;
+  let terminalDeclared = false;
+  let rematchStarting = false;
   let lastCommand: string | undefined;
   let bottle: BottleState | undefined;
+  let lifecycle: PillMatchLifecycle | undefined;
   let outbox = loadControllerOutbox(gameId, playerId);
   let flushing = false;
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
   const publish = (error?: string) => receive({
-    tick, ready, bottle: bottle ? structuredClone(bottle) : undefined, lastCommand, error
+    playerId, tick, ready, bottle: bottle ? structuredClone(bottle) : undefined, lastCommand, error, lifecycle
   });
+
+  const stopLifecycle = subscribePillBottleLifecycle(gameId, (next) => {
+    lifecycle = next;
+    matchFinished = next.finished;
+    if (matchFinished) {
+      cancelAnimationFrame(frame);
+      accumulator = 0;
+    }
+    if (next.allReady && !rematchStarting) {
+      rematchStarting = true;
+      void startPillBottleRematch(gameId).catch((cause) => {
+        rematchStarting = false;
+        publish(cause instanceof Error ? cause.message : String(cause));
+      });
+    }
+    publish();
+  }, (error) => publish(error.message));
 
   const scheduleFlush = () => {
     if (retryTimer || destroyed) return;
@@ -244,19 +394,37 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
     emitRecord(record);
   }
 
+  async function declareTerminal() {
+    if (!bottle || bottle.phase !== 'lost' || terminalDeclared) return;
+    terminalDeclared = true;
+    try {
+      const terminalRef = ref(realtimeDatabase!, `games/${gameId}/terminals/${playerId}`);
+      if (!(await get(terminalRef)).exists()) {
+        await set(terminalRef, {
+          type: 'player/terminal', playerId, tick, result: 'lost', stateHash: hashState(bottle),
+          serverTime: serverTimestamp()
+        });
+      }
+    } catch {
+      terminalDeclared = false;
+    }
+  }
+
   function loop(now: number) {
-    if (destroyed || !ready || suspended) return;
+    if (destroyed || !ready || suspended || matchFinished) return;
     if (lastTime === undefined) lastTime = now;
     accumulator += Math.min(now - lastTime, 250);
     lastTime = now;
+    const phaseBefore = bottle?.phase;
     while (accumulator >= 1000 / PILL_BOTTLE_RULES.tickRate) {
-      if (!bottle || bottle.phase !== 'playing') { accumulator = 0; break; }
+      if (!bottle || bottle.phase === 'lost') { accumulator = 0; break; }
       advanceTick(bottle);
       tick = bottle.tick;
       accumulator -= 1000 / PILL_BOTTLE_RULES.tickRate;
     }
-    if (bottle && bottle.phase !== 'playing' && lastProgressTick !== tick) publishProgress(true);
+    if (bottle?.phase !== phaseBefore || (bottle?.phase === 'lost' && lastProgressTick !== tick)) publishProgress(true);
     else publishProgress();
+    void declareTerminal();
     publish();
     frame = requestAnimationFrame(loop);
   }
@@ -266,7 +434,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
     initializing = true;
     try {
       const start = parsePillStart(snapshot.val());
-      if (!start.players[playerId]) throw new Error('Player is not part of this pill-bottle/2 game.');
+      if (!start.players[playerId]) throw new Error('Player is not part of this pill-bottle/3 game.');
       const historySnapshot = await get(ref(realtimeDatabase!, `games/${gameId}/players/${playerId}/records`));
       const byId = new Map<string, ControllerRecord>();
       historySnapshot.forEach((child) => {
@@ -299,6 +467,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
       });
       ready = true;
       publishProgress(true);
+      void declareTerminal();
       publish();
       void flushOutbox();
       frame = requestAnimationFrame(loop);
@@ -313,7 +482,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
   window.addEventListener('online', online);
 
   function suspend() {
-    if (!ready || suspended) return;
+    if (!ready || suspended || matchFinished) return;
     publishProgress(true);
     suspended = true;
     cancelAnimationFrame(frame);
@@ -322,7 +491,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
   }
 
   function resume() {
-    if (!ready || !suspended || destroyed) return;
+    if (!ready || !suspended || destroyed || matchFinished) return;
     suspended = false;
     lastTime = undefined;
     publishProgress(true);
@@ -330,23 +499,30 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
   }
 
   async function command(input: PillCommand) {
-    if (!ready || !bottle) return;
+    if (!ready || !bottle || bottle.phase !== 'playing' || matchFinished) return;
+    const phaseBefore = bottle.phase;
     applyInput(bottle, input);
     const record = makeRecord(input);
     emitRecord(record);
-    if (bottle.phase !== 'playing') publishProgress(true);
+    const phaseAfter = bottle.phase as BottleState['phase'];
+    if (phaseAfter !== phaseBefore) publishProgress(true);
+    if (phaseAfter === 'lost') {
+      void declareTerminal();
+    }
     lastCommand = `${input.type} · tick ${tick}`;
     publish();
   }
 
   return {
     command,
+    requestRematch: () => requestPillBottleRematch(gameId),
     suspend,
     resume,
     destroy() {
       if (ready && !suspended) publishProgress(true);
       destroyed = true;
       unsubscribe();
+      stopLifecycle();
       cancelAnimationFrame(frame);
       if (retryTimer) clearTimeout(retryTimer);
       window.removeEventListener('online', online);

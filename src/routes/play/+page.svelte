@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import Logo from '$lib/components/Logo.svelte';
   import PillBottle from '$lib/components/PillBottle.svelte';
+  import { gravityTicksForState } from '$lib/game/pill-bottle';
   import { firebaseConfigured } from '$lib/firebase/config';
   import { joinRoom, subscribeRoom } from '$lib/firebase/rooms';
   import { createPillBottleController, type PillCommand, type ControllerState } from '$lib/firebase/pill-bottle';
@@ -9,6 +10,7 @@
   let code=''; let joined=false; let joining=false; let needsName=false; let playerName=''; let error='';
   let roomId=''; let activeGameId=''; let controller: ReturnType<typeof createPillBottleController> | undefined;
   let roomUnsubscribe=()=>{}; let state: ControllerState={tick:0,ready:false}; let downHeld=false;
+  $: controlsEnabled=Boolean(state.ready&&state.bottle?.phase==='playing'&&!state.lifecycle?.finished);
 
   onMount(()=>{
     void initialize();
@@ -41,11 +43,11 @@
     playerName=name;localStorage.setItem('drm-player-name',name);await performJoin();
   }
   function startController(gameId:string){
-    if(controller||activeGameId===gameId)return;activeGameId=gameId;
+    if(controller&&activeGameId===gameId)return;controller?.destroy();activeGameId=gameId;state={tick:0,ready:false};error='';
     controller=createPillBottleController(gameId,(next)=>{state=next;if(next.error)error=next.error;});
   }
   function send(input:PillCommand){
-    if(!state.ready)return;
+    if(!controlsEnabled)return;
     navigator.vibrate?.(12);void controller?.command(input).catch((cause)=>error=cause instanceof Error?cause.message:String(cause));
   }
   function pressDown(event:PointerEvent){
@@ -55,7 +57,7 @@
   function releaseDown(){if(!downHeld)return;downHeld=false;send({type:'input/soft-drop-end',payload:{}});}
   function typingTarget(target:EventTarget|null){return target instanceof HTMLElement&&(target.matches('input,textarea,select')||target.isContentEditable);}
   function keyDown(event:KeyboardEvent){
-    if(typingTarget(event.target)||!state.ready)return;
+    if(typingTarget(event.target)||!controlsEnabled)return;
     if(event.key==='ArrowDown'){event.preventDefault();if(!event.repeat&&!downHeld){downHeld=true;send({type:'input/soft-drop-start',payload:{}});}return;}
     const command = event.key==='ArrowLeft'?{type:'input/move',payload:{dx:-1}} as PillCommand
       :event.key==='ArrowRight'?{type:'input/move',payload:{dx:1}} as PillCommand
@@ -65,6 +67,7 @@
     if(command){event.preventDefault();send(command);}
   }
   function keyUp(event:KeyboardEvent){if(event.key==='ArrowDown'){event.preventDefault();releaseDown();}}
+  async function rematch(){try{await controller?.requestRematch();}catch(cause){error=cause instanceof Error?cause.message:String(cause);}}
 </script>
 
 <div class="controller-shell"><nav><Logo compact/><span>{code||'NO ROOM'}</span></nav>
@@ -73,16 +76,16 @@
 {:else if !joined}<main class="join"><p class="eyebrow">Joining room…</p></main>
 {:else if !activeGameId}<main class="join"><p class="eyebrow">Joined room {code}</p><h1>WAITING FOR HOST</h1><p>The controller starts when the host publishes the game start record.</p></main>
 {:else}<main class="landscape-controller" aria-label="Pill Bottle controller">
-  <section class="session"><strong>{playerName}</strong><span>room {code}</span>{#if state.bottle}<PillBottle state={state.bottle}/><span>{state.bottle.viruses} viruses · {state.bottle.phase}</span>{/if}<span class="tick">tick {state.tick}</span><small>{state.ready?'connected':'loading game…'}</small>{#if state.lastCommand}<small class="command-status">{state.lastCommand}</small>{/if}</section>
+  <section class="session"><strong>{playerName}</strong><span>room {code}</span>{#if state.bottle}<PillBottle state={state.bottle}/><span>level {state.bottle.level} · {state.bottle.viruses} viruses</span><span>speed {gravityTicksForState(state.bottle)} ticks · {state.bottle.pills} pills</span>{#if state.bottle.phase==='countdown'}<strong class="countdown">LEVEL CLEAR · {Math.max(1,Math.ceil(((state.bottle.countdownEndsAt??state.tick)-state.tick)/60))}</strong>{:else if state.bottle.phase==='lost'&&!state.lifecycle?.finished}<strong class="result">ELIMINATED · WAITING</strong>{/if}{/if}<span class="tick">tick {state.tick}</span><small>{state.ready?'connected':'loading game…'}</small>{#if state.lastCommand}<small class="command-status">{state.lastCommand}</small>{/if}{#if state.lifecycle?.finished}<div class="match-result"><strong>{state.lifecycle.draw?'DRAW':state.lifecycle.winnerId===state.playerId?'WINNER':'GAME OVER'}</strong><button on:click={rematch} disabled={state.lifecycle.readyPlayerIds.includes(state.playerId??'')}>PLAY AGAIN</button><small>{state.lifecycle.readyPlayerIds.length}/{state.lifecycle.playerIds.length} ready</small></div>{/if}</section>
   <section class="dpad" aria-label="Movement controls">
-    <button class="up" aria-label="Hard drop" title="Arrow Up" disabled={!state.ready} on:pointerdown={()=>send({type:'input/hard-drop',payload:{}})}>↑</button>
-    <button class="left" aria-label="Move left" title="Arrow Left" disabled={!state.ready} on:pointerdown={()=>send({type:'input/move',payload:{dx:-1}})}>←</button>
-    <button class:held={downHeld} class="down" aria-label="Accelerate down" title="Arrow Down" disabled={!state.ready} on:pointerdown={pressDown} on:pointerup={releaseDown} on:pointercancel={releaseDown} on:lostpointercapture={releaseDown}>↓</button>
-    <button class="right" aria-label="Move right" title="Arrow Right" disabled={!state.ready} on:pointerdown={()=>send({type:'input/move',payload:{dx:1}})}>→</button>
+    <button class="up" aria-label="Hard drop" title="Arrow Up" disabled={!controlsEnabled} on:pointerdown={()=>send({type:'input/hard-drop',payload:{}})}>↑</button>
+    <button class="left" aria-label="Move left" title="Arrow Left" disabled={!controlsEnabled} on:pointerdown={()=>send({type:'input/move',payload:{dx:-1}})}>←</button>
+    <button class:held={downHeld} class="down" aria-label="Accelerate down" title="Arrow Down" disabled={!controlsEnabled} on:pointerdown={pressDown} on:pointerup={releaseDown} on:pointercancel={releaseDown} on:lostpointercapture={releaseDown}>↓</button>
+    <button class="right" aria-label="Move right" title="Arrow Right" disabled={!controlsEnabled} on:pointerdown={()=>send({type:'input/move',payload:{dx:1}})}>→</button>
   </section>
   <section class="rotations" aria-label="Rotation controls">
-    <button aria-label="Rotate counterclockwise" title="T" disabled={!state.ready} on:pointerdown={()=>send({type:'input/rotate',payload:{direction:'counterclockwise'}})}>↺</button>
-    <button aria-label="Rotate clockwise" title="R" disabled={!state.ready} on:pointerdown={()=>send({type:'input/rotate',payload:{direction:'clockwise'}})}>↻</button>
+    <button aria-label="Rotate counterclockwise" title="T" disabled={!controlsEnabled} on:pointerdown={()=>send({type:'input/rotate',payload:{direction:'counterclockwise'}})}>↺</button>
+    <button aria-label="Rotate clockwise" title="R" disabled={!controlsEnabled} on:pointerdown={()=>send({type:'input/rotate',payload:{direction:'clockwise'}})}>↻</button>
   </section>
   <div class="portrait-warning">Rotate your phone to landscape to use the controller.</div>
 </main>{/if}</div>
@@ -92,9 +95,10 @@
   .join{width:min(100%,520px);margin:auto;text-align:center;padding-top:5rem}.join form{display:grid;gap:1.2rem;text-align:left}.join form h1{font-size:1.4rem}.join form button{width:100%}.join>p:last-child{color:var(--muted);line-height:1.7}[role=alert]{color:var(--pink)}
   .landscape-controller{position:fixed;inset:0;background:radial-gradient(circle at 50% 50%,#24203a 0,transparent 45%),var(--bg);touch-action:none;user-select:none}
   .session{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:grid;text-align:center;gap:.2rem;color:var(--muted);text-transform:uppercase;font-size:.58rem}.session :global(.bottle){width:min(15vw,112px)}.session strong{color:var(--text);font-size:.8rem}.session .tick{color:var(--yellow);font-size:.8rem}
+  .session .countdown{color:var(--yellow)}.session .result{color:var(--pink)}.match-result{position:fixed;inset:0;z-index:5;background:rgba(8,9,13,.9);display:grid;place-content:center;gap:1rem}.match-result strong{font-size:clamp(2rem,7vw,5rem);color:var(--yellow)}.match-result button{font-size:1rem}
   .dpad{position:absolute;left:max(1rem,4vw);bottom:max(1rem,5vh);width:clamp(190px,34vw,280px);height:clamp(145px,64vh,230px);display:grid;grid-template:repeat(2,1fr)/repeat(3,1fr);gap:.55rem}.dpad button,.rotations button{font-size:clamp(1.8rem,5vw,3rem);background:#292c38;color:var(--text);border:1px solid #4a4d60;box-shadow:4px 4px 0 var(--ink);padding:0}.dpad button:active,.rotations button:active,.dpad .held{background:var(--cyan);color:var(--ink);transform:translate(2px,2px);box-shadow:2px 2px 0 var(--ink)}
   .up{grid-area:1/2}.left{grid-area:2/1}.down{grid-area:2/2}.right{grid-area:2/3}
   .rotations{position:absolute;right:max(1rem,4vw);bottom:max(1rem,5vh);display:grid;grid-template-columns:repeat(2,clamp(82px,14vw,130px));gap:1rem;height:clamp(90px,35vh,150px)}.rotations button:first-child{background:color-mix(in srgb,var(--pink),#292c38 45%)}.rotations button:last-child{background:color-mix(in srgb,var(--cyan),#292c38 45%)}
   .portrait-warning{display:none}
-  @media(orientation:portrait){.session,.dpad,.rotations{display:none}.portrait-warning{position:absolute;inset:0;display:grid;place-items:center;padding:2rem;text-align:center;font-weight:bold;color:var(--yellow)}}
+  @media(orientation:portrait){.session,.dpad,.rotations{display:none}.session:has(.match-result){display:grid}.portrait-warning{position:absolute;inset:0;display:grid;place-items:center;padding:2rem;text-align:center;font-weight:bold;color:var(--yellow)}.landscape-controller:has(.match-result) .portrait-warning{display:none}}
 </style>
