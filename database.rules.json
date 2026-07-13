@@ -37,6 +37,26 @@
         },
         "players": {
           "$playerId": {
+            "records": {
+              "$recordId": {
+                ".write": "auth != null && auth.uid == $playerId && !data.exists() && root.child('games/'+$gameId+'/start/players/'+$playerId).exists() && root.child('games/'+$gameId+'/players/'+$playerId+'/epochs/'+newData.child('epochId').val()).exists()",
+                ".validate": "newData.hasChildren(['type','playerId','epochId','clientSeq','tick','serverTime']) && newData.child('playerId').val() == $playerId && newData.child('epochId').isString() && newData.child('epochId').val().length <= 128 && newData.child('clientSeq').isNumber() && newData.child('clientSeq').val() % 1 == 0 && newData.child('clientSeq').val() >= 1 && newData.child('clientSeq').val() <= 1000000000 && newData.child('tick').isNumber() && newData.child('tick').val() % 1 == 0 && newData.child('tick').val() >= 0 && newData.child('tick').val() <= 1000000000 && newData.child('serverTime').isNumber() && ((newData.child('type').val() == 'input/move' && newData.child('payload/dx').isNumber() && (newData.child('payload/dx').val() == -1 || newData.child('payload/dx').val() == 1)) || (newData.child('type').val() == 'input/rotate' && (newData.child('payload/direction').val() == 'clockwise' || newData.child('payload/direction').val() == 'counterclockwise')) || ((newData.child('type').val() == 'input/soft-drop-start' || newData.child('type').val() == 'input/soft-drop-end' || newData.child('type').val() == 'input/hard-drop') && !newData.child('payload').exists()) || (newData.child('type').val() == 'progress/tick' && newData.child('payload').hasChildren(['phase','stateHash']) && (newData.child('payload/phase').val() == 'playing' || newData.child('payload/phase').val() == 'won' || newData.child('payload/phase').val() == 'lost') && newData.child('payload/stateHash').isString() && newData.child('payload/stateHash').val().matches(/^pb2-[0-9a-f]{8}$/)))",
+                "type": { ".validate": true },
+                "playerId": { ".validate": true },
+                "epochId": { ".validate": true },
+                "clientSeq": { ".validate": true },
+                "tick": { ".validate": true },
+                "serverTime": { ".validate": true },
+                "payload": {
+                  "dx": { ".validate": "newData.parent().parent().child('type').val() == 'input/move'" },
+                  "direction": { ".validate": "newData.parent().parent().child('type').val() == 'input/rotate'" },
+                  "phase": { ".validate": "newData.parent().parent().child('type').val() == 'progress/tick'" },
+                  "stateHash": { ".validate": "newData.parent().parent().child('type').val() == 'progress/tick'" },
+                  "$other": { ".validate": false }
+                },
+                "$other": { ".validate": false }
+              }
+            },
             "commands": {
               "$commandId": {
                 ".write": "auth != null && auth.uid == $playerId && !data.exists() && root.child('games/'+$gameId+'/start/players/'+$playerId).exists() && root.child('games/'+$gameId+'/players/'+$playerId+'/epochs/'+newData.child('epochId').val()).exists()",

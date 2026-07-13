@@ -7,12 +7,14 @@ import {
   createBottle,
   deserializeBottle,
   hashState,
+  PillBottleObserver,
   PILL_BOTTLE_SETTINGS,
   replayCommands,
   serializeBottle,
+  type ControllerRecord,
   type ReplayCommand
 } from '../../src/lib/game/pill-bottle.ts';
-import { parsePillCommand, parsePillProgress, parsePillStart } from '../../src/lib/protocol/pill-bottle.ts';
+import { parsePillCommand, parsePillControllerRecord, parsePillProgress, parsePillStart } from '../../src/lib/protocol/pill-bottle.ts';
 
 const commands: ReplayCommand[] = [
   { commandId: 'b', tick: 0, clientSeq: 2, input: { type: 'input/hard-drop', payload: {} } },
@@ -89,4 +91,60 @@ test('network validators reject materialized state and invalid command payloads'
   assert.throws(() => parsePillCommand('command', {
     type: 'input/move', playerId: 'player', epochId: 'epoch', clientSeq: 1, tick: 0, payload: { dx: 2 }, serverTime: 100
   }), /command input/);
+  const tick = {
+    type: 'progress/tick', playerId: 'player', epochId: 'epoch', clientSeq: 1, tick: 15,
+    payload: { phase: 'playing', stateHash: 'pb2-1234abcd' }, serverTime: 100
+  };
+  assert.equal(parsePillControllerRecord('record', tick).type, 'progress/tick');
+  assert.throws(() => parsePillControllerRecord('record', { ...tick, state: serializeBottle(createBottle(1, 0)) }), /controller record/);
+});
+
+test('observer rewinds from its last command checkpoint when a command arrives late', () => {
+  const seed = 4242;
+  const at60 = createBottle(seed, 0);
+  advanceToTick(at60, 60, []);
+  const progress: ControllerRecord = {
+    commandId: 'progress-60', playerId: 'player', epochId: 'epoch', clientSeq: 1, tick: 60,
+    type: 'progress/tick', payload: { phase: at60.phase, stateHash: hashState(at60) }
+  };
+  const lateInput: ControllerRecord = {
+    commandId: 'input-80', playerId: 'player', epochId: 'epoch', clientSeq: 2, tick: 80,
+    type: 'input/move', payload: { dx: -1 }
+  };
+
+  const observer = new PillBottleObserver(createBottle(seed, 0), 100);
+  observer.receive(progress);
+  assert.equal(observer.snapshot().lag, 40);
+  observer.receive(lateInput);
+
+  const expected = createBottle(seed, 0);
+  advanceToTick(expected, 80, []);
+  applyInput(expected, lateInput);
+  advanceToTick(expected, 100, []);
+  assert.equal(observer.snapshot().stateHash, hashState(expected));
+  assert.equal(observer.snapshot().displayTick, 100);
+});
+
+test('observer queues sequence gaps and records ahead of its local display tick', () => {
+  const seed = 99;
+  const observer = new PillBottleObserver(createBottle(seed, 0));
+  const second: ControllerRecord = {
+    commandId: 'second', playerId: 'player', epochId: 'epoch', clientSeq: 2, tick: 1,
+    type: 'input/move', payload: { dx: 1 }
+  };
+  const first: ControllerRecord = {
+    commandId: 'first', playerId: 'player', epochId: 'epoch', clientSeq: 1, tick: 1,
+    type: 'input/move', payload: { dx: -1 }
+  };
+  observer.receive(second);
+  observer.receive(first);
+  assert.equal(observer.snapshot().displayTick, 0);
+  assert.equal(observer.snapshot().stateHash, hashState(createBottle(seed, 0)));
+  observer.advance();
+
+  const expected = createBottle(seed, 0);
+  advanceToTick(expected, 1, []);
+  applyInput(expected, first);
+  applyInput(expected, second);
+  assert.equal(observer.snapshot().stateHash, hashState(expected));
 });

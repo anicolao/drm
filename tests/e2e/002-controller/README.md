@@ -10,6 +10,7 @@
 - [x] UI waits for the host start record
 
 ---
+
 ## Landscape controller records tick-tagged input
 
 ![Landscape controller records tick-tagged input](./screenshots/001-landscape-controller.png)

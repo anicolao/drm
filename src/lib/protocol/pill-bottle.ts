@@ -3,6 +3,7 @@ import {
   PILL_BOTTLE_RULES_VERSION,
   PILL_BOTTLE_SETTINGS,
   type BottlePhase,
+  type ControllerRecord,
   type PillBottleSettings,
   type PillInput,
   type ReplayCommand
@@ -47,6 +48,9 @@ export interface PillProgressRecord {
   phase: BottlePhase;
   serverTime: number;
 }
+
+export type PillControllerRecord = ControllerRecord & { serverTime: number };
+export type PendingPillControllerRecord = ControllerRecord;
 
 const isObject = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 const hasOnlyKeys = (value: Record<string, unknown>, keys: readonly string[]) => Object.keys(value).every((key) => keys.includes(key));
@@ -108,6 +112,50 @@ export function parsePillCommand(commandId: string, value: unknown): PillCommand
     payload: input.payload,
     replay: { commandId, tick: value.tick as number, clientSeq: value.clientSeq as number, input }
   };
+}
+
+export function parsePillControllerRecord(
+  commandId: string,
+  value: unknown,
+  options: { pending?: boolean } = {}
+): PillControllerRecord | PendingPillControllerRecord {
+  const allowed = options.pending
+    ? ['type', 'playerId', 'epochId', 'clientSeq', 'tick', 'payload']
+    : ['type', 'playerId', 'epochId', 'clientSeq', 'tick', 'payload', 'serverTime'];
+  if (!isObject(value) || !hasOnlyKeys(value, allowed)
+    || !isString(commandId) || !isString(value.playerId) || !isString(value.epochId)
+    || !isInteger(value.clientSeq, 1) || !isInteger(value.tick)
+    || (!options.pending && !isServerTime(value.serverTime))) {
+    throw new Error('Invalid pill controller record.');
+  }
+
+  const common = {
+    commandId,
+    playerId: value.playerId as string,
+    epochId: value.epochId as string,
+    clientSeq: value.clientSeq as number,
+    tick: value.tick as number
+  };
+  if (value.type === 'progress/tick') {
+    if (!isObject(value.payload) || !hasOnlyKeys(value.payload, ['phase', 'stateHash'])
+      || !['playing', 'won', 'lost'].includes(value.payload.phase as string)
+      || typeof value.payload.stateHash !== 'string' || !/^pb2-[0-9a-f]{8}$/.test(value.payload.stateHash)) {
+      throw new Error('Invalid pill progress command.');
+    }
+    return {
+      ...common,
+      type: value.type,
+      payload: { phase: value.payload.phase as BottlePhase, stateHash: value.payload.stateHash },
+      ...(options.pending ? {} : { serverTime: value.serverTime as number })
+    } as PillControllerRecord | PendingPillControllerRecord;
+  }
+
+  const input = parseInput(value.type, value.payload);
+  return {
+    ...common,
+    ...input,
+    ...(options.pending ? {} : { serverTime: value.serverTime as number })
+  } as PillControllerRecord | PendingPillControllerRecord;
 }
 
 export function parsePillEpoch(value: unknown): PillEpochRecord {
