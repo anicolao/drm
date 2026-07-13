@@ -7,7 +7,7 @@
         ".read": "auth != null && data.child('start/players').child(auth.uid).exists()",
         "start": {
           ".write": "auth != null && !data.exists() && newData.child('hostUid').val() == auth.uid",
-          ".validate": "newData.hasChildren(['type','roomId','ruleset','rulesVersion','seed','tickRate','hostUid','players','serverTime']) && newData.child('type').val() == 'game/started' && newData.child('ruleset').val() == 'pill-bottle' && newData.child('rulesVersion').val() == 'pill-bottle/controller-1' && newData.child('tickRate').val() == 60 && newData.child('seed').isNumber() && newData.child('serverTime').isNumber()"
+          ".validate": "newData.hasChildren(['type','roomId','ruleset','rulesVersion','seed','tickRate','hostUid','players','serverTime']) && newData.child('type').val() == 'game/started' && newData.child('ruleset').val() == 'pill-bottle' && newData.child('rulesVersion').val() == 'pill-bottle/2' && newData.child('tickRate').val() == 60 && newData.child('seed').isNumber() && newData.child('serverTime').isNumber()"
         },
         "players": {
           "$playerId": {

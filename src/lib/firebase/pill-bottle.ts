@@ -13,7 +13,7 @@ export async function startPillBottleGame(roomId: string, players: RoomPlayer[])
   const seed = Number(import.meta.env.VITE_E2E_GAME_SEED) || crypto.getRandomValues(new Uint32Array(1))[0];
   const playerSeats = Object.fromEntries(players.map((player, seat) => [player.uid, { seat }]));
   await set(ref(realtimeDatabase, `games/${gameId}/start`), {
-    type: 'game/started', roomId, ruleset: 'pill-bottle', rulesVersion: 'pill-bottle/controller-1',
+    type: 'game/started', roomId, ruleset: 'pill-bottle', rulesVersion: 'pill-bottle/2',
     seed, tickRate: 60, hostUid: auth.currentUser.uid, players: playerSeats, serverTime: serverTimestamp()
   });
   await updateDoc(doc(firestore, 'rooms', roomId), {
@@ -46,8 +46,8 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
 
   const unsubscribe: Unsubscribe = onValue(ref(realtimeDatabase, `games/${gameId}/start`), async (snapshot) => {
     if (!snapshot.exists() || ready) return;
-    const start = snapshot.val() as { players?: Record<string, {seat:number}>; tickRate?: number; seed:number };
-    if (start.tickRate !== 60 || !start.players?.[playerId]) { publish('Player is not part of this 60 Hz game.'); return; }
+    const start = snapshot.val() as { players?: Record<string, {seat:number}>; tickRate?: number; rulesVersion?: string; seed:number };
+    if (start.tickRate !== 60 || start.rulesVersion !== 'pill-bottle/2' || !start.players?.[playerId]) { publish('Player is not part of this pill-bottle/2 60 Hz game.'); return; }
     await set(ref(realtimeDatabase!, `games/${gameId}/players/${playerId}/epochs/${epochId}`), {
       clientId: localStorage.getItem('drm-client-id') ?? epochId, startedFromTick: 0, startedFromCommandSeq: 0, serverTime: serverTimestamp()
     });
