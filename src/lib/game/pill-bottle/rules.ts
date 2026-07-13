@@ -1,6 +1,6 @@
 import type { Color } from './types.ts';
 
-export const PILL_BOTTLE_RULES_VERSION = 'pill-bottle/2' as const;
+export const PILL_BOTTLE_RULES_VERSION = 'pill-bottle/3' as const;
 
 export const PILL_BOTTLE_RULES = Object.freeze({
   version: PILL_BOTTLE_RULES_VERSION,
@@ -8,20 +8,26 @@ export const PILL_BOTTLE_RULES = Object.freeze({
   height: 16,
   tickRate: 60,
   colors: Object.freeze(['cyan', 'pink', 'yellow'] as const satisfies readonly Color[]),
-  virusCount: 12,
+  initialVirusCount: 5,
+  virusesPerLevel: 5,
+  maxVirusCount: 80,
   virusRowStart: 6,
   virusRowEnd: 15,
-  gravityTicks: 15,
+  initialGravityTicks: 50,
+  gravityTicksPerLevel: 5,
+  pillsPerSpeedIncrease: 10,
+  minimumGravityTicks: 1,
   softDropTicks: 2,
   lockDelayTicks: 30,
   resolutionGravityTicks: 15,
+  levelCountdownTicks: 180,
   hardDrop: true,
   spawn: Object.freeze({ row: 1, col: 3 })
 });
 
 export const PILL_BOTTLE_SETTINGS = Object.freeze({
-  virusCount: PILL_BOTTLE_RULES.virusCount,
-  speed: 'medium' as const,
+  initialVirusCount: PILL_BOTTLE_RULES.initialVirusCount,
+  initialGravityTicks: PILL_BOTTLE_RULES.initialGravityTicks,
   hardDrop: PILL_BOTTLE_RULES.hardDrop
 });
 

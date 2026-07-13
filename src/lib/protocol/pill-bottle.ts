@@ -52,6 +52,20 @@ export interface PillProgressRecord {
 export type PillControllerRecord = ControllerRecord & { serverTime: number };
 export type PendingPillControllerRecord = ControllerRecord;
 
+export interface PillTerminalRecord {
+  type: 'player/terminal';
+  playerId: string;
+  tick: number;
+  result: 'lost';
+  stateHash: string;
+  serverTime: number;
+}
+
+export interface PillRematchReadyRecord {
+  playerId: string;
+  serverTime: number;
+}
+
 const isObject = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 const hasOnlyKeys = (value: Record<string, unknown>, keys: readonly string[]) => Object.keys(value).every((key) => keys.includes(key));
 const isInteger = (value: unknown, minimum = 0, maximum = 1_000_000_000) =>
@@ -80,7 +94,7 @@ export function parsePillStart(value: unknown): PillStartRecord {
     || value.rulesVersion !== PILL_BOTTLE_RULES_VERSION || value.tickRate !== PILL_BOTTLE_RULES.tickRate
     || !isString(value.roomId) || !isString(value.hostUid) || !isInteger(value.seed, 0, 0xffffffff)
     || !isServerTime(value.serverTime) || !isObject(value.members) || !isObject(value.players) || !isObject(value.settings)) {
-    throw new Error('Invalid pill-bottle/2 start record.');
+    throw new Error('Invalid pill-bottle/3 start record.');
   }
 
   const members = value.members as Record<string, unknown>;
@@ -93,9 +107,10 @@ export function parsePillStart(value: unknown): PillStartRecord {
     || playerEntries.length < 1 || playerEntries.length > 4
     || !playerEntries.every(([uid, player]) => isString(uid) && isObject(player) && hasOnlyKeys(player, ['seat']) && isInteger(player.seat, 0, 3) && members[uid] === true)
     || new Set(seats).size !== seats.length
-    || !hasOnlyKeys(settings, ['virusCount', 'speed', 'hardDrop'])
-    || settings.virusCount !== PILL_BOTTLE_SETTINGS.virusCount || settings.speed !== PILL_BOTTLE_SETTINGS.speed
-    || settings.hardDrop !== PILL_BOTTLE_SETTINGS.hardDrop) throw new Error('Invalid pill-bottle/2 start definition.');
+    || !hasOnlyKeys(settings, ['initialVirusCount', 'initialGravityTicks', 'hardDrop'])
+    || settings.initialVirusCount !== PILL_BOTTLE_SETTINGS.initialVirusCount
+    || settings.initialGravityTicks !== PILL_BOTTLE_SETTINGS.initialGravityTicks
+    || settings.hardDrop !== PILL_BOTTLE_SETTINGS.hardDrop) throw new Error('Invalid pill-bottle/3 start definition.');
 
   return value as unknown as PillStartRecord;
 }
@@ -138,8 +153,8 @@ export function parsePillControllerRecord(
   };
   if (value.type === 'progress/tick') {
     if (!isObject(value.payload) || !hasOnlyKeys(value.payload, ['phase', 'stateHash'])
-      || !['playing', 'won', 'lost'].includes(value.payload.phase as string)
-      || typeof value.payload.stateHash !== 'string' || !/^pb2-[0-9a-f]{8}$/.test(value.payload.stateHash)) {
+      || !['playing', 'countdown', 'lost'].includes(value.payload.phase as string)
+      || typeof value.payload.stateHash !== 'string' || !/^pb3-[0-9a-f]{8}$/.test(value.payload.stateHash)) {
       throw new Error('Invalid pill progress command.');
     }
     return {
@@ -168,9 +183,23 @@ export function parsePillEpoch(value: unknown): PillEpochRecord {
 export function parsePillProgress(value: unknown): PillProgressRecord {
   if (!isObject(value) || !hasOnlyKeys(value, ['epochId', 'tick', 'lastClientSeq', 'stateHash', 'phase', 'serverTime'])
     || !isString(value.epochId) || !isInteger(value.tick) || !isInteger(value.lastClientSeq)
-    || typeof value.stateHash !== 'string' || !/^pb2-[0-9a-f]{8}$/.test(value.stateHash)
-    || !['playing', 'won', 'lost'].includes(value.phase as string) || !isServerTime(value.serverTime)) {
+    || typeof value.stateHash !== 'string' || !/^pb[23]-[0-9a-f]{8}$/.test(value.stateHash)
+    || !['playing', 'countdown', 'won', 'lost'].includes(value.phase as string) || !isServerTime(value.serverTime)) {
     throw new Error('Invalid pill progress projection.');
   }
   return value as unknown as PillProgressRecord;
+}
+
+export function parsePillTerminal(value: unknown): PillTerminalRecord {
+  if (!isObject(value) || !hasOnlyKeys(value, ['type', 'playerId', 'tick', 'result', 'stateHash', 'serverTime'])
+    || value.type !== 'player/terminal' || !isString(value.playerId) || !isInteger(value.tick)
+    || value.result !== 'lost' || typeof value.stateHash !== 'string' || !/^pb3-[0-9a-f]{8}$/.test(value.stateHash)
+    || !isServerTime(value.serverTime)) throw new Error('Invalid pill terminal declaration.');
+  return value as unknown as PillTerminalRecord;
+}
+
+export function parsePillRematchReady(value: unknown): PillRematchReadyRecord {
+  if (!isObject(value) || !hasOnlyKeys(value, ['playerId', 'serverTime'])
+    || !isString(value.playerId) || !isServerTime(value.serverTime)) throw new Error('Invalid pill rematch readiness.');
+  return value as unknown as PillRematchReadyRecord;
 }

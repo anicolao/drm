@@ -25,21 +25,24 @@ not anti-cheat authority.
 
 Each player has an 8×16 visible bottle. A deterministic initial arrangement of
 colored viruses is generated from the game seed. The seat remains protocol
-metadata, but `pill-bottle/2` deliberately gives every seat the same layout and
+metadata, but `pill-bottle/3` deliberately gives every seat the same layout and
 capsule stream. A two-segment
 capsule falls from the top. The player moves and rotates it until it locks.
 Horizontal or vertical runs of four or more cells of one color clear. Unsupported
 capsule segments fall after a clear, possibly causing chains. Viruses never fall.
-Clearing every virus wins; being unable to spawn the next capsule loses.
+Clearing every virus starts the next level after a three-second countdown;
+being unable to spawn the next capsule eliminates the player.
 
-For the `pill-bottle/2` implementation, the deterministic PRNG is
+For the `pill-bottle/3` implementation, the deterministic PRNG is
 xorshift32. All players use the same seed and therefore receive the same virus
-layout and capsule sequence. Twelve viruses are scattered without replacement through rows 6–15;
+layout and capsule sequence. Level zero has five viruses and each subsequent
+level adds five. Viruses are scattered without replacement through rows 6–15;
 candidate placements that create an initial run of four are rejected. Capsule
 colors use the same three-color PRNG stream.
 
-Normal gravity advances one row every 15 ticks: four rows per second at the 60 Hz
-tick rate. Soft drop advances every 2 ticks. Hard drop locks immediately. A
+Normal gravity begins at one row every 50 ticks. It accelerates by one tick every
+ten locked pills and resets to `50 - 5 × level` when a new level begins, with a
+minimum interval of one tick. Soft drop advances every 2 ticks. Hard drop locks immediately. A
 grounded capsule locks after 30 ticks (0.5 seconds); a successful move or rotation
 resets that delay.
 
@@ -55,12 +58,12 @@ down-and-right kicks.
 Matches clear deterministically when the pill locks. A capsule remains a rigid,
 joined pair unless the match removes one of its two segments; only that affected
 capsule becomes a single segment. Joined pairs and separated segments fall one
-row every 15 ticks, the same speed as normal gravity, and stop on the first
+row every 15 resolution ticks and stop on the first
 occupied cell or the bottle floor. One supported half supports its still-joined
 partner. The engine checks for the next chain only after all falling pieces have
 come to rest. A hidden controller pauses its tick and disconnected players do
-not automatically lose. Scoring and multiplayer attacks are deferred; win and
-top-out are implemented for each bottle.
+not automatically lose. Scoring and multiplayer attacks are deferred. Top-out
+publishes an immutable terminal declaration; the last surviving player wins.
 
 ## Design goals
 
@@ -123,7 +126,7 @@ one player's bottle.
 
 - Tick zero is established by `game/started`.
 - The game definition fixes the tick rate at 60 ticks per second for
-  `pill-bottle/2`.
+  `pill-bottle/3`.
 - Gravity, soft drop, lock delay, clears, falling segments, and animations use
   ticks rather than wall-clock timestamps.
 - Commands for one player are evaluated at the tick recorded by that controller.
@@ -181,7 +184,7 @@ games/{gameId}/start
   "type": "game/started",
   "roomId": "room-id",
   "ruleset": "pill-bottle",
-  "rulesVersion": "pill-bottle/2",
+  "rulesVersion": "pill-bottle/3",
   "seed": 123456789,
   "tickRate": 60,
   "hostUid": "uid-a",
@@ -191,8 +194,8 @@ games/{gameId}/start
     "uid-b": { "seat": 1 }
   },
   "settings": {
-    "virusCount": 12,
-    "speed": "medium",
+    "initialVirusCount": 5,
+    "initialGravityTicks": 50,
     "hardDrop": true
   },
   "serverTime": { ".sv": "timestamp" }
@@ -212,34 +215,34 @@ that it started. Players do not need to start on the same wall-clock millisecond
 games/{gameId}/start
   immutable game/started record
 
-games/{gameId}/players/{playerId}/commands/{pushId}
-  immutable tick-tagged player input
+games/{gameId}/players/{playerId}/records/{pushId}
+  immutable ordered input or progress command
 
 games/{gameId}/players/{playerId}/epochs/{epochId}
   controller epoch metadata
 
-games/{gameId}/players/{playerId}/progress
-  replaceable current-tick and connection projection
+games/{gameId}/terminals/{playerId}
+  immutable top-out declaration
 
 games/{gameId}/interactions/{pushId}
   immutable cross-player facts ordered by server timestamp
 
-games/{gameId}/finish/{pushId}
-  immutable player finish declarations
+games/{gameId}/rematch/ready/{playerId}
+  immutable rematch readiness
 
-games/{gameId}/presence/{playerId}/{clientId}
-  RTDB presence
+games/{gameId}/rematch/nextGameId
+  host-reserved rematch identity
 ```
 
-Commands, interactions, start records, and finish declarations are append-only.
-Progress and presence are explicitly mutable projections and are never replay
-authority. Derived checkpoints exist only in local browser storage and can be
-discarded.
+Controller records, interactions, starts, terminals, and readiness are
+append-only. Derived checkpoints exist only in local browser storage and can be
+discarded. No network record contains a board or serialized engine state.
 
 ## Controller epochs
 
 A player may reload, reconnect, or move to another device. Commands therefore
-include an `epochId` in addition to a monotonically increasing `clientSeq`.
+include an `epochId` in addition to a monotonically increasing per-player
+`clientSeq` that continues across epochs.
 
 ```text
 games/{gameId}/players/{playerId}/epochs/{epochId}
@@ -256,7 +259,7 @@ games/{gameId}/players/{playerId}/epochs/{epochId}
 
 For the MVP, only one active controller epoch is allowed per player. On reload,
 the same device reconstructs the board, chooses a new epoch ID, resumes from the
-reconstructed tick, and continues `clientSeq` within that epoch.
+reconstructed tick, and continues `clientSeq` from the recovered history.
 
 If two devices control one player concurrently, the most recently published
 epoch by `(serverTime, epochId)` becomes active. Commands from an older epoch
@@ -269,7 +272,7 @@ device only.
 
 ## Command record
 
-Each user action is an immutable RTDB record:
+Each user action is an immutable RTDB controller record:
 
 ```json
 {
@@ -290,15 +293,15 @@ Fields:
 | `type` | Input command type |
 | `playerId` | Firebase UID of the controlled bottle |
 | `epochId` | Controller session that produced the command |
-| `clientSeq` | Strictly increasing sequence within the epoch |
+| `clientSeq` | Strictly increasing sequence for this player across epochs |
 | `tick` | Player tick on which the input was applied locally |
 | `payload` | Command-specific JSON; omitted by RTDB for commands with no fields |
 | `serverTime` | Firebase server timestamp assigned on receipt |
 
-For one player's simulation, commands are ordered by:
+For one player's simulation, records are consumed by:
 
 ```text
-(tick, clientSeq, pushId)
+clientSeq
 ```
 
 `serverTime` does not reorder commands inside that player's bottle. It orders
@@ -364,41 +367,63 @@ rule. If disabled, the attempted input may still be recorded but has no effect.
 
 ### Commands outside the bottle simulation
 
-Lobby readiness, leaving, rematch choice, and host setup remain Firestore
-coordination, not tick-tagged bottle commands.
+Lobby readiness, leaving, and host setup remain coordination rather than
+tick-tagged bottle commands. Rematch readiness is an immutable RTDB lifecycle
+fact.
 
-There are no user commands named `clear`, `score`, `attack`, `win`, `spawn`, or
-`tick`. Those are derived facts.
+There are no user commands named `clear`, `score`, `attack`, `win`, or `spawn`.
+Those are derived facts. `progress/tick` is a periodic simulation no-op rather
+than user input.
 
-## Progress projection
+## Progress command
 
-Observers need to know how far to run a player's simulation even when the player
-is not pressing buttons. The controller updates:
+Observers need the controller's current tick even when the player is not
+pressing buttons. The controller appends to the same immutable stream:
 
 ```text
-games/{gameId}/players/{playerId}/progress
+games/{gameId}/players/{playerId}/records/{pushId}
 ```
 
 ```json
 {
+  "type": "progress/tick",
+  "playerId": "uid",
   "epochId": "epoch-id",
+  "clientSeq": 42,
   "tick": 1902,
-  "lastClientSeq": 42,
-  "stateHash": "pb2-1234abcd",
-  "phase": "playing",
+  "payload": {
+    "stateHash": "pb3-1234abcd",
+    "phase": "playing"
+  },
   "serverTime": { ".sv": "timestamp" }
 }
 ```
 
-This is a throttled mutable projection, proposed at 4 updates per second and on
-important transitions such as lock, chain completion, win, and loss.
+This command is emitted every 15 controller ticks and on start, suspension,
+resume, countdown, and terminal transitions.
 
-It is not part of the event log. If it is missing, observers replay known commands
-to the latest confirmed tick and wait. If it jumps ahead, observers simulate
-empty ticks between commands. `stateHash` detects divergence but does not override
-locally derived state.
+It is an event-log record but a simulation no-op. The cast keeps its own display
+tick; the progress tick supplies signed lag and recovery metadata, not a shared
+clock. `stateHash` detects divergence at that tick but never overrides locally
+derived state.
 
 The controller continues to render while its progress writes are delayed.
+
+## Match completion and rematch
+
+A top-out writes one immutable declaration at
+`games/{gameId}/terminals/{playerId}` containing `playerId`, terminal `tick`,
+`result: "lost"`, the `pb3` state hash, and a server timestamp. It does not
+contain a board. With multiple players, the sole player without a terminal
+declaration wins once every other player has declared; if every player declares
+before a survivor is observed, the result is a draw. A single-player terminal is
+game over without a winner.
+
+After the result, each controller may append readiness at
+`games/{gameId}/rematch/ready/{playerId}`. Once every listed player is ready, the
+host transactionally reserves `rematch/nextGameId`, writes a new immutable start
+record with the same players and seats and a new seed, and points the room at the
+new game. The old journal stays immutable and the new game begins at tick zero.
 
 ## Deterministic bottle engine
 
@@ -416,12 +441,16 @@ State includes:
 ```text
 BottleState
   tick
+  level
+  pillsLockedThisLevel
+  gravityCounter
+  countdownEndsAt (only during a level transition)
   randomGeneratorPosition
   board[128]
   activeCapsule
   nextCapsuleId
   virusCount
-  phase: playing | won | lost
+  phase: playing | countdown | lost
   softDropHeld
   lockDeadlineTick
   chain
@@ -442,7 +471,7 @@ player:
 - the capsule color sequence; and
 - any rules-approved attack randomness.
 
-The exact derivation and PRNG are part of `pill-bottle/2` and covered by fixtures.
+The exact derivation and PRNG are part of `pill-bottle/3` and covered by fixtures.
 
 ### Tick processing
 
@@ -468,7 +497,7 @@ simulation time. A typical loop:
 7. Periodically publish progress.
 
 Input must not wait for the next Firebase operation. It may be sampled for the
-current tick or queued for the immediately following tick. `pill-bottle/2`
+current tick or queued for the immediately following tick. `pill-bottle/3`
 records and applies an input on the current completed tick at the time the input
 handler runs.
 
@@ -845,15 +874,17 @@ No test may substitute invented board state or mocked gameplay. Emulator tests
 must produce all displayed gameplay through the real deterministic engine and
 RTDB protocol.
 
-## Frozen `pill-bottle/2` rules and remaining decisions
+## Frozen `pill-bottle/3` rules and remaining decisions
 
-The implementation freezes xorshift32, twelve-virus placement in rows 6–15, the
-shared per-seat stream, 60 Hz ticks, 15-tick gravity, two-tick soft drop,
-immediate hard drop, 30-tick lock delay, the four-state rotation/kick system, and
-15-tick resolution gravity. State hashes use FNV-1a over the versioned canonical
-JSON serialization and are diagnostic rather than authority.
+The implementation freezes xorshift32, five initial viruses with five more per
+level in rows 6–15, the shared per-seat stream, 60 Hz ticks, 50-tick initial
+gravity, one-tick acceleration per ten pills, five-tick acceleration per level,
+a three-second level countdown, two-tick soft drop, immediate hard drop,
+30-tick lock delay, the four-state rotation/kick system, and 15-tick resolution
+gravity. State hashes use FNV-1a over the versioned canonical JSON serialization
+and are diagnostic rather than authority.
 
-Still to decide are suspension/disconnect match policy, epoch handoff,
-observer-buffer and correction thresholds, local-checkpoint cadence, scoring,
-attacks, and finish/tie policy. Any change to a state-affecting frozen choice
+Still to decide are disconnect match policy, concurrent epoch handoff, scoring,
+and attacks. The current finish policy is last survivor, with simultaneous
+all-player top-out treated as a draw. Any change to a state-affecting frozen choice
 requires a new rules version so recorded command streams remain replayable.

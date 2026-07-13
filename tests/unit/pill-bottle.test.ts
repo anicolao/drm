@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { activeCells, advanceTick, applyInput, HEIGHT, WIDTH, type BottleState, type Cell } from '../../src/lib/game/pill-bottle.ts';
+import { activeCells, advanceTick, applyInput, gravityTicksForState, HEIGHT, WIDTH, type BottleState, type Cell } from '../../src/lib/game/pill-bottle.ts';
 
 function settlingBoard(cells: Array<[number, number, Cell]>): BottleState {
   const board: BottleState['board'] = Array(WIDTH * HEIGHT).fill(null);
   for (const [row, column, cell] of cells) board[row * WIDTH + column] = cell;
-  return { rulesVersion: 'pill-bottle/2', tick: 14, board, active: null, rng: 1, nextId: 2, viruses: 1, phase: 'playing', softDrop: false, chain: 1, resolving: true };
+  return { rulesVersion: 'pill-bottle/3', tick: 14, level: 0, pills: 0, gravityCounter: 0, board, active: null, rng: 1, nextId: 2, viruses: 1, phase: 'playing', softDrop: false, chain: 1, resolving: true };
 }
 
 function activeBoard(orientation: 0|1|2|3 = 0): BottleState {
-  return { rulesVersion: 'pill-bottle/2', tick: 0, board: Array(WIDTH * HEIGHT).fill(null), active: { id: 1, row: 5, col: 3, orientation, colors: ['cyan','pink'] }, rng: 1, nextId: 2, viruses: 1, phase: 'playing', softDrop: false, chain: 0, resolving: false };
+  return { rulesVersion: 'pill-bottle/3', tick: 0, level: 0, pills: 0, gravityCounter: 0, board: Array(WIDTH * HEIGHT).fill(null), active: { id: 1, row: 5, col: 3, orientation, colors: ['cyan','pink'] }, rng: 1, nextId: 2, viruses: 1, phase: 'playing', softDrop: false, chain: 0, resolving: false };
 }
 
 const pill = (id: string): Cell => ({ kind: 'pill', color: 'cyan', id });
@@ -66,4 +66,33 @@ test('horizontal-to-vertical rotation fails when normal, right, and left columns
   const state=activeBoard();for(const col of [2,3,4])state.board[4*WIDTH+col]=virus(`v${col}`);
   applyInput(state,{type:'input/rotate',payload:{direction:'clockwise'}});
   assert.equal(state.active?.orientation,0);assert.equal(state.active?.col,3);
+});
+
+test('gravity starts at 50 ticks and accelerates every ten pills and five ticks per level', () => {
+  assert.equal(gravityTicksForState({ level: 0, pills: 0 }), 50);
+  assert.equal(gravityTicksForState({ level: 0, pills: 9 }), 50);
+  assert.equal(gravityTicksForState({ level: 0, pills: 10 }), 49);
+  assert.equal(gravityTicksForState({ level: 1, pills: 0 }), 45);
+  assert.equal(gravityTicksForState({ level: 2, pills: 20 }), 38);
+  assert.equal(gravityTicksForState({ level: 20, pills: 1000 }), 1);
+});
+
+test('clearing a level counts down before generating the next level', () => {
+  const state = activeBoard();
+  state.active = { id: 1, row: 14, col: 3, orientation: 0, colors: ['cyan', 'yellow'] };
+  state.board[15 * WIDTH] = { kind: 'virus', color: 'cyan', id: 'v0' };
+  state.board[15 * WIDTH + 1] = { kind: 'virus', color: 'cyan', id: 'v1' };
+  state.board[15 * WIDTH + 2] = { kind: 'virus', color: 'cyan', id: 'v2' };
+  state.viruses = 3;
+  applyInput(state, { type: 'input/hard-drop', payload: {} });
+  assert.equal(state.phase, 'countdown');
+  assert.equal(state.countdownEndsAt, 180);
+  for (let tick = 0; tick < 179; tick++) advanceTick(state);
+  assert.equal(state.level, 0);
+  advanceTick(state);
+  assert.equal(state.level, 1);
+  assert.equal(state.phase, 'playing');
+  assert.equal(state.viruses, 10);
+  assert.equal(state.pills, 0);
+  assert.equal(gravityTicksForState(state), 45);
 });

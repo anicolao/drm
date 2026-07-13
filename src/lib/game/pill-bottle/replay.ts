@@ -39,6 +39,10 @@ export function serializeBottle(state: BottleState): SerializedBottleState {
   return {
     rulesVersion: state.rulesVersion,
     tick: state.tick,
+    level: state.level,
+    pills: state.pills,
+    gravityCounter: state.gravityCounter,
+    ...(state.countdownEndsAt === undefined ? {} : { countdownEndsAt: state.countdownEndsAt }),
     board: state.board.map((cell) => cell ? { ...cell } : null),
     active: state.active ? { ...state.active, colors: [...state.active.colors] } : null,
     rng: state.rng,
@@ -73,14 +77,17 @@ const isActive = (value: unknown): value is ActivePill => {
 export function parseSerializedBottle(value: unknown): SerializedBottleState {
   if (!value || typeof value !== 'object') throw new Error('Invalid serialized bottle state.');
   const state = value as Record<string, unknown>;
-  if (!hasOnlyKeys(state, ['rulesVersion', 'tick', 'board', 'active', 'rng', 'nextId', 'viruses', 'phase', 'softDrop', 'chain', 'resolving'])
+  if (!hasOnlyKeys(state, ['rulesVersion', 'tick', 'level', 'pills', 'gravityCounter', 'countdownEndsAt', 'board', 'active', 'rng', 'nextId', 'viruses', 'phase', 'softDrop', 'chain', 'resolving'])
     || state.rulesVersion !== PILL_BOTTLE_RULES_VERSION
     || !isInteger(state.tick)
+    || !isInteger(state.level) || !isInteger(state.pills) || !isInteger(state.gravityCounter)
+    || (state.countdownEndsAt !== undefined && (!isInteger(state.countdownEndsAt) || (state.countdownEndsAt as number) < (state.tick as number)))
     || !Array.isArray(state.board) || state.board.length !== WIDTH * HEIGHT || !state.board.every((cell) => cell === null || isCell(cell))
     || (state.active !== null && !isActive(state.active))
     || !isInteger(state.rng) || (state.rng as number) > 0xffffffff || !isInteger(state.nextId, 1)
-    || !isInteger(state.viruses) || (state.viruses as number) > 12
-    || !['playing', 'won', 'lost'].includes(state.phase as string)
+    || !isInteger(state.viruses) || (state.viruses as number) > 80
+    || !['playing', 'countdown', 'lost'].includes(state.phase as string)
+    || (state.phase === 'countdown') !== (state.countdownEndsAt !== undefined)
     || typeof state.softDrop !== 'boolean' || !isInteger(state.chain) || typeof state.resolving !== 'boolean') {
     throw new Error('Invalid serialized bottle state.');
   }
@@ -98,5 +105,5 @@ export function hashState(state: BottleState) {
     hash ^= json.charCodeAt(index);
     hash = Math.imul(hash, 0x01000193);
   }
-  return `pb2-${(hash >>> 0).toString(16).padStart(8, '0')}`;
+  return `pb3-${(hash >>> 0).toString(16).padStart(8, '0')}`;
 }

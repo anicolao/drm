@@ -55,9 +55,10 @@ The following work is complete or working in prototype form:
   player roster, and ruleset selection.
 - Color Cure phone controls, keyboard controls, tablet bottle rendering, and a
   shared cast route.
-- The frozen `pill-bottle/2` rule definition: seeded xorshift32 generation,
-  twelve-virus layout, capsule stream, gravity, soft/hard drop, lock delay,
-  matching, settling, rotation/kicks, win, and top-out.
+- The frozen `pill-bottle/3` rule definition: seeded xorshift32 generation,
+  level-scaled virus layouts, capsule stream, progressive gravity, level
+  countdowns, soft/hard drop, lock delay, matching, settling, rotation/kicks,
+  and top-out.
 - Pure engine boundaries for creation, tick advancement, command replay, local
   serialization, and deterministic state hashing.
 - Runtime validation for start, unified controller records, epochs, legacy
@@ -73,6 +74,9 @@ The following work is complete or working in prototype form:
   plus a persistent identity-preserving local outbox.
 - Controller visibility handling that records suspension/resumption, releases
   soft drop, pauses local ticks, and resumes without catch-up.
+- Immutable top-out declarations, replay-derived last-survivor results, result
+  presentation, per-player rematch readiness, and host-reserved rematch games
+  with new IDs, seeds, and journals.
 - Explicit host-as-player and host-as-display starts.
 - Unit fixtures for seeded generation, live-versus-replay equivalence, command
   ordering/deduplication, serialization, hashes, and protocol rejection.
@@ -83,7 +87,7 @@ The following work is complete or working in prototype form:
 The current implementation is still a prototype: room writes are not fully
 transactional, concurrent controller ownership is not coordinated, legacy
 `commands`/`progress` rules remain temporarily available for deployed-client
-compatibility, and a match has no coordinated finish/rematch lifecycle.
+compatibility, and presence/disconnect policy still needs implementation.
 
 ## Delivery order
 
@@ -186,31 +190,36 @@ Acceptance:
 - Rules tests run in CI and cover every security acceptance criterion.
 - Client and rules schema changes cannot be deployed independently by accident.
 
-### 3. Complete one match lifecycle
+### 3. Complete one match lifecycle — playable lifecycle completed
 
 Goal: two to four people can start, finish, and replay another Color Cure round
 without manually recreating the room.
 
-Implementation:
+Implemented for the playable lifecycle:
 
-1. Add readiness and an immutable start/countdown definition.
-2. Add RTDB presence per browser client and derive connected, suspended, and
-   stale UI states without using presence as replay authority.
-3. Publish immutable terminal declarations containing player, terminal tick,
+1. Version `pill-bottle/3` with deterministic level countdowns and new-level
+   generation inside the replayable engine.
+2. Publish immutable terminal declarations containing player, terminal tick,
    result, and state hash.
-4. Derive a settled match result from declarations and the selected finish
-   policy. Do not upload the terminal board.
-5. Add result presentation to controller/tablet and cast routes.
-6. Add host end/restart controls, rematch readiness, a new game ID/seed per round,
-   and return-to-lobby/leave flows.
-7. Preserve old game journals as immutable replay inputs until expiry.
+3. Derive last-survivor wins and simultaneous-terminal draws without uploading
+   a terminal board.
+4. Add level, speed, countdown, elimination, result, and rematch presentation to
+   controller and cast routes.
+5. Add immutable per-player rematch readiness and a host-reserved next game ID.
+   A unanimous vote creates a fresh seed and journal while preserving players
+   and seats.
+6. Preserve old game journals as immutable replay inputs.
+
+Still pending under room/presentation hardening:
+
+- RTDB presence and connected/suspended/stale status;
+- explicit host end/return-to-lobby and player leave controls;
+- concurrent-controller ownership and stale membership handling.
 
 Acceptance:
 
 - A two-to-four-player seeded round reaches a displayed winner and terminal
   hashes agree on all observers.
-- Disconnect/reconnect state is visible and does not advance the absent player's
-  tick.
 - Rematch creates a distinct game journal and all participants begin at tick zero.
 - Reload works during countdown, active play, results, and rematch setup.
 

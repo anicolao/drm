@@ -7,7 +7,7 @@
         ".read": "auth != null && data.child('start/members').child(auth.uid).val() == true",
         "start": {
           ".write": "auth != null && !data.exists() && newData.child('hostUid').val() == auth.uid",
-          ".validate": "newData.hasChildren(['type','roomId','ruleset','rulesVersion','seed','tickRate','hostUid','members','players','settings','serverTime']) && newData.child('type').val() == 'game/started' && newData.child('ruleset').val() == 'pill-bottle' && newData.child('rulesVersion').val() == 'pill-bottle/2' && newData.child('tickRate').val() == 60 && newData.child('seed').isNumber() && newData.child('seed').val() % 1 == 0 && newData.child('seed').val() >= 0 && newData.child('seed').val() <= 4294967295 && newData.child('roomId').isString() && newData.child('roomId').val().length <= 128 && newData.child('hostUid').isString() && newData.child('hostUid').val().length <= 128 && newData.child('members').child(auth.uid).val() == true && newData.child('players').hasChildren() && newData.child('serverTime').isNumber()",
+          ".validate": "newData.hasChildren(['type','roomId','ruleset','rulesVersion','seed','tickRate','hostUid','members','players','settings','serverTime']) && newData.child('type').val() == 'game/started' && newData.child('ruleset').val() == 'pill-bottle' && (newData.child('rulesVersion').val() == 'pill-bottle/2' || newData.child('rulesVersion').val() == 'pill-bottle/3') && newData.child('tickRate').val() == 60 && newData.child('seed').isNumber() && newData.child('seed').val() % 1 == 0 && newData.child('seed').val() >= 0 && newData.child('seed').val() <= 4294967295 && newData.child('roomId').isString() && newData.child('roomId').val().length <= 128 && newData.child('hostUid').isString() && newData.child('hostUid').val().length <= 128 && newData.child('members').child(auth.uid).val() == true && newData.child('players').hasChildren() && newData.child('serverTime').isNumber()",
           "type": { ".validate": true },
           "roomId": { ".validate": true },
           "ruleset": { ".validate": true },
@@ -27,9 +27,11 @@
             }
           },
           "settings": {
-            ".validate": "newData.hasChildren(['virusCount','speed','hardDrop']) && newData.child('virusCount').val() == 12 && newData.child('speed').val() == 'medium' && newData.child('hardDrop').val() == true",
-            "virusCount": { ".validate": true },
-            "speed": { ".validate": true },
+            ".validate": "(newData.parent().child('rulesVersion').val() == 'pill-bottle/2' && newData.hasChildren(['virusCount','speed','hardDrop']) && newData.child('virusCount').val() == 12 && newData.child('speed').val() == 'medium' && newData.child('hardDrop').val() == true) || (newData.parent().child('rulesVersion').val() == 'pill-bottle/3' && newData.hasChildren(['initialVirusCount','initialGravityTicks','hardDrop']) && newData.child('initialVirusCount').val() == 5 && newData.child('initialGravityTicks').val() == 50 && newData.child('hardDrop').val() == true)",
+            "virusCount": { ".validate": "newData.parent().parent().child('rulesVersion').val() == 'pill-bottle/2'" },
+            "speed": { ".validate": "newData.parent().parent().child('rulesVersion').val() == 'pill-bottle/2'" },
+            "initialVirusCount": { ".validate": "newData.parent().parent().child('rulesVersion').val() == 'pill-bottle/3'" },
+            "initialGravityTicks": { ".validate": "newData.parent().parent().child('rulesVersion').val() == 'pill-bottle/3'" },
             "hardDrop": { ".validate": true },
             "$other": { ".validate": false }
           },
@@ -40,7 +42,7 @@
             "records": {
               "$recordId": {
                 ".write": "auth != null && auth.uid == $playerId && !data.exists() && root.child('games/'+$gameId+'/start/players/'+$playerId).exists() && root.child('games/'+$gameId+'/players/'+$playerId+'/epochs/'+newData.child('epochId').val()).exists()",
-                ".validate": "newData.hasChildren(['type','playerId','epochId','clientSeq','tick','serverTime']) && newData.child('playerId').val() == $playerId && newData.child('epochId').isString() && newData.child('epochId').val().length <= 128 && newData.child('clientSeq').isNumber() && newData.child('clientSeq').val() % 1 == 0 && newData.child('clientSeq').val() >= 1 && newData.child('clientSeq').val() <= 1000000000 && newData.child('tick').isNumber() && newData.child('tick').val() % 1 == 0 && newData.child('tick').val() >= 0 && newData.child('tick').val() <= 1000000000 && newData.child('serverTime').isNumber() && ((newData.child('type').val() == 'input/move' && newData.child('payload/dx').isNumber() && (newData.child('payload/dx').val() == -1 || newData.child('payload/dx').val() == 1)) || (newData.child('type').val() == 'input/rotate' && (newData.child('payload/direction').val() == 'clockwise' || newData.child('payload/direction').val() == 'counterclockwise')) || ((newData.child('type').val() == 'input/soft-drop-start' || newData.child('type').val() == 'input/soft-drop-end' || newData.child('type').val() == 'input/hard-drop') && !newData.child('payload').exists()) || (newData.child('type').val() == 'progress/tick' && newData.child('payload').hasChildren(['phase','stateHash']) && (newData.child('payload/phase').val() == 'playing' || newData.child('payload/phase').val() == 'won' || newData.child('payload/phase').val() == 'lost') && newData.child('payload/stateHash').isString() && newData.child('payload/stateHash').val().matches(/^pb2-[0-9a-f]{8}$/)))",
+                ".validate": "newData.hasChildren(['type','playerId','epochId','clientSeq','tick','serverTime']) && newData.child('playerId').val() == $playerId && newData.child('epochId').isString() && newData.child('epochId').val().length <= 128 && newData.child('clientSeq').isNumber() && newData.child('clientSeq').val() % 1 == 0 && newData.child('clientSeq').val() >= 1 && newData.child('clientSeq').val() <= 1000000000 && newData.child('tick').isNumber() && newData.child('tick').val() % 1 == 0 && newData.child('tick').val() >= 0 && newData.child('tick').val() <= 1000000000 && newData.child('serverTime').isNumber() && ((newData.child('type').val() == 'input/move' && newData.child('payload/dx').isNumber() && (newData.child('payload/dx').val() == -1 || newData.child('payload/dx').val() == 1)) || (newData.child('type').val() == 'input/rotate' && (newData.child('payload/direction').val() == 'clockwise' || newData.child('payload/direction').val() == 'counterclockwise')) || ((newData.child('type').val() == 'input/soft-drop-start' || newData.child('type').val() == 'input/soft-drop-end' || newData.child('type').val() == 'input/hard-drop') && !newData.child('payload').exists()) || (newData.child('type').val() == 'progress/tick' && newData.child('payload').hasChildren(['phase','stateHash']) && newData.child('payload/stateHash').isString() && ((root.child('games/'+$gameId+'/start/rulesVersion').val() == 'pill-bottle/2' && (newData.child('payload/phase').val() == 'playing' || newData.child('payload/phase').val() == 'won' || newData.child('payload/phase').val() == 'lost') && newData.child('payload/stateHash').val().matches(/^pb2-[0-9a-f]{8}$/)) || (root.child('games/'+$gameId+'/start/rulesVersion').val() == 'pill-bottle/3' && (newData.child('payload/phase').val() == 'playing' || newData.child('payload/phase').val() == 'countdown' || newData.child('payload/phase').val() == 'lost') && newData.child('payload/stateHash').val().matches(/^pb3-[0-9a-f]{8}$/)))))",
                 "type": { ".validate": true },
                 "playerId": { ".validate": true },
                 "epochId": { ".validate": true },
@@ -88,7 +90,7 @@
             },
             "progress": {
               ".write": "auth != null && auth.uid == $playerId && root.child('games/'+$gameId+'/start/players/'+$playerId).exists() && root.child('games/'+$gameId+'/players/'+$playerId+'/epochs/'+newData.child('epochId').val()).exists()",
-              ".validate": "newData.hasChildren(['epochId','tick','lastClientSeq','stateHash','phase','serverTime']) && newData.child('epochId').isString() && newData.child('epochId').val().length <= 128 && newData.child('tick').isNumber() && newData.child('tick').val() % 1 == 0 && newData.child('tick').val() >= 0 && newData.child('tick').val() <= 1000000000 && newData.child('lastClientSeq').isNumber() && newData.child('lastClientSeq').val() % 1 == 0 && newData.child('lastClientSeq').val() >= 0 && newData.child('stateHash').isString() && newData.child('stateHash').val().matches(/^pb2-[0-9a-f]{8}$/) && (newData.child('phase').val() == 'playing' || newData.child('phase').val() == 'won' || newData.child('phase').val() == 'lost') && newData.child('serverTime').isNumber()",
+              ".validate": "newData.hasChildren(['epochId','tick','lastClientSeq','stateHash','phase','serverTime']) && newData.child('epochId').isString() && newData.child('epochId').val().length <= 128 && newData.child('tick').isNumber() && newData.child('tick').val() % 1 == 0 && newData.child('tick').val() >= 0 && newData.child('tick').val() <= 1000000000 && newData.child('lastClientSeq').isNumber() && newData.child('lastClientSeq').val() % 1 == 0 && newData.child('lastClientSeq').val() >= 0 && newData.child('stateHash').isString() && newData.child('stateHash').val().matches(/^pb[23]-[0-9a-f]{8}$/) && (newData.child('phase').val() == 'playing' || newData.child('phase').val() == 'countdown' || newData.child('phase').val() == 'won' || newData.child('phase').val() == 'lost') && newData.child('serverTime').isNumber()",
               "epochId": { ".validate": true },
               "tick": { ".validate": true },
               "lastClientSeq": { ".validate": true },
@@ -99,6 +101,35 @@
             },
             "$other": { ".validate": false }
           }
+        },
+        "terminals": {
+          "$playerId": {
+            ".write": "auth != null && auth.uid == $playerId && !data.exists() && root.child('games/'+$gameId+'/start/players/'+$playerId).exists()",
+            ".validate": "newData.hasChildren(['type','playerId','tick','result','stateHash','serverTime']) && newData.child('type').val() == 'player/terminal' && newData.child('playerId').val() == $playerId && newData.child('tick').isNumber() && newData.child('tick').val() % 1 == 0 && newData.child('tick').val() >= 0 && newData.child('result').val() == 'lost' && newData.child('stateHash').isString() && newData.child('stateHash').val().matches(/^pb3-[0-9a-f]{8}$/) && newData.child('serverTime').isNumber()",
+            "type": { ".validate": true },
+            "playerId": { ".validate": true },
+            "tick": { ".validate": true },
+            "result": { ".validate": true },
+            "stateHash": { ".validate": true },
+            "serverTime": { ".validate": true },
+            "$other": { ".validate": false }
+          }
+        },
+        "rematch": {
+          "ready": {
+            "$playerId": {
+              ".write": "auth != null && auth.uid == $playerId && !data.exists() && root.child('games/'+$gameId+'/start/players/'+$playerId).exists()",
+              ".validate": "newData.hasChildren(['playerId','serverTime']) && newData.child('playerId').val() == $playerId && newData.child('serverTime').isNumber()",
+              "playerId": { ".validate": true },
+              "serverTime": { ".validate": true },
+              "$other": { ".validate": false }
+            }
+          },
+          "nextGameId": {
+            ".write": "auth != null && !data.exists() && root.child('games/'+$gameId+'/start/hostUid').val() == auth.uid",
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 128"
+          },
+          "$other": { ".validate": false }
         },
         "$other": { ".validate": false }
       }

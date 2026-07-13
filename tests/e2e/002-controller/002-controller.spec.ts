@@ -33,7 +33,7 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await expect(playerPage.getByLabel('Pill Bottle controller')).toBeVisible({ timeout: 10000 });
   await expect(playerPage.getByRole('button', { name: 'Move left' })).toBeEnabled({ timeout: 10000 });
   await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-cell-count', '128');
-  await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '12');
+  await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '5');
   await expect(page.getByRole('heading', { name: 'Jo' })).toBeVisible({ timeout: 10000 });
   await expect(page.getByLabel('Pill bottle', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Replay hash mismatch')).not.toBeVisible();

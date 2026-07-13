@@ -31,3 +31,13 @@
 - [x] No match is represented
 
 ---
+
+## A terminal bottle declares the match result
+
+![A terminal bottle declares the match result](./screenshots/003-game-over.png)
+
+**Verifications:**
+- [x] Single-player top-out ends the match
+- [x] The player can request a rematch
+
+---
