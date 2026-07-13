@@ -171,12 +171,23 @@ export async function startPillBottleRematch(gameId: string) {
   const nextGameId = claim.snapshot.val();
   if (typeof nextGameId !== 'string') throw new Error('Could not reserve the rematch.');
   const nextStart = ref(realtimeDatabase, `games/${nextGameId}/start`);
-  if (!(await get(nextStart)).exists()) {
+  try {
     await set(nextStart, {
       type: 'game/started', roomId: start.roomId, ruleset: start.ruleset, rulesVersion: start.rulesVersion,
       seed: gameSeed(), tickRate: start.tickRate, hostUid: start.hostUid, members: start.members,
       players: start.players, settings: start.settings, serverTime: serverTimestamp()
     });
+  } catch (cause) {
+    // Another host display may have completed the immutable start record first. Reading is
+    // permitted once that record establishes membership; an empty reserved game remains
+    // unreadable, so preserve the original failure in that case.
+    try {
+      const existingStart = await get(nextStart);
+      const existing = existingStart.exists() ? parsePillStart(existingStart.val()) : undefined;
+      if (!existing || existing.roomId !== start.roomId || existing.hostUid !== start.hostUid) throw cause;
+    } catch {
+      throw cause;
+    }
   }
   await updateDoc(doc(firestore, 'rooms', start.roomId), {
     status: 'active', activeGameId: nextGameId, startedAt: firestoreTimestamp()
