@@ -48,6 +48,11 @@ works under GitHub Pages' `/drm` base path and static fallback.
 | `/cast?code=ABCD` | Read-only shared display |
 | `/replay?game=…` | Developer-oriented deterministic replay (stretch for MVP) |
 
+At match start the host explicitly chooses a device role. **Play** starts the
+game and sends the host to `/play` as an ordinary controller. **I am the TV**
+starts the same game and sends the host to `/cast`, where that device publishes
+no controller inputs and renders the other players' real progress projections.
+
 The room document maps the public code to an opaque `roomId`; database paths use
 the opaque identifier to avoid treating a guessable code as authorization.
 
