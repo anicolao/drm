@@ -5,11 +5,11 @@ import { activeCells, advanceTick, applyInput, HEIGHT, WIDTH, type BottleState, 
 function settlingBoard(cells: Array<[number, number, Cell]>): BottleState {
   const board: BottleState['board'] = Array(WIDTH * HEIGHT).fill(null);
   for (const [row, column, cell] of cells) board[row * WIDTH + column] = cell;
-  return { tick: 14, board, active: null, rng: 1, nextId: 2, viruses: 1, phase: 'playing', softDrop: false, chain: 1, resolving: true };
+  return { rulesVersion: 'pill-bottle/2', tick: 14, board, active: null, rng: 1, nextId: 2, viruses: 1, phase: 'playing', softDrop: false, chain: 1, resolving: true };
 }
 
 function activeBoard(orientation: 0|1|2|3 = 0): BottleState {
-  return { tick: 0, board: Array(WIDTH * HEIGHT).fill(null), active: { id: 1, row: 5, col: 3, orientation, colors: ['cyan','pink'] }, rng: 1, nextId: 2, viruses: 1, phase: 'playing', softDrop: false, chain: 0, resolving: false };
+  return { rulesVersion: 'pill-bottle/2', tick: 0, board: Array(WIDTH * HEIGHT).fill(null), active: { id: 1, row: 5, col: 3, orientation, colors: ['cyan','pink'] }, rng: 1, nextId: 2, viruses: 1, phase: 'playing', softDrop: false, chain: 0, resolving: false };
 }
 
 const pill = (id: string): Cell => ({ kind: 'pill', color: 'cyan', id });

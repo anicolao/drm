@@ -19,10 +19,11 @@ reload, and show the result on individual tablets or a shared display.
 - Keyboard/touch controls: left, right, rotate, soft drop, and hard drop where
   the ruleset permits it.
 - Seeded piece generation, countdown, play, win/loss, rematch, and leave flows.
-- Ordered gameplay events in Realtime Database (RTDB).
+- Immutable tick-tagged gameplay commands in Realtime Database (RTDB).
 - Room/setup documents in Cloud Firestore.
-- Reconnection by loading a snapshot (when available) and replaying subsequent
-  events, or replaying the full event log for small MVP matches.
+- Reconnection by replaying the immutable command log from tick zero, optionally
+  beginning from a controller-local validated cache. Materialized engine state is
+  never written to Firebase.
 - Unit tests for deterministic rules and browser tests for the critical room flow.
 
 ### Deliberately deferred
@@ -62,12 +63,13 @@ the opaque identifier to avoid treating a guessable code as authorization.
 GitHub Pages (SvelteKit static app)
   ├─ shared deterministic TypeScript engine
   ├─ Firestore: room discovery, membership, configuration, lifecycle
-  └─ RTDB: ordered commands/events, acknowledgements, optional snapshots
+  └─ RTDB: immutable tick-tagged commands and mutable tick/hash projections
 ```
 
 Firestore is coordination state, not the high-frequency gameplay bus. RTDB is the
-game journal, not the source of lobby configuration. The browser app initializes
-both products from one dedicated Firebase web app configuration.
+input journal, not the source of lobby configuration or materialized board state.
+The browser app initializes both products from one dedicated Firebase web app
+configuration.
 
 ## Data model
 
@@ -94,81 +96,61 @@ policy and later be cleaned by a scheduled backend.
 ### Realtime Database
 
 ```text
-games/{gameId}/meta
-  roomId, rulesVersion, seed, startedAt
-games/{gameId}/commands/{pushId}
-  playerId, clientSeq, type, payload, clientTime
-games/{gameId}/events/{sequence}
-  type, actor, payload, acceptedAt
-games/{gameId}/snapshots/{sequence}
-  state, stateHash, createdAt
-games/{gameId}/presence/{uid}
-  connected, lastChanged
+games/{gameId}/start
+  immutable rules version, seed, settings, members, participants, seats
+games/{gameId}/players/{uid}/commands/{pushId}
+  immutable playerId, epochId, clientSeq, tick, type, payload, serverTime
+games/{gameId}/players/{uid}/epochs/{epochId}
+  immutable controller session metadata
+games/{gameId}/players/{uid}/progress
+  replaceable epochId, tick, lastClientSeq, phase, stateHash, serverTime
+games/{gameId}/presence/{uid}/{clientId}
+  replaceable connection projection
 ```
 
-RTDB push IDs provide unique ordered command keys but are not, by themselves, a
-trusted global simulation clock. Every command carries a monotonically increasing
-per-player `clientSeq` for idempotency. A canonical event has a single global
-`sequence`; events are reduced strictly in that order.
+RTDB push IDs provide unique command identities but are not a simulation clock.
+Each controller records the local player tick and a monotonically increasing
+per-epoch `clientSeq`. A player's replay order is `(tick, clientSeq, pushId)`.
+Server timestamps order only future cross-player interactions.
 
 ## Authority model
 
-The MVP uses a **host-authoritative sequencer**:
+The MVP uses **controller authority** for each player's board:
 
-1. A player writes a command only under their authenticated identity.
-2. The elected host validates commands against canonical state.
-3. The host commits the next numbered canonical event with an RTDB transaction
-   that also advances the sequence counter.
-4. Every client, including the host and cast display, reduces canonical events.
-5. Duplicate or stale `clientSeq` values are ignored.
+1. A controller applies its input to its local deterministic engine immediately.
+2. It appends that input with the local tick and per-epoch sequence number.
+3. It publishes only lightweight progress metadata: tick, last sequence, phase,
+   and deterministic state hash.
+4. Other controllers and displays create the same seeded engine and replay the
+   immutable commands to the reported tick.
+5. A hash mismatch is diagnosed; the publisher's materialized board is never
+   downloaded or used to repair another client.
 
-This is suitable for trusted, co-located play and avoids requiring backend code
-for the first playable version. It does not prevent a malicious host from
-cheating. Host migration, multi-writer event ordering, and backend authority are
-deferred; if the host disconnects during play, the MVP pauses and offers a lobby
-restart. Firebase Rules must ensure only the room's current host can append
-canonical events and that existing events cannot be edited or deleted.
+This favors input latency and co-located gameplay over anti-cheat authority. A
+controller can lie about commands or ticks. Firebase Rules enforce identity,
+append-only records, and schema bounds, but do not validate gameplay. Engine state
+may be cached locally for recovery, but no board, snapshot, or serialized engine
+state is synchronized through Firestore or RTDB.
 
-Before implementation, a spike must verify that RTDB Rules can enforce the chosen
-atomic sequence/event write shape. If they cannot, the design moves sequencing to
-a small trusted Firebase function rather than weakening append-only guarantees.
+## Command model and deterministic engine
 
-## Event model and deterministic engine
-
-Room lifecycle actions and gameplay commands are distinct. Candidate canonical
-events include:
-
-- `game_started`
-- `piece_spawned`
-- `piece_moved`
-- `piece_rotated`
-- `piece_dropped`
-- `piece_locked`
-- `cells_cleared`
-- `garbage_sent`
-- `player_lost`
-- `game_finished`
-
-The final vocabulary should describe outcomes, not UI gestures. For example, one
-hard-drop command may produce movement, lock, clear, attack, and spawn outcomes.
-Events include a schema/rules version, and payloads contain only JSON-compatible
-values.
+Room lifecycle actions and gameplay commands are distinct. RTDB records only user
+inputs such as move, rotate, soft-drop start/end, and hard drop. Gravity, locking,
+clears, falling segments, spawning, win, and loss are derived locally by the
+versioned engine and may be exposed as non-durable presentation transitions.
 
 The engine is a pure TypeScript package inside the app:
 
 ```text
-state(n + 1) = reduce(state(n), event(n + 1))
+state(t) = advance(seed, rulesVersion, commandsThrough(t))
 ```
 
 It contains no Firebase, DOM, wall-clock, or unseeded randomness access. Ruleset
 modules define board dimensions, pieces, rotations, clear detection, gravity,
 win conditions, and multiplayer attacks. Shared code owns grid representation,
-event validation, replay, seeded random generation, and state hashing.
-
-Timers become explicit tick/deadline events produced by the sequencer. Clients
-may animate or predict locally, but canonical state changes only through accepted
-events. A periodic hash comparison detects divergence. Snapshots are derived
-caches and can always be discarded and rebuilt from the journal.
+command validation, replay, seeded random generation, serialization for local
+caches, and state hashing. Timers are deterministic player ticks. A local cache
+can always be discarded and rebuilt from the command journal.
 
 ## Ruleset baseline
 
@@ -186,26 +168,29 @@ unless needed for playability testing.
 ### Dr. Mario-style
 
 - Two-color capsule pieces on an 8×16 board.
-- A seeded initial virus layout based on a host-selected low/medium/high level.
+- For `pill-bottle/2`, twelve seeded viruses in rows 6–15 and an identical
+  layout/capsule stream for every seat.
 - Horizontal or vertical groups of four matching colors clear.
 - Unsupported capsule halves fall after clears; viruses do not.
 - Clearing all viruses wins; topping out loses.
-- A simple, documented multiplayer garbage rule shared by all clients.
+- Normal gravity every 15 ticks, soft drop every two ticks, immediate hard drop,
+  a 30-tick lock delay, and 15-tick resolution gravity at 60 Hz.
+- Multiplayer garbage remains a future versioned rule.
 
 The implementation must use original visual assets, names, sounds, and trade
 dress. Gameplay details will be captured as versioned fixtures before coding.
 
 ## Latency and rendering
 
-The controller gives immediate visual/haptic acknowledgement of a press. A tablet
-may render predicted movement for its own piece while retaining the last canonical
-state for correction. The shared display interpolates between canonical states
-and can intentionally render a fraction behind to smooth bursts. Prediction is a
-view concern and never writes derived state to Firebase.
+The controller applies movement to its authoritative local engine and gives
+immediate visual/haptic acknowledgement without waiting for Firebase. A shared
+display replays commands and may intentionally render a fraction behind the
+reported tick to smooth bursts. It corrects only by replaying history; it never
+downloads a controller's board.
 
-To keep traffic bounded, repeated soft-drop inputs may be coalesced, listeners are
-scoped to the active game, and old events are fetched once rather than continuously
-re-downloaded. We will measure event rate and RTDB bandwidth in the first spike.
+To keep traffic bounded, soft drop is represented by start/end commands,
+listeners are scoped to the active game, and old commands are fetched once rather
+than continuously re-downloaded. We will measure command rate and RTDB bandwidth.
 
 ## Security and privacy
 
@@ -214,7 +199,7 @@ re-downloaded. We will measure event rate and RTDB bandwidth in the first spike.
 - Restrict Firebase Auth authorized domains to local development and the GitHub
   Pages origin.
 - Default-deny both rule files. Validate allowed keys, types, ownership, lifecycle
-  transitions, event immutability, and reasonable payload sizes.
+  transitions, command immutability, and reasonable payload sizes.
 - Do not rely on hidden Firebase config values or room codes as security controls.
 - Enable App Check for the production web app after the basic local flow works.
 - Store no email address, contacts, precise location, or advertising identifier.
@@ -250,8 +235,8 @@ path behavior must be tested before adopting the `got` preview-directory pattern
    Dr. Mario-style rules, and fixture-based unit tests.
 3. **Room loop:** create/join lobby, QR code, roles, settings, and lifecycle in
    Firestore.
-4. **Event loop:** RTDB commands, host sequencer, append-only events, reconnect,
-   rule tests, and measured latency/bandwidth.
+4. **Command/replay loop:** RTDB commands, progress hashes, observer replay,
+   reconnect, rule tests, and measured latency/bandwidth.
 5. **Presentation:** tablet board, phone controller, cast arena, countdown,
    results, responsive touch controls, and sound-independent cues.
 6. **Hardening:** four-device playtest, disconnect behavior, browser tests,
@@ -261,20 +246,21 @@ path behavior must be tested before adopting the `got` preview-directory pattern
 
 - A host creates a room and at least three other devices join by QR/code.
 - The host can start and finish one match in either ruleset.
-- Tablet mode and cast-plus-phone mode consume the same canonical event stream.
+- Tablet mode and cast-plus-phone mode replay the same immutable command streams.
 - A reloaded player or display reconstructs the current state and state hash.
-- Duplicate commands do not create duplicate canonical effects.
+- Duplicate command identities do not create duplicate replay effects.
 - A non-member cannot read a game; a player cannot submit for another player;
-  a non-host cannot append events; an existing event cannot be changed or removed.
+  an existing command cannot be changed or removed; no network record contains
+  materialized engine state.
 - Engine, Firebase Rules, type checks, and critical browser flows pass in CI.
 - Production builds and navigation work under the `/drm` GitHub Pages base path.
 
 ## Decisions needed in review
 
 1. Is anonymous authentication sufficient, or should the host use Google sign-in?
-2. Is pausing/restarting on host loss acceptable for MVP?
+2. How long may a disconnected controller remain paused before match policy acts?
 3. Should multiplayer attacks ship in the first playable build or follow stable
    single-board synchronization?
 4. Which exact rotation/kick and garbage rules define the Tetris-style mode?
-5. Which exact virus-generation and garbage rules define the Dr. Mario-style mode?
+5. Which garbage and attack rules define the next Dr. Mario-style rules version?
 6. Is tab casting an acceptable MVP interpretation of Chromecast output?

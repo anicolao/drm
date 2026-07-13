@@ -56,7 +56,7 @@
       {#if authMessage}<p class="auth-message">{authMessage}</p>{/if}
       {#if error}<p role="alert">{error}</p>{/if}
     </section>
-    <aside class="principles card"><p class="eyebrow">Implementation status</p><h2>ROOM COORDINATION</h2><p>Room creation and joining use Firebase. Gameplay will be exposed only after the deterministic engine and canonical event stream are implemented.</p></aside>
+    <aside class="principles card"><p class="eyebrow">Implementation status</p><h2>COLOR CURE PROTOTYPE</h2><p>Immediate local controls drive a deterministic engine. Other screens reconstruct each board from immutable tick-tagged commands; board state never crosses the network.</p></aside>
   </main>
   <section id="join" class="join card">
     <div><p class="eyebrow">Already invited?</p><h2>ENTER ROOM CODE</h2></div>
