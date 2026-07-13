@@ -23,6 +23,19 @@ export async function startPillBottleGame(roomId: string, players: RoomPlayer[])
 }
 
 export interface ControllerState { tick: number; ready: boolean; bottle?: BottleState; lastCommand?: string; error?: string; }
+export interface PlayerProgress { playerId: string; tick: number; state: BottleState }
+
+export function subscribePillBottleProgress(gameId: string, receive: (players: PlayerProgress[]) => void, fail: (error: Error) => void) {
+  if (!realtimeDatabase) throw new Error('Firebase is unavailable.');
+  return onValue(ref(realtimeDatabase, `games/${gameId}/players`), (snapshot) => {
+    const players: PlayerProgress[] = [];
+    snapshot.forEach((entry) => {
+      const progress = entry.child('progress').val() as { tick?: number; state?: BottleState } | null;
+      if (progress?.state && typeof progress.tick === 'number') players.push({ playerId: entry.key!, tick: progress.tick, state: progress.state });
+    });
+    receive(players);
+  }, fail);
+}
 
 export function createPillBottleController(gameId: string, receive: (state: ControllerState) => void) {
   if (!auth?.currentUser || !realtimeDatabase) throw new Error('Firebase is unavailable.');

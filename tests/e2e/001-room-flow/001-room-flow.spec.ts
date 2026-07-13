@@ -22,7 +22,7 @@ test('US-001: host creates and configures a real room', async ({ page }, testInf
   await tester.step('room-created', { description: 'Firestore room contains only its real host', networkStatus: 'skip', verifications: [
     { spec: 'Room code contains exactly four letters', check: async () => await expect(page.locator('header h1')).toHaveText(/^[A-Z]{4}$/) },
     { spec: 'Exactly one named host membership exists', check: async () => { await expect(page.getByText('Joined players · 1')).toBeVisible(); await expect(page.getByText('Alex')).toBeVisible(); } },
-    { spec: 'Only the implemented Color Cure controller can start', check: async () => await expect(page.getByRole('button', { name: 'Start Color Cure controller' })).toBeDisabled() }
+    { spec: 'Play and TV starts require the implemented Color Cure rules', check: async () => { await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeDisabled(); await expect(page.getByRole('button', { name: 'I am the TV' })).toBeDisabled(); } }
   ]});
   const colorCure = page.getByRole('button', { name: /COLOR CURE Dr\. Mario-style/ });
   await colorCure.click();
@@ -32,5 +32,9 @@ test('US-001: host creates and configures a real room', async ({ page }, testInf
   await tester.step('configuration-reloaded', { description: 'Ruleset configuration persists in Firestore', networkStatus: 'skip', verifications: [
     { spec: 'Color Cure remains selected', check: async () => await expect(page.getByRole('button', { name: /COLOR CURE Dr\. Mario-style/ })).toHaveClass(/chosen/) },
     { spec: 'No match is represented', check: async () => await expect(page.getByText('Match in progress')).not.toBeVisible() }
-  ]}); tester.generateDocs();
+  ]});
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  await expect(page).toHaveURL(/\/play\?code=TEST$/, { timeout: 10000 });
+  await expect(page.getByLabel('Pill Bottle controller')).toBeVisible({ timeout: 10000 });
+  tester.generateDocs();
 });

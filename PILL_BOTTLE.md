@@ -799,6 +799,8 @@ host selects a concrete Pill Bottle rules version and settings.
 The host creates a new `gameId`, writes the immutable RTDB start record, and links
 the Firestore room to that game. Controllers observe the start, initialize their
 bottles, publish their epoch/progress, and begin at tick zero.
+The host chooses **Play** to attach their own controller, or **I am the TV** to
+remain input-free and render the other players on the shared display.
 
 ### Active game
 

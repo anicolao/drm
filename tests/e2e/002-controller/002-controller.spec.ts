@@ -26,12 +26,16 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await expect(returningPage.getByLabel('Player name')).not.toBeVisible();
   await expect(page.getByText('Joined players · 3')).toBeVisible({ timeout: 10000 });
   await expect(page.getByText('Sam', { exact: true })).toBeVisible();
+  await returningContext.close();
   await page.getByRole('button', { name: /COLOR CURE Dr\. Mario-style/ }).click();
-  await page.getByRole('button', { name: 'Start Color Cure controller' }).click();
+  await page.getByRole('button', { name: 'I am the TV' }).click();
+  await expect(page).toHaveURL(/\/cast\?code=TEST$/, { timeout: 10000 });
   await expect(playerPage.getByLabel('Pill Bottle controller')).toBeVisible({ timeout: 10000 });
   await expect(playerPage.getByRole('button', { name: 'Move left' })).toBeEnabled({ timeout: 10000 });
   await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-cell-count', '128');
   await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '12');
+  await expect(page.getByRole('heading', { name: 'Jo' })).toBeVisible({ timeout: 10000 });
+  await expect(page.getByLabel('Pill bottle', { exact: true }).first()).toBeVisible();
   await expect.poll(async () => Number((await playerPage.locator('.tick').textContent())?.replace('tick ', ''))).toBeGreaterThan(0);
   await playerPage.getByRole('button', { name: 'Move left' }).dispatchEvent('pointerdown', { pointerId: 1 });
   await expect(playerPage.getByText(/input\/move · tick/)).toBeVisible({ timeout: 10000 });
@@ -59,5 +63,5 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
     { spec: 'Keyboard bindings expose arrows, R, and T', check: async () => { await expect(playerPage.getByRole('button', { name: 'Move left' })).toHaveAttribute('title', 'Arrow Left'); await expect(playerPage.getByRole('button', { name: 'Rotate clockwise' })).toHaveAttribute('title', 'R'); await expect(playerPage.getByRole('button', { name: 'Rotate counterclockwise' })).toHaveAttribute('title', 'T'); } },
     { spec: 'Recorded command includes its player tick', check: async () => { await expect(playerPage.getByText(/input\/hard-drop · tick/)).toBeVisible(); await playerPage.locator('.command-status').evaluate((element: HTMLElement) => { element.style.visibility = 'hidden'; }); } }
   ]});
-  await returningContext.close(); await context.close(); tester.generateDocs();
+  await context.close(); tester.generateDocs();
 });
