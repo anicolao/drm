@@ -21,6 +21,7 @@ export const PILL_BOTTLE_RULES = Object.freeze({
   lockDelayTicks: 30,
   resolutionGravityTicks: 15,
   levelCountdownTicks: 180,
+  matchRounds: 3,
   hardDrop: true,
   spawn: Object.freeze({ row: 1, col: 3 })
 });
@@ -28,7 +29,8 @@ export const PILL_BOTTLE_RULES = Object.freeze({
 export const PILL_BOTTLE_SETTINGS = Object.freeze({
   initialVirusCount: PILL_BOTTLE_RULES.initialVirusCount,
   initialGravityTicks: PILL_BOTTLE_RULES.initialGravityTicks,
-  hardDrop: PILL_BOTTLE_RULES.hardDrop
+  hardDrop: PILL_BOTTLE_RULES.hardDrop,
+  matchRounds: PILL_BOTTLE_RULES.matchRounds
 });
 
 export type PillBottleSettings = typeof PILL_BOTTLE_SETTINGS;

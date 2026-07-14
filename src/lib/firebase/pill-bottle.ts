@@ -56,7 +56,7 @@ export async function startPillBottleGame(roomId: string, members: RoomPlayer[],
   await set(ref(realtimeDatabase, `games/${gameId}/start`), {
     type: 'game/started', roomId, ruleset: 'pill-bottle', rulesVersion: PILL_BOTTLE_RULES_VERSION,
     seed, tickRate: PILL_BOTTLE_RULES.tickRate, hostUid, members: allowedMembers, players,
-    settings: PILL_BOTTLE_SETTINGS, serverTime: serverTimestamp()
+    settings: PILL_BOTTLE_SETTINGS, matchId: gameId, round: 0, serverTime: serverTimestamp()
   });
   await updateDoc(doc(firestore, 'rooms', roomId), {
     status: 'active', activeGameId: gameId, startedAt: firestoreTimestamp()
@@ -93,11 +93,12 @@ export function subscribePillBottleLifecycle(
   if (!realtimeDatabase) throw new Error('Firebase is unavailable.');
   let destroyed = false;
   let playerIds: string[] = [];
-  let terminalPlayerIds: string[] = [];
+  let terminals: Array<{ playerId: string; result: 'cleared' | 'lost'; tick: number }> = [];
   let readyPlayerIds: string[] = [];
+  let round = 0;
   const listeners: Unsubscribe[] = [];
   const publish = () => {
-    if (playerIds.length > 0) receive(derivePillMatchLifecycle(playerIds, terminalPlayerIds, readyPlayerIds));
+    if (playerIds.length > 0) receive(derivePillMatchLifecycle(playerIds, terminals, readyPlayerIds, round));
   };
 
   void (async () => {
@@ -106,12 +107,13 @@ export function subscribePillBottleLifecycle(
       if (destroyed || !snapshot.exists()) return;
       const start = parsePillStart(snapshot.val());
       playerIds = Object.keys(start.players);
-      listeners.push(onValue(ref(realtimeDatabase!, `games/${gameId}/terminals`), (terminals) => {
+      round = start.round;
+      listeners.push(onValue(ref(realtimeDatabase!, `games/${gameId}/terminals`), (terminalSnapshot) => {
         try {
-          terminalPlayerIds = [];
-          terminals.forEach((terminal) => {
+          terminals = [];
+          terminalSnapshot.forEach((terminal) => {
             const value = parsePillTerminal(terminal.val());
-            if (terminal.key === value.playerId && playerIds.includes(value.playerId)) terminalPlayerIds.push(value.playerId);
+            if (terminal.key === value.playerId && playerIds.includes(value.playerId)) terminals.push(value);
           });
           publish();
         } catch (cause) {
@@ -170,12 +172,17 @@ export async function startPillBottleRematch(gameId: string) {
   });
   const nextGameId = claim.snapshot.val();
   if (typeof nextGameId !== 'string') throw new Error('Could not reserve the rematch.');
+  const advanceRound = Object.keys(start.players).length > 1 && start.round + 1 < PILL_BOTTLE_RULES.matchRounds;
   const nextStart = ref(realtimeDatabase, `games/${nextGameId}/start`);
   try {
     await set(nextStart, {
       type: 'game/started', roomId: start.roomId, ruleset: start.ruleset, rulesVersion: start.rulesVersion,
       seed: gameSeed(), tickRate: start.tickRate, hostUid: start.hostUid, members: start.members,
-      players: start.players, settings: start.settings, serverTime: serverTimestamp()
+      players: start.players, settings: start.settings,
+      matchId: advanceRound ? start.matchId : nextGameId,
+      round: advanceRound ? start.round + 1 : 0,
+      ...(advanceRound ? { previousGameId: gameId } : {}),
+      serverTime: serverTimestamp()
     });
   } catch (cause) {
     // Another host display may have completed the immutable start record first. Reading is
@@ -212,12 +219,25 @@ export function subscribePillBottleProgress(
   let lastTime: number | undefined;
   let accumulator = 0;
   let matchFinished = false;
+  let terminalPlayerIds = new Set<string>();
   let rematchStarting = false;
   const listeners: Unsubscribe[] = [];
   const observers = new Map<string, PillBottleObserver>();
+  const histories = new Map<string, ControllerRecord[]>();
+  let startDefinition: ReturnType<typeof parsePillStart> | undefined;
+  let currentLifecycle: PillMatchLifecycle | undefined;
+  let previousPoints: Record<string, number> = {};
+  const withRoundPoints = (lifecycle: PillMatchLifecycle) => {
+    if (!startDefinition) return lifecycle;
+    const roundPoints = deriveRoundPoints(startDefinition, lifecycle, histories);
+    const scores = Object.fromEntries(lifecycle.playerIds.map((playerId) => [playerId, (previousPoints[playerId] ?? 0) + roundPoints[playerId]]));
+    return { ...lifecycle, roundPoints, scores };
+  };
   const stopLifecycle = subscribePillBottleLifecycle(gameId, (lifecycle) => {
     matchFinished = lifecycle.finished;
-    receiveLifecycle?.(lifecycle);
+    terminalPlayerIds = new Set(lifecycle.terminalPlayerIds);
+    currentLifecycle = lifecycle;
+    receiveLifecycle?.(withRoundPoints(lifecycle));
     if (lifecycle.allReady && !rematchStarting) {
       rematchStarting = true;
       void startPillBottleRematch(gameId).catch((error) => {
@@ -227,10 +247,13 @@ export function subscribePillBottleProgress(
     }
   }, fail);
 
-  const publish = () => receive([...observers.entries()].map(([playerId, observer]) => {
+  const publish = () => {
+    if (currentLifecycle) receiveLifecycle?.(withRoundPoints(currentLifecycle));
+    receive([...observers.entries()].map(([playerId, observer]) => {
     const snapshot = observer.snapshot();
     return { playerId, tick: snapshot.displayTick, ...snapshot };
-  }));
+    }));
+  };
 
   const loop = (now: number) => {
     if (destroyed) return;
@@ -238,7 +261,9 @@ export function subscribePillBottleProgress(
     accumulator += Math.min(now - lastTime, 250);
     lastTime = now;
     while (accumulator >= 1000 / PILL_BOTTLE_RULES.tickRate) {
-      if (!matchFinished) for (const observer of observers.values()) observer.advance();
+      if (!matchFinished) for (const [playerId, observer] of observers) {
+        if (!terminalPlayerIds.has(playerId)) observer.advance();
+      }
       accumulator -= 1000 / PILL_BOTTLE_RULES.tickRate;
     }
     publish();
@@ -250,7 +275,8 @@ export function subscribePillBottleProgress(
       const startSnapshot = await get(ref(realtimeDatabase!, `games/${gameId}/start`));
       if (destroyed || !startSnapshot.exists()) return;
       const start = parsePillStart(startSnapshot.val());
-      const histories = new Map<string, ControllerRecord[]>();
+      startDefinition = start;
+      previousPoints = await loadPreviousPillScores(start.previousGameId);
       let initialDisplayTick = 0;
 
       await Promise.all(Object.keys(start.players).map(async (playerId) => {
@@ -267,13 +293,21 @@ export function subscribePillBottleProgress(
 
       if (destroyed) return;
       for (const [playerId, definition] of Object.entries(start.players)) {
-        const observer = new PillBottleObserver(createBottle(start.seed, definition.seat), initialDisplayTick);
+        const observer = new PillBottleObserver(createBottle(start.seed, definition.seat, start.round), initialDisplayTick);
         observers.set(playerId, observer);
         for (const record of histories.get(playerId) ?? []) observer.receive(record);
         listeners.push(onChildAdded(ref(realtimeDatabase!, `games/${gameId}/players/${playerId}/records`), (snapshot) => {
           try {
             const record = withoutServerTime(parsePillControllerRecord(snapshot.key!, snapshot.val()));
-            if (record.playerId === playerId) observer.receive(record);
+            if (record.playerId === playerId) {
+              const records = histories.get(playerId) ?? [];
+              if (!records.some((existing) => existing.commandId === record.commandId)) {
+                records.push(record);
+                records.sort((left, right) => left.clientSeq - right.clientSeq);
+                histories.set(playerId, records);
+              }
+              observer.receive(record);
+            }
             publish();
           } catch (cause) {
             fail(cause instanceof Error ? cause : new Error(String(cause)));
@@ -308,6 +342,59 @@ function applyRecord(state: BottleState, record: ControllerRecord) {
   if (record.type !== 'progress/tick') applyInput(state, record);
 }
 
+function deriveRoundPoints(
+  start: ReturnType<typeof parsePillStart>,
+  lifecycle: PillMatchLifecycle,
+  histories: Map<string, ControllerRecord[]>
+) {
+  const points = Object.fromEntries(lifecycle.playerIds.map((playerId) => [playerId, 0]));
+  for (const playerId of lifecycle.playerIds) {
+    if (lifecycle.terminalResults[playerId] !== 'cleared') continue;
+    const scoringTick = lifecycle.terminalTicks[playerId];
+    for (const opponentId of lifecycle.playerIds) {
+      if (opponentId === playerId) continue;
+      const targetTick = Math.min(scoringTick, lifecycle.terminalTicks[opponentId] ?? scoringTick);
+      const definition = start.players[opponentId];
+      if (!definition) continue;
+      const state = createBottle(start.seed, definition.seat, start.round);
+      for (const record of histories.get(opponentId) ?? []) {
+        if (record.tick > targetTick) break;
+        applyRecord(state, record);
+      }
+      if (state.tick < targetTick && state.phase !== 'lost') advanceToTick(state, targetTick, []);
+      points[playerId] += state.viruses;
+    }
+  }
+  return points;
+}
+
+async function loadPreviousPillScores(previousGameId?: string) {
+  const totals: Record<string, number> = {};
+  let gameId = previousGameId;
+  while (gameId && realtimeDatabase) {
+    const startSnapshot = await get(ref(realtimeDatabase, `games/${gameId}/start`));
+    if (!startSnapshot.exists()) break;
+    const start = parsePillStart(startSnapshot.val());
+    const terminalSnapshot = await get(ref(realtimeDatabase, `games/${gameId}/terminals`));
+    const terminalRecords: Array<{ playerId: string; result: 'cleared' | 'lost'; tick: number }> = [];
+    terminalSnapshot.forEach((child) => { terminalRecords.push(parsePillTerminal(child.val())); });
+    const playerIds = Object.keys(start.players);
+    const lifecycle = derivePillMatchLifecycle(playerIds, terminalRecords, [], start.round);
+    const histories = new Map<string, ControllerRecord[]>();
+    await Promise.all(playerIds.map(async (playerId) => {
+      const recordSnapshot = await get(ref(realtimeDatabase!, `games/${gameId}/players/${playerId}/records`));
+      const records: ControllerRecord[] = [];
+      recordSnapshot.forEach((child) => { records.push(withoutServerTime(parsePillControllerRecord(child.key!, child.val()))); });
+      records.sort((left, right) => left.clientSeq - right.clientSeq);
+      histories.set(playerId, records);
+    }));
+    const points = deriveRoundPoints(start, lifecycle, histories);
+    for (const playerId of playerIds) totals[playerId] = (totals[playerId] ?? 0) + points[playerId];
+    gameId = start.previousGameId;
+  }
+  return totals;
+}
+
 export function createPillBottleController(gameId: string, receive: (state: ControllerState) => void) {
   if (!auth?.currentUser || !realtimeDatabase) throw new Error('Firebase is unavailable.');
   const playerId = auth.currentUser.uid;
@@ -323,6 +410,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
   let destroyed = false;
   let suspended = false;
   let matchFinished = false;
+  let playerFinished = false;
   let terminalDeclared = false;
   let rematchStarting = false;
   let lastCommand: string | undefined;
@@ -339,6 +427,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
   const stopLifecycle = subscribePillBottleLifecycle(gameId, (next) => {
     lifecycle = next;
     matchFinished = next.finished;
+    playerFinished = next.terminalPlayerIds.includes(playerId);
     if (matchFinished) {
       cancelAnimationFrame(frame);
       accumulator = 0;
@@ -406,13 +495,16 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
   }
 
   async function declareTerminal() {
-    if (!bottle || bottle.phase !== 'lost' || terminalDeclared) return;
+    if (!bottle || terminalDeclared) return;
+    const multiplayer = (lifecycle?.playerIds.length ?? 0) > 1;
+    const result = bottle.phase === 'lost' ? 'lost' : multiplayer && bottle.phase === 'countdown' ? 'cleared' : undefined;
+    if (!result) return;
     terminalDeclared = true;
     try {
       const terminalRef = ref(realtimeDatabase!, `games/${gameId}/terminals/${playerId}`);
       if (!(await get(terminalRef)).exists()) {
         await set(terminalRef, {
-          type: 'player/terminal', playerId, tick, result: 'lost', stateHash: hashState(bottle),
+          type: 'player/terminal', playerId, tick, result, stateHash: hashState(bottle),
           serverTime: serverTimestamp()
         });
       }
@@ -422,13 +514,13 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
   }
 
   function loop(now: number) {
-    if (destroyed || !ready || suspended || matchFinished) return;
+    if (destroyed || !ready || suspended || matchFinished || playerFinished) return;
     if (lastTime === undefined) lastTime = now;
     accumulator += Math.min(now - lastTime, 250);
     lastTime = now;
     const phaseBefore = bottle?.phase;
     while (accumulator >= 1000 / PILL_BOTTLE_RULES.tickRate) {
-      if (!bottle || bottle.phase === 'lost') { accumulator = 0; break; }
+      if (!bottle || bottle.phase === 'lost' || (bottle.phase === 'countdown' && (lifecycle?.playerIds.length ?? 0) > 1)) { accumulator = 0; break; }
       advanceTick(bottle);
       tick = bottle.tick;
       accumulator -= 1000 / PILL_BOTTLE_RULES.tickRate;
@@ -462,7 +554,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
       const checkpoint = loadControllerCheckpoint(gameId, playerId);
       const checkpointRecord = checkpoint && records.find((record) => record.commandId === checkpoint.commandId
         && record.clientSeq === checkpoint.clientSeq && record.tick === checkpoint.tick);
-      bottle = checkpointRecord ? deserializeBottle(checkpoint!.state) : createBottle(start.seed, start.players[playerId].seat);
+      bottle = checkpointRecord ? deserializeBottle(checkpoint!.state) : createBottle(start.seed, start.players[playerId].seat, start.round);
       for (const record of records) {
         if (checkpointRecord && record.clientSeq <= checkpointRecord.clientSeq) continue;
         applyRecord(bottle, record);
