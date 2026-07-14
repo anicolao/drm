@@ -36,8 +36,8 @@ in the browser bundle.
 
 The production prototype implements Firebase authentication, room coordination,
 a versioned `pill-bottle/3` Color Cure engine, immediate local controls,
-tick-tagged RTDB commands, deterministic replay/state hashes, level progression,
-last-player-standing results, rematch voting, and a shared canvas display
+tick-tagged RTDB commands, deterministic replay/state hashes, three-round
+replay-derived scoring, next-level/rematch voting, and a shared canvas display
 reconstructed from commands. Presence, attacks, and the Tetris-style ruleset
 remain to be implemented.
 

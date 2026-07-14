@@ -109,12 +109,12 @@ function populateLevel(state: BottleState) {
   spawn(state);
 }
 
-export function createBottle(seed: number, _seat = 0): BottleState {
+export function createBottle(seed: number, _seat = 0, level = 0): BottleState {
   // pill-bottle/3 intentionally gives every seat the same layout and capsule stream.
   const state: BottleState = {
     rulesVersion: PILL_BOTTLE_RULES_VERSION,
     tick: 0,
-    level: 0,
+    level,
     pills: 0,
     gravityCounter: 0,
     board: Array(WIDTH * HEIGHT).fill(null),

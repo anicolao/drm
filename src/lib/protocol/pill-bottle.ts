@@ -20,6 +20,9 @@ export interface PillStartRecord {
   members: Record<string, true>;
   players: Record<string, { seat: number }>;
   settings: PillBottleSettings;
+  matchId: string;
+  round: number;
+  previousGameId?: string;
   serverTime: number;
 }
 
@@ -56,7 +59,7 @@ export interface PillTerminalRecord {
   type: 'player/terminal';
   playerId: string;
   tick: number;
-  result: 'lost';
+  result: 'cleared' | 'lost';
   stateHash: string;
   serverTime: number;
 }
@@ -89,10 +92,13 @@ function parseInput(type: unknown, payload: unknown): PillInput {
 
 export function parsePillStart(value: unknown): PillStartRecord {
   if (!isObject(value) || !hasOnlyKeys(value, [
-    'type', 'roomId', 'ruleset', 'rulesVersion', 'seed', 'tickRate', 'hostUid', 'members', 'players', 'settings', 'serverTime'
+    'type', 'roomId', 'ruleset', 'rulesVersion', 'seed', 'tickRate', 'hostUid', 'members', 'players', 'settings',
+    'matchId', 'round', 'previousGameId', 'serverTime'
   ]) || value.type !== 'game/started' || value.ruleset !== 'pill-bottle'
     || value.rulesVersion !== PILL_BOTTLE_RULES_VERSION || value.tickRate !== PILL_BOTTLE_RULES.tickRate
-    || !isString(value.roomId) || !isString(value.hostUid) || !isInteger(value.seed, 0, 0xffffffff)
+    || !isString(value.roomId) || !isString(value.hostUid) || (value.matchId !== undefined && !isString(value.matchId))
+    || (value.round !== undefined && !isInteger(value.round, 0, PILL_BOTTLE_RULES.matchRounds - 1))
+    || (value.previousGameId !== undefined && !isString(value.previousGameId)) || !isInteger(value.seed, 0, 0xffffffff)
     || !isServerTime(value.serverTime) || !isObject(value.members) || !isObject(value.players) || !isObject(value.settings)) {
     throw new Error('Invalid pill-bottle/3 start record.');
   }
@@ -107,12 +113,18 @@ export function parsePillStart(value: unknown): PillStartRecord {
     || playerEntries.length < 1 || playerEntries.length > 4
     || !playerEntries.every(([uid, player]) => isString(uid) && isObject(player) && hasOnlyKeys(player, ['seat']) && isInteger(player.seat, 0, 3) && members[uid] === true)
     || new Set(seats).size !== seats.length
-    || !hasOnlyKeys(settings, ['initialVirusCount', 'initialGravityTicks', 'hardDrop'])
+    || !hasOnlyKeys(settings, ['initialVirusCount', 'initialGravityTicks', 'hardDrop', 'matchRounds'])
     || settings.initialVirusCount !== PILL_BOTTLE_SETTINGS.initialVirusCount
     || settings.initialGravityTicks !== PILL_BOTTLE_SETTINGS.initialGravityTicks
-    || settings.hardDrop !== PILL_BOTTLE_SETTINGS.hardDrop) throw new Error('Invalid pill-bottle/3 start definition.');
+    || settings.hardDrop !== PILL_BOTTLE_SETTINGS.hardDrop
+    || (settings.matchRounds !== undefined && settings.matchRounds !== PILL_BOTTLE_SETTINGS.matchRounds)) throw new Error('Invalid pill-bottle/3 start definition.');
 
-  return value as unknown as PillStartRecord;
+  return {
+    ...value,
+    settings: { ...settings, matchRounds: PILL_BOTTLE_SETTINGS.matchRounds },
+    matchId: (value.matchId as string | undefined) ?? value.roomId,
+    round: (value.round as number | undefined) ?? 0
+  } as unknown as PillStartRecord;
 }
 
 export function parsePillCommand(commandId: string, value: unknown): PillCommandRecord & { replay: ReplayCommand } {
@@ -193,7 +205,7 @@ export function parsePillProgress(value: unknown): PillProgressRecord {
 export function parsePillTerminal(value: unknown): PillTerminalRecord {
   if (!isObject(value) || !hasOnlyKeys(value, ['type', 'playerId', 'tick', 'result', 'stateHash', 'serverTime'])
     || value.type !== 'player/terminal' || !isString(value.playerId) || !isInteger(value.tick)
-    || value.result !== 'lost' || typeof value.stateHash !== 'string' || !/^pb3-[0-9a-f]{8}$/.test(value.stateHash)
+    || !['cleared', 'lost'].includes(value.result as string) || typeof value.stateHash !== 'string' || !/^pb3-[0-9a-f]{8}$/.test(value.stateHash)
     || !isServerTime(value.serverTime)) throw new Error('Invalid pill terminal declaration.');
   return value as unknown as PillTerminalRecord;
 }

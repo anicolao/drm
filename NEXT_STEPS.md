@@ -74,9 +74,10 @@ The following work is complete or working in prototype form:
   plus a persistent identity-preserving local outbox.
 - Controller visibility handling that records suspension/resumption, releases
   soft drop, pauses local ticks, and resumes without catch-up.
-- Immutable top-out declarations, replay-derived last-survivor results, result
-  presentation, per-player rematch readiness, and host-reserved rematch games
-  with new IDs, seeds, and journals.
+- Immutable clear/top-out declarations; replay-derived three-round scoring based
+  on opponents' viruses at each clear tick; round results and cumulative score
+  presentation; and unanimous next-level/rematch readiness with host-reserved
+  linked journals.
 - Explicit host-as-player and host-as-display starts.
 - Unit fixtures for seeded generation, live-versus-replay equivalence, command
   ordering/deduplication, serialization, hashes, and protocol rejection.
@@ -192,23 +193,23 @@ Acceptance:
 
 ### 3. Complete one match lifecycle — playable lifecycle completed
 
-Goal: two to four people can start, finish, and replay another Color Cure round
+Goal: two to four people can complete a three-round points match and replay it
 without manually recreating the room.
 
 Implemented for the playable lifecycle:
 
 1. Version `pill-bottle/3` with deterministic level countdowns and new-level
    generation inside the replayable engine.
-2. Publish immutable terminal declarations containing player, terminal tick,
-   result, and state hash.
-3. Derive last-survivor wins and simultaneous-terminal draws without uploading
-   a terminal board.
-4. Add level, speed, countdown, elimination, result, and rematch presentation to
-   controller and cast routes.
-5. Add immutable per-player rematch readiness and a host-reserved next game ID.
-   A unanimous vote creates a fresh seed and journal while preserving players
-   and seats.
-6. Preserve old game journals as immutable replay inputs.
+2. Publish immutable clear/top-out declarations containing player, terminal
+   tick, result, and state hash.
+3. Award each clearer the replay-derived viruses remaining across opponents at
+   that tick. Continue until one player remains; that player receives zero.
+4. Run three shared levels as linked immutable journals, preserving cumulative
+   replay-derived scores across reloads.
+5. Add level, score, round result, next-level, final result, and rematch
+   presentation to controller and cast routes.
+6. Require unanimous readiness before the host reserves the next level or a new
+   three-round match, with a fresh seed and journal.
 
 Still pending under room/presentation hardening:
 
@@ -218,9 +219,9 @@ Still pending under room/presentation hardening:
 
 Acceptance:
 
-- A two-to-four-player seeded round reaches a displayed winner and terminal
-  hashes agree on all observers.
-- Rematch creates a distinct game journal and all participants begin at tick zero.
+- A two-to-four-player match displays replay-derived round and cumulative points.
+- Next level and rematch create distinct linked journals and all participants
+  begin together at tick zero on the correct level.
 - Reload works during countdown, active play, results, and rematch setup.
 
 ### 4. Presentation and playability pass

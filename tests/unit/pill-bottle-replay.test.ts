@@ -78,7 +78,7 @@ test('runtime protocol validation accepts only the frozen start definition', () 
   const start = parsePillStart({
     type: 'game/started', roomId: 'room', ruleset: 'pill-bottle', rulesVersion: 'pill-bottle/3',
     seed: 7, tickRate: 60, hostUid: 'host', members: { host: true, player: true },
-    players: { player: { seat: 0 } }, settings: PILL_BOTTLE_SETTINGS, serverTime: 100
+    players: { player: { seat: 0 } }, settings: PILL_BOTTLE_SETTINGS, matchId: 'match', round: 0, serverTime: 100
   });
   assert.equal(start.settings.initialVirusCount, 5);
   assert.throws(() => parsePillStart({ ...start, settings: { ...start.settings, hardDrop: false } }), /start definition/);

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { activeCells, advanceTick, applyInput, gravityTicksForState, HEIGHT, WIDTH, type BottleState, type Cell } from '../../src/lib/game/pill-bottle.ts';
+import { activeCells, advanceTick, applyInput, createBottle, gravityTicksForState, HEIGHT, WIDTH, type BottleState, type Cell } from '../../src/lib/game/pill-bottle.ts';
 
 function settlingBoard(cells: Array<[number, number, Cell]>): BottleState {
   const board: BottleState['board'] = Array(WIDTH * HEIGHT).fill(null);
@@ -75,6 +75,13 @@ test('gravity starts at 50 ticks and accelerates every ten pills and five ticks 
   assert.equal(gravityTicksForState({ level: 1, pills: 0 }), 45);
   assert.equal(gravityTicksForState({ level: 2, pills: 20 }), 38);
   assert.equal(gravityTicksForState({ level: 20, pills: 1000 }), 1);
+});
+
+test('a shared round can start directly at its level', () => {
+  const state = createBottle(42, 0, 2);
+  assert.equal(state.level, 2);
+  assert.equal(state.viruses, 15);
+  assert.equal(gravityTicksForState(state), 40);
 });
 
 test('clearing a level counts down before generating the next level', () => {
