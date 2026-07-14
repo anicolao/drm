@@ -4,13 +4,19 @@
   import PillBottle from '$lib/components/PillBottle.svelte';
   import { gravityTicksForState } from '$lib/game/pill-bottle';
   import { firebaseConfigured } from '$lib/firebase/config';
-  import { joinRoom, subscribeRoom } from '$lib/firebase/rooms';
+  import { joinRoom, subscribeRoom, subscribeRoomPlayers, type RoomPlayer } from '$lib/firebase/rooms';
   import { createPillBottleController, type PillCommand, type ControllerState } from '$lib/firebase/pill-bottle';
 
   let code=''; let joined=false; let joining=false; let needsName=false; let playerName=''; let error='';
   let roomId=''; let activeGameId=''; let controller: ReturnType<typeof createPillBottleController> | undefined;
-  let roomUnsubscribe=()=>{}; let state: ControllerState={tick:0,ready:false}; let downHeld=false;
+  let roomUnsubscribe=()=>{}; let playersUnsubscribe=()=>{}; let players:RoomPlayer[]=[]; let state: ControllerState={tick:0,ready:false}; let downHeld=false;
   $: controlsEnabled=Boolean(state.ready&&state.bottle?.phase==='playing'&&!state.lifecycle?.finished);
+  $: standings=(state.lifecycle?.playerIds??[]).map((playerId,index)=>({
+    playerId,
+    name:players.find(player=>player.uid===playerId)?.displayName??(playerId===state.playerId?playerName:`Player ${index+1}`),
+    score:state.lifecycle?.scores[playerId]??0,
+    roundPoints:state.lifecycle?.roundPoints[playerId]??0
+  })).sort((a,b)=>b.score-a.score);
 
   onMount(()=>{
     void initialize();
@@ -18,7 +24,7 @@
     const visibility=()=>{if(document.hidden){release();controller?.suspend();}else controller?.resume();};
     const pagehide=()=>{release();controller?.suspend();};
     window.addEventListener('blur',release);window.addEventListener('keydown',keyDown);window.addEventListener('keyup',keyUp);window.addEventListener('pagehide',pagehide);document.addEventListener('visibilitychange',visibility);
-    return()=>{roomUnsubscribe();controller?.destroy();window.removeEventListener('blur',release);window.removeEventListener('keydown',keyDown);window.removeEventListener('keyup',keyUp);window.removeEventListener('pagehide',pagehide);document.removeEventListener('visibilitychange',visibility);};
+    return()=>{roomUnsubscribe();playersUnsubscribe();controller?.destroy();window.removeEventListener('blur',release);window.removeEventListener('keydown',keyDown);window.removeEventListener('keyup',keyUp);window.removeEventListener('pagehide',pagehide);document.removeEventListener('visibilitychange',visibility);};
   });
 
   async function initialize(){
@@ -33,6 +39,7 @@
     joining=true;error='';
     try{
       const room=await joinRoom(code,playerName);roomId=room.id;joined=true;needsName=false;
+      playersUnsubscribe=subscribeRoomPlayers(room.id,next=>players=next,cause=>error=cause.message);
       if(room.activeGameId)startController(room.activeGameId);
       roomUnsubscribe=subscribeRoom(room.id,(next)=>{if(next.activeGameId)startController(next.activeGameId);},(cause)=>error=cause.message);
     }catch(cause){error=cause instanceof Error?cause.message:String(cause);}
@@ -76,6 +83,7 @@
 {:else if !joined}<main class="join"><p class="eyebrow">Joining room…</p></main>
 {:else if !activeGameId}<main class="join"><p class="eyebrow">Joined room {code}</p><h1>WAITING FOR HOST</h1><p>The controller starts when the host publishes the game start record.</p></main>
 {:else}<main class="landscape-controller" aria-label="Pill Bottle controller">
+  {#if state.lifecycle&&state.lifecycle.playerIds.length>1}<aside class="controller-scoreboard" aria-label="Scores"><strong>ROUND {state.lifecycle.round+1}/3</strong>{#each standings as player}<span class:you={player.playerId===state.playerId}>{player.name} <b>{player.score}</b>{#if player.roundPoints>0}<small>+{player.roundPoints}</small>{/if}</span>{/each}</aside>{/if}
   <section class="session"><strong>{playerName}</strong><span>room {code}</span>{#if state.bottle}<PillBottle state={state.bottle}/><span>{state.lifecycle?.playerIds.length===1?`level ${state.bottle.level}`:`round ${(state.lifecycle?.round??state.bottle.level)+1}/3`} · {state.bottle.viruses} viruses</span><span>speed {gravityTicksForState(state.bottle)} ticks · {state.bottle.pills} pills</span>{#if state.lifecycle?.terminalResults[state.playerId??'']==='cleared'}<strong class="countdown">LEVEL CLEAR</strong>{:else if state.bottle.phase==='lost'&&!state.lifecycle?.finished}<strong class="result">ELIMINATED · WAITING</strong>{/if}{/if}<span class="tick">tick {state.tick}</span><small>{state.ready?'connected':'loading game…'}</small>{#if state.lastCommand}<small class="command-status">{state.lastCommand}</small>{/if}{#if state.lifecycle?.finished}<div class="match-result"><strong>{state.lifecycle.playerIds.length===1?'GAME OVER':state.lifecycle.matchComplete?'MATCH COMPLETE':`ROUND ${state.lifecycle.round+1} COMPLETE`}</strong><button on:click={nextRound} disabled={state.lifecycle.readyPlayerIds.includes(state.playerId??'')}>{state.lifecycle.matchComplete?'PLAY AGAIN':'NEXT LEVEL'}</button><small>{state.lifecycle.readyPlayerIds.length}/{state.lifecycle.playerIds.length} ready</small></div>{/if}</section>
   <section class="dpad" aria-label="Movement controls">
     <button class="up" aria-label="Hard drop" title="Arrow Up" disabled={!controlsEnabled} on:pointerdown={()=>send({type:'input/hard-drop',payload:{}})}>↑</button>
@@ -96,6 +104,7 @@
   .landscape-controller{position:fixed;inset:0;background:radial-gradient(circle at 50% 50%,#24203a 0,transparent 45%),var(--bg);touch-action:none;user-select:none}
   .session{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:grid;text-align:center;gap:.2rem;color:var(--muted);text-transform:uppercase;font-size:.58rem}.session :global(.bottle){width:min(15vw,112px)}.session strong{color:var(--text);font-size:.8rem}.session .tick{color:var(--yellow);font-size:.8rem}
   .session .countdown{color:var(--yellow)}.session .result{color:var(--pink)}.match-result{position:fixed;inset:0;z-index:5;background:rgba(8,9,13,.9);display:grid;place-content:center;gap:1rem}.match-result strong{font-size:clamp(2rem,7vw,5rem);color:var(--yellow)}.match-result button{font-size:1rem}
+  .controller-scoreboard{position:absolute;z-index:6;top:1rem;right:1rem;display:grid;gap:.25rem;text-align:right;text-transform:uppercase;font-size:.65rem;color:var(--muted)}.controller-scoreboard strong{color:var(--text)}.controller-scoreboard b,.controller-scoreboard small,.controller-scoreboard .you{color:var(--yellow)}.controller-scoreboard small{margin-left:.25rem}
   .dpad{position:absolute;left:max(1rem,4vw);bottom:max(1rem,5vh);width:clamp(190px,34vw,280px);height:clamp(145px,64vh,230px);display:grid;grid-template:repeat(2,1fr)/repeat(3,1fr);gap:.55rem}.dpad button,.rotations button{font-size:clamp(1.8rem,5vw,3rem);background:#292c38;color:var(--text);border:1px solid #4a4d60;box-shadow:4px 4px 0 var(--ink);padding:0}.dpad button:active,.rotations button:active,.dpad .held{background:var(--cyan);color:var(--ink);transform:translate(2px,2px);box-shadow:2px 2px 0 var(--ink)}
   .up{grid-area:1/2}.left{grid-area:2/1}.down{grid-area:2/2}.right{grid-area:2/3}
   .rotations{position:absolute;right:max(1rem,4vw);bottom:max(1rem,5vh);display:grid;grid-template-columns:repeat(2,clamp(82px,14vw,130px));gap:1rem;height:clamp(90px,35vh,150px)}.rotations button:first-child{background:color-mix(in srgb,var(--pink),#292c38 45%)}.rotations button:last-child{background:color-mix(in srgb,var(--cyan),#292c38 45%)}
