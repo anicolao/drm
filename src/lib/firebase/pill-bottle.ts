@@ -96,9 +96,17 @@ export function subscribePillBottleLifecycle(
   let terminals: Array<{ playerId: string; result: 'cleared' | 'lost'; tick: number }> = [];
   let readyPlayerIds: string[] = [];
   let round = 0;
+  let startDefinition: ReturnType<typeof parsePillStart> | undefined;
+  let previousPoints: Record<string, number> = {};
+  const histories = new Map<string, ControllerRecord[]>();
   const listeners: Unsubscribe[] = [];
   const publish = () => {
-    if (playerIds.length > 0) receive(derivePillMatchLifecycle(playerIds, terminals, readyPlayerIds, round));
+    if (playerIds.length === 0) return;
+    const lifecycle = derivePillMatchLifecycle(playerIds, terminals, readyPlayerIds, round);
+    if (!startDefinition) return receive(lifecycle);
+    const roundPoints = deriveRoundPoints(startDefinition, lifecycle, histories);
+    const scores = Object.fromEntries(playerIds.map((playerId) => [playerId, (previousPoints[playerId] ?? 0) + roundPoints[playerId]]));
+    receive({ ...lifecycle, roundPoints, scores });
   };
 
   void (async () => {
@@ -106,8 +114,34 @@ export function subscribePillBottleLifecycle(
       const snapshot = await get(ref(realtimeDatabase!, `games/${gameId}/start`));
       if (destroyed || !snapshot.exists()) return;
       const start = parsePillStart(snapshot.val());
+      startDefinition = start;
       playerIds = Object.keys(start.players);
       round = start.round;
+      previousPoints = await loadPreviousPillScores(start.previousGameId);
+      await Promise.all(playerIds.map(async (playerId) => {
+        const recordsSnapshot = await get(ref(realtimeDatabase!, `games/${gameId}/players/${playerId}/records`));
+        const records: ControllerRecord[] = [];
+        recordsSnapshot.forEach((child) => {
+          const record = withoutServerTime(parsePillControllerRecord(child.key!, child.val()));
+          if (record.playerId === playerId) records.push(record);
+        });
+        records.sort((left, right) => left.clientSeq - right.clientSeq);
+        histories.set(playerId, records);
+        listeners.push(onChildAdded(ref(realtimeDatabase!, `games/${gameId}/players/${playerId}/records`), (child) => {
+          try {
+            const record = withoutServerTime(parsePillControllerRecord(child.key!, child.val()));
+            const history = histories.get(playerId) ?? [];
+            if (record.playerId === playerId && !history.some((existing) => existing.commandId === record.commandId)) {
+              history.push(record);
+              history.sort((left, right) => left.clientSeq - right.clientSeq);
+              histories.set(playerId, history);
+              publish();
+            }
+          } catch (cause) {
+            fail(cause instanceof Error ? cause : new Error(String(cause)));
+          }
+        }, fail));
+      }));
       listeners.push(onValue(ref(realtimeDatabase!, `games/${gameId}/terminals`), (terminalSnapshot) => {
         try {
           terminals = [];
@@ -224,20 +258,10 @@ export function subscribePillBottleProgress(
   const listeners: Unsubscribe[] = [];
   const observers = new Map<string, PillBottleObserver>();
   const histories = new Map<string, ControllerRecord[]>();
-  let startDefinition: ReturnType<typeof parsePillStart> | undefined;
-  let currentLifecycle: PillMatchLifecycle | undefined;
-  let previousPoints: Record<string, number> = {};
-  const withRoundPoints = (lifecycle: PillMatchLifecycle) => {
-    if (!startDefinition) return lifecycle;
-    const roundPoints = deriveRoundPoints(startDefinition, lifecycle, histories);
-    const scores = Object.fromEntries(lifecycle.playerIds.map((playerId) => [playerId, (previousPoints[playerId] ?? 0) + roundPoints[playerId]]));
-    return { ...lifecycle, roundPoints, scores };
-  };
   const stopLifecycle = subscribePillBottleLifecycle(gameId, (lifecycle) => {
     matchFinished = lifecycle.finished;
     terminalPlayerIds = new Set(lifecycle.terminalPlayerIds);
-    currentLifecycle = lifecycle;
-    receiveLifecycle?.(withRoundPoints(lifecycle));
+    receiveLifecycle?.(lifecycle);
     if (lifecycle.allReady && !rematchStarting) {
       rematchStarting = true;
       void startPillBottleRematch(gameId).catch((error) => {
@@ -248,7 +272,6 @@ export function subscribePillBottleProgress(
   }, fail);
 
   const publish = () => {
-    if (currentLifecycle) receiveLifecycle?.(withRoundPoints(currentLifecycle));
     receive([...observers.entries()].map(([playerId, observer]) => {
     const snapshot = observer.snapshot();
     return { playerId, tick: snapshot.displayTick, ...snapshot };
@@ -275,8 +298,6 @@ export function subscribePillBottleProgress(
       const startSnapshot = await get(ref(realtimeDatabase!, `games/${gameId}/start`));
       if (destroyed || !startSnapshot.exists()) return;
       const start = parsePillStart(startSnapshot.val());
-      startDefinition = start;
-      previousPoints = await loadPreviousPillScores(start.previousGameId);
       let initialDisplayTick = 0;
 
       await Promise.all(Object.keys(start.players).map(async (playerId) => {
