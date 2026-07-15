@@ -82,7 +82,8 @@
   }
   function pollGamepads(now:number){
     const gamepads=typeof navigator.getGamepads==='function'?Array.from(navigator.getGamepads()):[];
-    gamepadConnected=gamepads.some(gamepad=>Boolean(gamepad?.connected));
+    const connected=gamepads.some(gamepad=>Boolean(gamepad?.connected));
+    if(connected!==gamepadConnected)gamepadConnected=connected;
     const actions=gamepadControls.sample(gamepads,now);
     if(controlsEnabled)for(const action of actions)gamepadAction(action);
     else{gamepadControls.reset();endDown('gamepad');}
