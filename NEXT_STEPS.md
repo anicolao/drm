@@ -48,18 +48,19 @@ This intentionally avoids clock synchronization, continuous state snapshots, and
   - stick dead-zone and held-input repeat behavior are covered by unit tests.
 - Host mode that can be fixed by URL or switched explicitly in development.
 - Default-deny Firebase rules with validation for current room and event schemas; production rules have been deployed.
-- Automated checks currently covering 28 unit tests and three browser scenarios, plus production builds and screenshot clipping checks.
+- Automated checks currently covering 30 unit tests and three browser scenarios, plus production builds and screenshot clipping checks.
 
 ### Completed on the presentation branch
 
 - QR-code controller invitations on the host room and shared display, with the four-letter room code retained as a fallback.
 - Clear controller connection, offline, input-mode, gamepad, waiting, and control-binding feedback.
-- Per-player `LIVE`, `DELAYED`, and `BEHIND` cast indicators derived from existing replay lag values.
+- A throttled, moving-average `BEHIND` cast indicator that remains hidden until a controller is at least 100 ticks behind.
 - Replay-derived bottle transitions for pill locks, clears, and terminal phase changes; no animation state crosses the network.
 - Improved cast player hierarchy, eliminated-player treatment, round-result announcements, and responsive waiting layouts.
 - Keyboard focus treatment, disabled-control treatment, live-region status announcements, and global reduced-motion support.
 - Lazily loaded QR generation so the feature does not add work to gameplay routes that do not use it.
 - A pinned Nix development shell providing Node 22 and Java 21 for application and Firebase Emulator tooling.
+- Gameplay music routed by immutable start metadata: Chill on even levels, Fever on odd levels, and the corresponding clear cue on completion. Shared-display games play from the cast; games without a shared display play from each controller.
 - Browser coverage and refreshed visual baselines for the new join and controller guidance.
 
 ### Known prototype limitations
@@ -71,7 +72,7 @@ This intentionally avoids clock synchronization, continuous state snapshots, and
 - Firebase Rules have no emulator-backed unit test suite and no dedicated rules deployment workflow.
 - Legacy Realtime Database `commands` and `progress` paths remain in the rules for compatibility.
 - Controller-sized displays show opponent scores but not compact opponent boards.
-- Audio, mute controls, and a detailed live gamepad diagnostics/binding view remain unimplemented.
+- Mute controls and a detailed live gamepad diagnostics/binding view remain unimplemented.
 - Diagnostics, retention/expiry, fault-injection coverage, and four-device playtesting remain incomplete.
 - Multiplayer attacks and the Tetris ruleset are not implemented.
 
@@ -121,7 +122,7 @@ Remaining polish:
 
 - Add compact opponent boards where they fit without compromising controller input space.
 - Add an optional live gamepad diagnostics/binding view showing active axes and buttons.
-- Add restrained sound and music only after redistributable assets are selected and their licenses are documented; include mute controls.
+- Add mute controls and document the selected gameplay assets' redistribution status.
 - Set measurable bundle/startup targets and split the large Firebase client chunk where practical.
 - Extend replay-derived effects to distinguish gravity cascades and countdown transitions.
 - Add distinct reconnect and controller-ownership indicators after those session semantics exist.

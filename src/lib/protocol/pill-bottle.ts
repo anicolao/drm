@@ -17,6 +17,7 @@ export interface PillStartRecord {
   seed: number;
   tickRate: 60;
   hostUid: string;
+  audioOutput: 'cast' | 'controllers';
   members: Record<string, true>;
   players: Record<string, { seat: number }>;
   settings: PillBottleSettings;
@@ -92,11 +93,13 @@ function parseInput(type: unknown, payload: unknown): PillInput {
 
 export function parsePillStart(value: unknown): PillStartRecord {
   if (!isObject(value) || !hasOnlyKeys(value, [
-    'type', 'roomId', 'ruleset', 'rulesVersion', 'seed', 'tickRate', 'hostUid', 'members', 'players', 'settings',
+    'type', 'roomId', 'ruleset', 'rulesVersion', 'seed', 'tickRate', 'hostUid', 'audioOutput', 'members', 'players', 'settings',
     'matchId', 'round', 'previousGameId', 'serverTime'
   ]) || value.type !== 'game/started' || value.ruleset !== 'pill-bottle'
     || value.rulesVersion !== PILL_BOTTLE_RULES_VERSION || value.tickRate !== PILL_BOTTLE_RULES.tickRate
-    || !isString(value.roomId) || !isString(value.hostUid) || (value.matchId !== undefined && !isString(value.matchId))
+    || !isString(value.roomId) || !isString(value.hostUid)
+    || (value.audioOutput !== undefined && value.audioOutput !== 'cast' && value.audioOutput !== 'controllers')
+    || (value.matchId !== undefined && !isString(value.matchId))
     || (value.round !== undefined && !isInteger(value.round, 0, PILL_BOTTLE_RULES.matchRounds - 1))
     || (value.previousGameId !== undefined && !isString(value.previousGameId)) || !isInteger(value.seed, 0, 0xffffffff)
     || !isServerTime(value.serverTime) || !isObject(value.members) || !isObject(value.players) || !isObject(value.settings)) {
@@ -121,6 +124,7 @@ export function parsePillStart(value: unknown): PillStartRecord {
 
   return {
     ...value,
+    audioOutput: (value.audioOutput as PillStartRecord['audioOutput'] | undefined) ?? 'controllers',
     settings: { ...settings, matchRounds: PILL_BOTTLE_SETTINGS.matchRounds },
     matchId: (value.matchId as string | undefined) ?? value.roomId,
     round: (value.round as number | undefined) ?? 0
