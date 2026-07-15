@@ -10,14 +10,26 @@ export type GamepadControlAction =
 export interface GamepadLike {
   connected: boolean;
   buttons: ArrayLike<{ pressed: boolean; value: number }>;
+  axes?: ArrayLike<number>;
 }
 
 const BUTTON = Object.freeze({ a: 0, b: 1, up: 12, down: 13, left: 14, right: 15 });
 const INITIAL_REPEAT_DELAY_MS = 220;
 const REPEAT_INTERVAL_MS = 90;
+const AXIS_THRESHOLD = 0.55;
 
 function pressed(gamepads: readonly (GamepadLike | null)[], button: number) {
-  return gamepads.some((gamepad) => Boolean(gamepad?.connected && (gamepad.buttons[button]?.pressed || gamepad.buttons[button]?.value > 0.5)));
+  return gamepads.some((gamepad) => {
+    if (!gamepad?.connected) return false;
+    if (gamepad.buttons[button]?.pressed || gamepad.buttons[button]?.value > 0.5) return true;
+    const horizontal = gamepad.axes?.[0] ?? 0;
+    const vertical = gamepad.axes?.[1] ?? 0;
+    return button === BUTTON.left ? horizontal < -AXIS_THRESHOLD
+      : button === BUTTON.right ? horizontal > AXIS_THRESHOLD
+      : button === BUTTON.up ? vertical < -AXIS_THRESHOLD
+      : button === BUTTON.down ? vertical > AXIS_THRESHOLD
+      : false;
+  });
 }
 
 export class StandardGamepadControls {
