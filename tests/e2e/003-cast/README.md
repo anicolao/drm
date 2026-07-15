@@ -9,5 +9,6 @@
 - [x] Display loaded the persisted ruleset
 - [x] No invented game board is displayed
 - [x] Display states its command-replay dependency
+- [x] Display offers a scannable controller invitation
 
 ---
