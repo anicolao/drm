@@ -11,7 +11,7 @@
   let lifecycle:PillMatchLifecycle|undefined;
   let stopRoom=()=>{};let stopPlayers=()=>{};let stopProgress=()=>{};
   $: displays=progress.map(entry=>({...entry,name:players.find(player=>player.uid===entry.playerId)?.displayName??'Player'}));
-  $: standings=[...displays].sort((a,b)=>(lifecycle?.scores[b.playerId]??0)-(lifecycle?.scores[a.playerId]??0));
+  $: standings=[...displays].sort((a,b)=>(lifecycle?.scores[b.playerId]??0)-(lifecycle?.scores[a.playerId]??0)||a.name.localeCompare(b.name));
 
   onMount(()=>{void load();return()=>{stopRoom();stopPlayers();stopProgress();};});
   async function load(){

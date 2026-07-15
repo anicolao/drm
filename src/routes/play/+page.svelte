@@ -18,7 +18,7 @@
     name:players.find(player=>player.uid===playerId)?.displayName??(playerId===state.playerId?playerName:`Player ${index+1}`),
     score:state.lifecycle?.scores[playerId]??0,
     roundPoints:state.lifecycle?.roundPoints[playerId]??0
-  })).sort((a,b)=>b.score-a.score);
+  })).sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name));
 
   onMount(()=>{
     void initialize();
