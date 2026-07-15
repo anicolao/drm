@@ -56,6 +56,7 @@ export async function startPillBottleGame(roomId: string, members: RoomPlayer[],
   await set(ref(realtimeDatabase, `games/${gameId}/start`), {
     type: 'game/started', roomId, ruleset: 'pill-bottle', rulesVersion: PILL_BOTTLE_RULES_VERSION,
     seed, tickRate: PILL_BOTTLE_RULES.tickRate, hostUid, members: allowedMembers, players,
+    audioOutput: hostMode === 'display' ? 'cast' : 'controllers',
     settings: PILL_BOTTLE_SETTINGS, matchId: gameId, round: 0, serverTime: serverTimestamp()
   });
   await updateDoc(doc(firestore, 'rooms', roomId), {
@@ -72,6 +73,7 @@ export interface ControllerState {
   lastCommand?: string;
   error?: string;
   lifecycle?: PillMatchLifecycle;
+  audioOutput?: 'cast' | 'controllers';
 }
 
 export interface PlayerProgress {
@@ -213,6 +215,7 @@ export async function startPillBottleRematch(gameId: string) {
       type: 'game/started', roomId: start.roomId, ruleset: start.ruleset, rulesVersion: start.rulesVersion,
       seed: gameSeed(), tickRate: start.tickRate, hostUid: start.hostUid, members: start.members,
       players: start.players, settings: start.settings,
+      audioOutput: start.audioOutput,
       matchId: advanceRound ? start.matchId : nextGameId,
       round: advanceRound ? start.round + 1 : 0,
       ...(advanceRound ? { previousGameId: gameId } : {}),
@@ -245,7 +248,8 @@ export function subscribePillBottleProgress(
   gameId: string,
   receive: (players: PlayerProgress[]) => void,
   fail: (error: Error) => void,
-  receiveLifecycle?: (lifecycle: PillMatchLifecycle) => void
+  receiveLifecycle?: (lifecycle: PillMatchLifecycle) => void,
+  receiveStart?: (start: ReturnType<typeof parsePillStart>) => void
 ) {
   if (!realtimeDatabase) throw new Error('Firebase is unavailable.');
   let destroyed = false;
@@ -298,6 +302,7 @@ export function subscribePillBottleProgress(
       const startSnapshot = await get(ref(realtimeDatabase!, `games/${gameId}/start`));
       if (destroyed || !startSnapshot.exists()) return;
       const start = parsePillStart(startSnapshot.val());
+      receiveStart?.(start);
       let initialDisplayTick = 0;
 
       await Promise.all(Object.keys(start.players).map(async (playerId) => {
@@ -437,12 +442,13 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
   let lastCommand: string | undefined;
   let bottle: BottleState | undefined;
   let lifecycle: PillMatchLifecycle | undefined;
+  let audioOutput: 'cast' | 'controllers' | undefined;
   let outbox = loadControllerOutbox(gameId, playerId);
   let flushing = false;
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
   const publish = (error?: string) => receive({
-    playerId, tick, ready, bottle: bottle ? structuredClone(bottle) : undefined, lastCommand, error, lifecycle
+    playerId, tick, ready, bottle: bottle ? structuredClone(bottle) : undefined, lastCommand, error, lifecycle, audioOutput
   });
 
   const stopLifecycle = subscribePillBottleLifecycle(gameId, (next) => {
@@ -558,6 +564,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
     initializing = true;
     try {
       const start = parsePillStart(snapshot.val());
+      audioOutput = start.audioOutput;
       if (!start.players[playerId]) throw new Error('Player is not part of this pill-bottle/3 game.');
       const historySnapshot = await get(ref(realtimeDatabase!, `games/${gameId}/players/${playerId}/records`));
       const byId = new Map<string, ControllerRecord>();

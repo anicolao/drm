@@ -81,6 +81,9 @@ test('runtime protocol validation accepts only the frozen start definition', () 
     players: { player: { seat: 0 } }, settings: PILL_BOTTLE_SETTINGS, matchId: 'match', round: 0, serverTime: 100
   });
   assert.equal(start.settings.initialVirusCount, 5);
+  assert.equal(start.audioOutput, 'controllers');
+  assert.equal(parsePillStart({ ...start, audioOutput: 'cast' }).audioOutput, 'cast');
+  assert.throws(() => parsePillStart({ ...start, audioOutput: 'everywhere' }), /start record/);
   assert.throws(() => parsePillStart({ ...start, settings: { ...start.settings, hardDrop: false } }), /start definition/);
 });
 

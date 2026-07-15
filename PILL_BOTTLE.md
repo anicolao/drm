@@ -188,6 +188,7 @@ games/{gameId}/start
   "seed": 123456789,
   "tickRate": 60,
   "hostUid": "uid-a",
+  "audioOutput": "cast",
   "members": { "uid-a": true, "uid-b": true },
   "players": {
     "uid-a": { "seat": 0 },
@@ -205,6 +206,10 @@ games/{gameId}/start
 The record is immutable. A controller begins when it observes this record and has
 loaded the specified rules implementation. Its own first simulation tick is zero;
 network arrival delay does not make its bottle begin partway through the game.
+
+`audioOutput` is immutable presentation metadata. It is `cast` when the host
+starts in shared-display mode and `controllers` when the host starts as a player.
+It routes local music and clear cues without synchronizing audio or game state.
 
 The host screen may show “waiting for player” until each controller publishes
 that it started. Players do not need to start on the same wall-clock millisecond.
