@@ -42,8 +42,8 @@ reconstructed from commands. Presence, attacks, and the Tetris-style ruleset
 remain to be implemented.
 
 The player route accepts touch and keyboard controls plus standard browser
-gamepads: D-pad for movement/drop, A for clockwise rotation, and B for
-counterclockwise rotation.
+gamepads: D-pad or primary stick for movement/drop, A for clockwise rotation,
+and B for counterclockwise rotation.
 
 ```sh
 npm install
