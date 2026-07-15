@@ -41,6 +41,10 @@ replay-derived scoring, next-level/rematch voting, and a shared canvas display
 reconstructed from commands. Presence, attacks, and the Tetris-style ruleset
 remain to be implemented.
 
+The player route accepts touch and keyboard controls plus standard browser
+gamepads: D-pad for movement/drop, A for clockwise rotation, and B for
+counterclockwise rotation.
+
 ```sh
 npm install
 npm run dev

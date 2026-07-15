@@ -6,10 +6,12 @@
   import { firebaseConfigured } from '$lib/firebase/config';
   import { joinRoom, subscribeRoom, subscribeRoomPlayers, type RoomPlayer } from '$lib/firebase/rooms';
   import { createPillBottleController, type PillCommand, type ControllerState } from '$lib/firebase/pill-bottle';
+  import { StandardGamepadControls, type GamepadControlAction } from '$lib/input/gamepad';
 
   let code=''; let joined=false; let joining=false; let needsName=false; let playerName=''; let error='';
   let roomId=''; let activeGameId=''; let controller: ReturnType<typeof createPillBottleController> | undefined;
   let roomUnsubscribe=()=>{}; let playersUnsubscribe=()=>{}; let players:RoomPlayer[]=[]; let state: ControllerState={tick:0,ready:false}; let downHeld=false;
+  let gamepadFrame=0; let gamepadConnected=false; const gamepadControls=new StandardGamepadControls(); const dropSources=new Set<'pointer'|'keyboard'|'gamepad'>();
   $: controlsEnabled=Boolean(state.ready&&state.bottle?.phase==='playing'&&!state.lifecycle?.finished);
   $: standings=(state.lifecycle?.playerIds??[]).map((playerId,index)=>({
     playerId,
@@ -20,11 +22,12 @@
 
   onMount(()=>{
     void initialize();
-    const release=()=>void releaseDown();
-    const visibility=()=>{if(document.hidden){release();controller?.suspend();}else controller?.resume();};
-    const pagehide=()=>{release();controller?.suspend();};
+    gamepadFrame=requestAnimationFrame(pollGamepads);
+    const release=()=>void releaseAllDown();
+    const visibility=()=>{if(document.hidden){release();gamepadControls.reset();controller?.suspend();}else controller?.resume();};
+    const pagehide=()=>{release();gamepadControls.reset();controller?.suspend();};
     window.addEventListener('blur',release);window.addEventListener('keydown',keyDown);window.addEventListener('keyup',keyUp);window.addEventListener('pagehide',pagehide);document.addEventListener('visibilitychange',visibility);
-    return()=>{roomUnsubscribe();playersUnsubscribe();controller?.destroy();window.removeEventListener('blur',release);window.removeEventListener('keydown',keyDown);window.removeEventListener('keyup',keyUp);window.removeEventListener('pagehide',pagehide);document.removeEventListener('visibilitychange',visibility);};
+    return()=>{cancelAnimationFrame(gamepadFrame);roomUnsubscribe();playersUnsubscribe();controller?.destroy();window.removeEventListener('blur',release);window.removeEventListener('keydown',keyDown);window.removeEventListener('keyup',keyUp);window.removeEventListener('pagehide',pagehide);document.removeEventListener('visibilitychange',visibility);};
   });
 
   async function initialize(){
@@ -57,15 +60,34 @@
     if(!controlsEnabled)return;
     navigator.vibrate?.(12);void controller?.command(input).catch((cause)=>error=cause instanceof Error?cause.message:String(cause));
   }
-  function pressDown(event:PointerEvent){
-    if(downHeld)return;downHeld=true;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-    send({type:'input/soft-drop-start',payload:{}});
+  function beginDown(source:'pointer'|'keyboard'|'gamepad'){
+    if(dropSources.has(source))return;const start=dropSources.size===0;dropSources.add(source);downHeld=true;
+    if(start)send({type:'input/soft-drop-start',payload:{}});
   }
-  function releaseDown(){if(!downHeld)return;downHeld=false;send({type:'input/soft-drop-end',payload:{}});}
+  function endDown(source:'pointer'|'keyboard'|'gamepad'){if(!dropSources.delete(source))return;downHeld=dropSources.size>0;if(!downHeld)send({type:'input/soft-drop-end',payload:{}});}
+  function releaseAllDown(){if(dropSources.size===0)return;dropSources.clear();downHeld=false;send({type:'input/soft-drop-end',payload:{}});}
+  function pressDown(event:PointerEvent){(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);beginDown('pointer');}
+  function gamepadAction(action:GamepadControlAction){
+    if(action==='move-left')send({type:'input/move',payload:{dx:-1}});
+    else if(action==='move-right')send({type:'input/move',payload:{dx:1}});
+    else if(action==='hard-drop')send({type:'input/hard-drop',payload:{}});
+    else if(action==='rotate-clockwise')send({type:'input/rotate',payload:{direction:'clockwise'}});
+    else if(action==='rotate-counterclockwise')send({type:'input/rotate',payload:{direction:'counterclockwise'}});
+    else if(action==='soft-drop-start')beginDown('gamepad');
+    else endDown('gamepad');
+  }
+  function pollGamepads(now:number){
+    const gamepads=typeof navigator.getGamepads==='function'?Array.from(navigator.getGamepads()):[];
+    gamepadConnected=gamepads.some(gamepad=>Boolean(gamepad?.connected));
+    const actions=gamepadControls.sample(gamepads,now);
+    if(controlsEnabled)for(const action of actions)gamepadAction(action);
+    else{gamepadControls.reset();endDown('gamepad');}
+    gamepadFrame=requestAnimationFrame(pollGamepads);
+  }
   function typingTarget(target:EventTarget|null){return target instanceof HTMLElement&&(target.matches('input,textarea,select')||target.isContentEditable);}
   function keyDown(event:KeyboardEvent){
     if(typingTarget(event.target)||!controlsEnabled)return;
-    if(event.key==='ArrowDown'){event.preventDefault();if(!event.repeat&&!downHeld){downHeld=true;send({type:'input/soft-drop-start',payload:{}});}return;}
+    if(event.key==='ArrowDown'){event.preventDefault();if(!event.repeat)beginDown('keyboard');return;}
     const command = event.key==='ArrowLeft'?{type:'input/move',payload:{dx:-1}} as PillCommand
       :event.key==='ArrowRight'?{type:'input/move',payload:{dx:1}} as PillCommand
       :event.key==='ArrowUp'&&!event.repeat?{type:'input/hard-drop',payload:{}} as PillCommand
@@ -73,7 +95,7 @@
       :event.key.toLowerCase()==='t'&&!event.repeat?{type:'input/rotate',payload:{direction:'counterclockwise'}} as PillCommand:undefined;
     if(command){event.preventDefault();send(command);}
   }
-  function keyUp(event:KeyboardEvent){if(event.key==='ArrowDown'){event.preventDefault();releaseDown();}}
+  function keyUp(event:KeyboardEvent){if(event.key==='ArrowDown'){event.preventDefault();endDown('keyboard');}}
   async function nextRound(){try{await controller?.requestRematch();}catch(cause){error=cause instanceof Error?cause.message:String(cause);}}
 </script>
 
@@ -84,11 +106,11 @@
 {:else if !activeGameId}<main class="join"><p class="eyebrow">Joined room {code}</p><h1>WAITING FOR HOST</h1><p>The controller starts when the host publishes the game start record.</p></main>
 {:else}<main class="landscape-controller" aria-label="Pill Bottle controller">
   {#if state.lifecycle&&state.lifecycle.playerIds.length>1}<aside class="controller-scoreboard" aria-label="Scores"><strong>ROUND {state.lifecycle.round+1}/3</strong>{#each standings as player}<span class:you={player.playerId===state.playerId}>{player.name} <b>{player.score}</b>{#if player.roundPoints>0}<small>+{player.roundPoints}</small>{/if}</span>{/each}</aside>{/if}
-  <section class="session"><strong>{playerName}</strong><span>room {code}</span>{#if state.bottle}<PillBottle state={state.bottle}/><span>{state.lifecycle?.playerIds.length===1?`level ${state.bottle.level}`:`round ${(state.lifecycle?.round??state.bottle.level)+1}/3`} · {state.bottle.viruses} viruses</span><span>speed {gravityTicksForState(state.bottle)} ticks · {state.bottle.pills} pills</span>{#if state.lifecycle?.terminalResults[state.playerId??'']==='cleared'}<strong class="countdown">LEVEL CLEAR</strong>{:else if state.bottle.phase==='lost'&&!state.lifecycle?.finished}<strong class="result">ELIMINATED · WAITING</strong>{/if}{/if}<span class="tick">tick {state.tick}</span><small>{state.ready?'connected':'loading game…'}</small>{#if state.lastCommand}<small class="command-status">{state.lastCommand}</small>{/if}{#if state.lifecycle?.finished}<div class="match-result"><strong>{state.lifecycle.playerIds.length===1?'GAME OVER':state.lifecycle.matchComplete?'MATCH COMPLETE':`ROUND ${state.lifecycle.round+1} COMPLETE`}</strong><button on:click={nextRound} disabled={state.lifecycle.readyPlayerIds.includes(state.playerId??'')}>{state.lifecycle.matchComplete?'PLAY AGAIN':'NEXT LEVEL'}</button><small>{state.lifecycle.readyPlayerIds.length}/{state.lifecycle.playerIds.length} ready</small></div>{/if}</section>
+  <section class="session"><strong>{playerName}</strong><span>room {code}</span>{#if state.bottle}<PillBottle state={state.bottle}/><span>{state.lifecycle?.playerIds.length===1?`level ${state.bottle.level}`:`round ${(state.lifecycle?.round??state.bottle.level)+1}/3`} · {state.bottle.viruses} viruses</span><span>speed {gravityTicksForState(state.bottle)} ticks · {state.bottle.pills} pills</span>{#if state.lifecycle?.terminalResults[state.playerId??'']==='cleared'}<strong class="countdown">LEVEL CLEAR</strong>{:else if state.bottle.phase==='lost'&&!state.lifecycle?.finished}<strong class="result">ELIMINATED · WAITING</strong>{/if}{/if}<span class="tick">tick {state.tick}</span><small>{state.ready?'connected':'loading game…'}{gamepadConnected?' · gamepad connected':''}</small>{#if state.lastCommand}<small class="command-status">{state.lastCommand}</small>{/if}{#if state.lifecycle?.finished}<div class="match-result"><strong>{state.lifecycle.playerIds.length===1?'GAME OVER':state.lifecycle.matchComplete?'MATCH COMPLETE':`ROUND ${state.lifecycle.round+1} COMPLETE`}</strong><button on:click={nextRound} disabled={state.lifecycle.readyPlayerIds.includes(state.playerId??'')}>{state.lifecycle.matchComplete?'PLAY AGAIN':'NEXT LEVEL'}</button><small>{state.lifecycle.readyPlayerIds.length}/{state.lifecycle.playerIds.length} ready</small></div>{/if}</section>
   <section class="dpad" aria-label="Movement controls">
     <button class="up" aria-label="Hard drop" title="Arrow Up" disabled={!controlsEnabled} on:pointerdown={()=>send({type:'input/hard-drop',payload:{}})}>↑</button>
     <button class="left" aria-label="Move left" title="Arrow Left" disabled={!controlsEnabled} on:pointerdown={()=>send({type:'input/move',payload:{dx:-1}})}>←</button>
-    <button class:held={downHeld} class="down" aria-label="Accelerate down" title="Arrow Down" disabled={!controlsEnabled} on:pointerdown={pressDown} on:pointerup={releaseDown} on:pointercancel={releaseDown} on:lostpointercapture={releaseDown}>↓</button>
+    <button class:held={downHeld} class="down" aria-label="Accelerate down" title="Arrow Down" disabled={!controlsEnabled} on:pointerdown={pressDown} on:pointerup={()=>endDown('pointer')} on:pointercancel={()=>endDown('pointer')} on:lostpointercapture={()=>endDown('pointer')}>↓</button>
     <button class="right" aria-label="Move right" title="Arrow Right" disabled={!controlsEnabled} on:pointerdown={()=>send({type:'input/move',payload:{dx:1}})}>→</button>
   </section>
   <section class="rotations" aria-label="Rotation controls">
