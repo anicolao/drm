@@ -67,6 +67,7 @@
   function endDown(source:'pointer'|'keyboard'|'gamepad'){if(!dropSources.delete(source))return;downHeld=dropSources.size>0;if(!downHeld)send({type:'input/soft-drop-end',payload:{}});}
   function releaseAllDown(){if(dropSources.size===0)return;dropSources.clear();downHeld=false;send({type:'input/soft-drop-end',payload:{}});}
   function pressDown(event:PointerEvent){(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);beginDown('pointer');}
+  function releasePointerDown(){endDown('pointer');}
   function gamepadAction(action:GamepadControlAction){
     if(action==='move-left')send({type:'input/move',payload:{dx:-1}});
     else if(action==='move-right')send({type:'input/move',payload:{dx:1}});
@@ -110,7 +111,7 @@
   <section class="dpad" aria-label="Movement controls">
     <button class="up" aria-label="Hard drop" title="Arrow Up" disabled={!controlsEnabled} on:pointerdown={()=>send({type:'input/hard-drop',payload:{}})}>↑</button>
     <button class="left" aria-label="Move left" title="Arrow Left" disabled={!controlsEnabled} on:pointerdown={()=>send({type:'input/move',payload:{dx:-1}})}>←</button>
-    <button class:held={downHeld} class="down" aria-label="Accelerate down" title="Arrow Down" disabled={!controlsEnabled} on:pointerdown={pressDown} on:pointerup={()=>endDown('pointer')} on:pointercancel={()=>endDown('pointer')} on:lostpointercapture={()=>endDown('pointer')}>↓</button>
+    <button class:held={downHeld} class="down" aria-label="Accelerate down" title="Arrow Down" disabled={!controlsEnabled} on:pointerdown={pressDown} on:pointerup={releasePointerDown} on:pointercancel={releasePointerDown} on:lostpointercapture={releasePointerDown}>↓</button>
     <button class="right" aria-label="Move right" title="Arrow Right" disabled={!controlsEnabled} on:pointerdown={()=>send({type:'input/move',payload:{dx:1}})}>→</button>
   </section>
   <section class="rotations" aria-label="Rotation controls">
