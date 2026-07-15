@@ -66,7 +66,10 @@
   }
   function endDown(source:'pointer'|'keyboard'|'gamepad'){if(!dropSources.delete(source))return;downHeld=dropSources.size>0;if(!downHeld)send({type:'input/soft-drop-end',payload:{}});}
   function releaseAllDown(){if(dropSources.size===0)return;dropSources.clear();downHeld=false;send({type:'input/soft-drop-end',payload:{}});}
-  function pressDown(event:PointerEvent){(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);beginDown('pointer');}
+  function pressDown(event:PointerEvent){
+    beginDown('pointer');
+    try{(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);}catch{/* Pointer capture is optional for synthetic and unsupported pointers. */}
+  }
   function releasePointerDown(){endDown('pointer');}
   function gamepadAction(action:GamepadControlAction){
     if(action==='move-left')send({type:'input/move',payload:{dx:-1}});
