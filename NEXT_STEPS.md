@@ -1,359 +1,213 @@
-# Next implementation steps
+# DRM Next Steps
 
 ## Purpose
 
-This plan starts from the prototype on
-`agent/freeze-client-authoritative-protocol` (draft PR #3). It prioritizes a
-dependable Color Cure multiplayer round before attacks or a second ruleset.
+This plan reflects `main` plus the presentation and playability work prepared on `feature/presentation-playability-polish`.
 
-The governing architecture is client authority:
+The prototype is now playable. The next priority is to make rooms and sessions reliable enough for real multiplayer use, then improve presentation and release hardening before expanding the game rules.
 
-- A controller applies input to its local deterministic engine immediately.
-- RTDB stores immutable game definitions and one ordered, tick-tagged controller
-  command stream per player.
-- That stream contains both user input and periodic progress commands. A progress
-  command is a simulation no-op carrying the controller's tick, phase, and hash.
-- Every non-controlling view reconstructs a board by replaying commands.
-- Materialized engine state, boards, and checkpoints never cross the network.
-- Serialized state may be cached locally and discarded at any time.
+## Architecture to preserve
 
-There is no global simulation clock and no clock synchronization protocol. Each
-controller owns its player's tick. The cast owns a separate local `displayTick`,
-runs it at 60 Hz, and reconstructs every player's board through that local tick.
-The newest progress command tells the cast how far that controller has actually
-advanced, so the UI can display the signed difference between `displayTick` and
-the controller tick as lag; it does not drive or reset the cast clock.
+The implementation must continue to follow these constraints:
 
-All controller records share one monotonically increasing `clientSeq`, and their
-ticks never decrease. Once a controller has emitted a progress command for tick
-80, it may not subsequently emit an input or progress command for tick 79 or
-earlier. The cast consumes records in `clientSeq` order.
+- Each controller owns its simulation and is authoritative for its own player state.
+- The network carries immutable commands and progress ticks, never materialized board state.
+- Every view of a board is produced by deterministic replay. Replayed state may be cached locally.
+- A controller cannot publish an event for a tick earlier than its latest progress tick.
+- The cast advances its own display tick and may show lag relative to each controller.
+- Every controller event is a recovery checkpoint. When a late event arrives, an observer restores the previous cached checkpoint for that controller and replays forward.
+- Cross-player outcomes are represented as immutable protocol events so every client derives the same match result.
+- Firebase is transport, authentication, room metadata, and durable event storage. It is not an authoritative game simulator.
 
-Every controller record is a checkpoint opportunity, whether it is user input or
-a periodic progress command. The observer retains the local state immediately
-after the last record it processed for each player. For example, if that record
-was at tick 60, the observer has advanced the displayed board to its local tick
-100, and the next controller record arrives for tick 80:
+This intentionally avoids clock synchronization, continuous state snapshots, and server-side simulation.
 
-1. Restore the locally cached state immediately after the tick-60 record.
-2. Advance deterministically to tick 80.
-3. Apply the new record and replace the checkpoint with the tick-80 state.
-4. Advance deterministically back to the cast's local tick 100.
-5. Render the corrected current state immediately.
+## Current status
 
-The checkpoint remains local and represents only the most recently processed
-controller record. If it is missing, replay from tick zero is the simple
-fallback.
+### Completed on `main`
 
-## Completed foundation
+- Static TypeScript/Vite application with Firebase Hosting, GitHub Pages, and pull-request previews.
+- Firebase Authentication, Firestore rooms, join codes, lobby roster, and Realtime Database game journals.
+- Versioned rulesets with Color Cure as the playable ruleset and Tetris visible but disabled.
+- Deterministic Color Cure engine with seeded boards, pill movement, rotation, matching, gravity, virus clearing, win, and loss.
+- Full level progression:
+  - level 0 begins at 50 ticks per pill row;
+  - speed increases by one tick for every 10 pills;
+  - subsequent levels reset to `50 - 5 * level` ticks per row;
+  - each level starts with `level * 5` viruses;
+  - a countdown separates levels.
+- Three-round multiplayer lifecycle with next-level readiness, rematch readiness, linked round journals, and automatic round transitions.
+- Replay-derived scoring: a player clearing a level earns points equal to the remaining viruses on all opponents' boards at that clear tick; the final remaining player receives zero points.
+- Score and round information on both controller and cast displays.
+- Unified immutable controller event stream containing user commands, progress ticks, readiness, and terminal events.
+- Local durable controller outbox, idempotent event IDs, reconnect recovery, duplicate suppression, and replay checkpoints.
+- Cast and controller observer replay, including rewind-and-replay for late events.
+- Touch, keyboard, and Bluetooth gamepad input:
+  - D-pad and primary analog stick move and soft-drop;
+  - A rotates clockwise;
+  - B rotates counter-clockwise;
+  - stick dead-zone and held-input repeat behavior are covered by unit tests.
+- Host mode that can be fixed by URL or switched explicitly in development.
+- Default-deny Firebase rules with validation for current room and event schemas; production rules have been deployed.
+- Automated checks currently covering 28 unit tests and three browser scenarios, plus production builds and screenshot clipping checks.
 
-The following work is complete or working in prototype form:
+### Completed on the presentation branch
 
-- Static SvelteKit app, GitHub Pages and PR-preview builds, Firebase emulator
-  configuration, and CI.
-- Anonymous authentication, room creation/joining, room codes, host lobby,
-  player roster, and ruleset selection.
-- Color Cure phone, keyboard, and standard Bluetooth gamepad controls; tablet
-  bottle rendering; and a shared cast route.
-- The frozen `pill-bottle/3` rule definition: seeded xorshift32 generation,
-  level-scaled virus layouts, capsule stream, progressive gravity, level
-  countdowns, soft/hard drop, lock delay, matching, settling, rotation/kicks,
-  and top-out.
-- Pure engine boundaries for creation, tick advancement, command replay, local
-  serialization, and deterministic state hashing.
-- Runtime validation for start, unified controller records, epochs, legacy
-  progress records, and locally serialized state records.
-- RTDB rules that separate readable game members from controlling participants,
-  constrain the current command/progress schemas, and reject materialized state.
-- A unified immutable per-player stream containing input and `progress/tick`
-  records, with one monotonic sequence across controller epochs.
-- A cast-local 60 Hz observer that incrementally consumes the stream, queues
-  gaps/future records, rewinds from its last-record checkpoint for late input,
-  displays controller lag, and reports hash divergence.
-- Same-device controller recovery from a validated local checkpoint or replay,
-  plus a persistent identity-preserving local outbox.
-- Controller visibility handling that records suspension/resumption, releases
-  soft drop, pauses local ticks, and resumes without catch-up.
-- Immutable clear/top-out declarations; replay-derived three-round scoring based
-  on opponents' viruses at each clear tick; round results and cumulative score
-  presentation; and unanimous next-level/rematch readiness with host-reserved
-  linked journals.
-- Explicit host-as-player and host-as-display starts.
-- Unit fixtures for seeded generation, live-versus-replay equivalence, command
-  ordering/deduplication, serialization, hashes, and protocol rejection.
-- Emulator-backed room, controller, and cast browser scenarios. Production RTDB
-  rules have been deployed and the host-as-TV flow has been verified against the
-  production PR preview.
+- QR-code controller invitations on the host room and shared display, with the four-letter room code retained as a fallback.
+- Clear controller connection, offline, input-mode, gamepad, waiting, and control-binding feedback.
+- Per-player `LIVE`, `DELAYED`, and `BEHIND` cast indicators derived from existing replay lag values.
+- Replay-derived bottle transitions for pill locks, clears, and terminal phase changes; no animation state crosses the network.
+- Improved cast player hierarchy, eliminated-player treatment, round-result announcements, and responsive waiting layouts.
+- Keyboard focus treatment, disabled-control treatment, live-region status announcements, and global reduced-motion support.
+- Lazily loaded QR generation so the feature does not add work to gameplay routes that do not use it.
+- A pinned Nix development shell providing Node 22 and Java 21 for application and Firebase Emulator tooling.
+- Browser coverage and refreshed visual baselines for the new join and controller guidance.
 
-The current implementation is still a prototype: room writes are not fully
-transactional, concurrent controller ownership is not coordinated, legacy
-`commands`/`progress` rules remain temporarily available for deployed-client
-compatibility, and presence/disconnect policy still needs implementation.
+### Known prototype limitations
 
-## Delivery order
+- Room creation and join-code reservation are not transactional.
+- Membership and seat assignment are not protected against concurrent joins or active-game roster changes.
+- There is no explicit leave/end-room flow, presence model, or disconnect policy.
+- Multiple controller tabs for the same player are not coordinated.
+- Firebase Rules have no emulator-backed unit test suite and no dedicated rules deployment workflow.
+- Legacy Realtime Database `commands` and `progress` paths remain in the rules for compatibility.
+- Controller-sized displays show opponent scores but not compact opponent boards.
+- Audio, mute controls, and a detailed live gamepad diagnostics/binding view remain unimplemented.
+- Diagnostics, retention/expiry, fault-injection coverage, and four-device playtesting remain incomplete.
+- Multiplayer attacks and the Tetris ruleset are not implemented.
 
-### 1. Recovery and replay robustness — completed on this branch
+## Remaining implementation order
 
-Goal: a controller or display can reload or receive a late command by replaying
-the minimum necessary history, without time synchronization or remote state.
+### 1. Room integrity, presence, and security automation
 
-Implemented:
-
-1. Load the immutable start definition and controller history independently,
-   then attach incremental per-player record listeners.
-2. Replace the mutable progress projection with immutable `progress/tick`
-   commands in the same per-player stream as input. Issue one every 15 controller
-   ticks and at start, suspension, resume, and terminal transitions.
-3. Give every input and progress command the same monotonically increasing
-   `clientSeq`. Enforce nondecreasing ticks in the controller and reject a local
-   attempt to emit a record older than its last progress command.
-4. Replace whole-game `onValue` reconstruction with an initial history load plus
-   an incremental per-player command listener. Consume records in `clientSeq`
-   order; a sequence gap waits for the missing record rather than reordering the
-   controller's history.
-5. Add one observer runner per player. It holds:
-   - the reconstructed state currently being displayed;
-   - the cast's current local `displayTick`;
-   - the most recent controller progress tick for lag display;
-   - the last processed command identity and sequence;
-   - one local state checkpoint immediately after that controller record.
-6. Advance each reconstructed board on the cast's local 60 Hz timer. Progress
-   commands update lag/phase/hash metadata and create checkpoint boundaries, but
-   do not change `displayTick`.
-7. On any new controller record, restore the last command checkpoint, advance to
-   the record's tick, apply it (a progress command is a no-op), replace the
-   checkpoint, and advance back to the current local `displayTick`. If the record
-   is ahead of `displayTick`, queue it until the local timer reaches its tick.
-   Replay from tick zero only when no checkpoint exists.
-8. Compare hashes carried by progress commands with the reconstructed hash at
-   that same tick for diagnostics. A mismatch never causes state to be
-   downloaded from the controller.
-9. Implement same-device controller reload:
-   - load the start record and existing command history;
-   - validate and use the local last-record checkpoint when available;
-   - otherwise replay from tick zero;
-   - restore the next client sequence and latest emitted progress tick;
-   - create a new epoch and resume from the reconstructed tick.
-10. Add a persistent local command outbox. A locally applied record keeps its
-   original push ID, epoch, sequence, and tick across retries.
-11. Implement exact visibility behavior: emit a progress command, release held
-   soft drop, stop ticks while hidden, reset the RAF clock, and resume without
-   wall-clock catch-up.
-
-Acceptance covered by the implementation and tests:
-
-- Reloading a controller produces the same tick and hash before play resumes.
-- Reloading a cast display reconstructs all visible boards from commands alone.
-- With a cast at local tick 100 and its last controller-record checkpoint at tick
-  60, a newly received tick-80 record rewinds to 60, applies at 80, returns to
-  local tick 100, and converges to the controller hash.
-- The cast shows the difference between its local tick and each controller's
-  newest progress-command tick without altering either clock.
-- A controller record ahead of the cast remains queued until `displayTick`
-  reaches the record tick.
-- A failed RTDB write does not block local input and is retried exactly once by
-  command identity.
-- Hiding a controller for several seconds advances zero player ticks.
-- No Firebase record contains a board or serialized engine state.
-
-### 2. Room integrity, security tests, and deployment
-
-Goal: room and game authorization remains correct under collisions, retries, and
-direct malicious writes.
+Make room creation, joining, ownership, and teardown safe under concurrent use.
 
 Implementation:
 
-1. Reserve a room code and create the room/host membership atomically. Retry code
-   collisions without leaving orphaned room documents.
-2. Enforce two-to-four-player starts, stable seats, lobby-only joining, and one
-   active game per room.
-3. Add leave and stale-membership handling without silently reassigning a seat
-   during an active game.
-4. Tighten Firestore reads to the minimum code lookup and joined-room scope.
-5. Add Firebase Rules unit tests for:
-   - non-member game reads;
-   - forged starts and participants;
-   - cross-player commands, epochs, and progress;
-   - command mutation/deletion and malformed payloads;
-   - materialized state or unknown fields in every network record;
-   - invalid room lifecycle transitions.
-6. Add an explicit rules deployment workflow. Main may deploy production rules
-   after validation; PRs should syntax/test rules but must not silently replace
-   shared production rules unless a preview environment is introduced.
-7. Document production project setup, authorized domains, App Check rollout, and
-   room-data expiry.
+- Reserve room IDs and join codes transactionally, including collision handling.
+- Make membership changes transactional and enforce the supported player limit.
+- Freeze the active match roster and stable player seats when a game starts.
+- Reject joins or roster mutation while a match is active, except through an explicit future spectator flow.
+- Add leave-room and host end-room operations with defined lobby cleanup behavior.
+- Add Realtime Database presence using `onDisconnect`, while keeping presence separate from replay state.
+- Define controller ownership for duplicate tabs. Prefer one active writer lease per player with an explicit takeover path.
+- Tighten Firestore reads and writes to the minimum needed by lobby members and active participants.
+- Remove legacy `commands` and `progress` rule paths after confirming no supported client uses them.
+- Add Firebase Emulator Rules unit tests for authentication, membership, immutable event writes, event validation, and forbidden materialized-state writes.
+- Add a repeatable Firebase Rules deployment workflow and document its use.
+- Define room/journal expiry and cleanup policy; document when App Check should be enabled.
 
-Acceptance:
+Acceptance criteria:
 
-- A forced four-letter code collision creates one valid room and no orphan.
-- Only room members can read room/game data.
-- Only a listed participant can write their own command/progress paths.
-- Rules tests run in CI and cover every security acceptance criterion.
-- Client and rules schema changes cannot be deployed independently by accident.
+- Simultaneous room creation and joining cannot produce duplicate codes, duplicate seats, or excess players.
+- An active roster cannot change accidentally.
+- A second controller tab cannot silently fork a player's journal.
+- Disconnect and takeover states are visible without changing simulation authority.
+- Emulator tests prove unauthorized reads/writes and materialized-state writes are denied.
+- Rules can be deployed independently and reproducibly.
 
-### 3. Complete one match lifecycle — playable lifecycle completed
+### 2. Presentation and playability polish — substantially complete on the feature branch
 
-Goal: two to four people can complete a three-round points match and replay it
-without manually recreating the room.
+Turn the functional prototype into a game that is easy to join, understand, and watch.
 
-Implemented for the playable lifecycle:
+Completed in this slice:
 
-1. Version `pill-bottle/3` with deterministic level countdowns and new-level
-   generation inside the replayable engine.
-2. Publish immutable clear/top-out declarations containing player, terminal
-   tick, result, and state hash.
-3. Award each clearer the replay-derived viruses remaining across opponents at
-   that tick. Continue until one player remains; that player receives zero.
-4. Run three shared levels as linked immutable journals, preserving cumulative
-   replay-derived scores across reloads.
-5. Add level, score, round result, next-level, final result, and rematch
-   presentation to controller and cast routes.
-6. Require unanimous readiness before the host reserves the next level or a new
-   three-round match, with a fresh seed and journal.
+- Add replay-derived animation for pill locks, clears, terminal phase changes, and round completion.
+- Add a QR code to the cast lobby and preserve the short-code fallback.
+- Improve connection, lag, ready, waiting, gamepad, and control-binding indicators.
+- Make touch controls, focus behavior, contrast, reduced motion, and keyboard/gamepad affordances accessible.
+- Lazy-load QR generation.
 
-Still pending under room/presentation hardening:
+Remaining polish:
 
-- RTDB presence and connected/suspended/stale status;
-- explicit host end/return-to-lobby and player leave controls;
-- concurrent-controller ownership and stale membership handling.
+- Add compact opponent boards where they fit without compromising controller input space.
+- Add an optional live gamepad diagnostics/binding view showing active axes and buttons.
+- Add restrained sound and music only after redistributable assets are selected and their licenses are documented; include mute controls.
+- Set measurable bundle/startup targets and split the large Firebase client chunk where practical.
+- Extend replay-derived effects to distinguish gravity cascades and countdown transitions.
+- Add distinct reconnect and controller-ownership indicators after those session semantics exist.
 
-Acceptance:
+Acceptance criteria:
 
-- A two-to-four-player match displays replay-derived round and cumulative points.
-- Next level and rematch create distinct linked journals and all participants
-  begin together at tick zero on the correct level.
-- Reload works during countdown, active play, results, and rematch setup.
+- A new player can join from the cast screen without verbal setup instructions.
+- Controller and cast clearly communicate whose turn/state is being shown, current scores, round, readiness, lag, and reconnect status.
+- Important gameplay transitions are understandable without inspecting raw board changes.
+- Keyboard, touch, D-pad, analog stick, and rotation buttons remain responsive and do not double-fire.
 
-### 4. Presentation and playability pass
+### 3. Release hardening and real-device validation
 
-Goal: make the complete synchronized round pleasant on phones, tablets, and a
-shared display before adding competitive complexity.
+Validate the architecture under the failures and device combinations expected in actual play.
 
 Implementation:
 
-1. Render engine-derived transitions for lock, match highlight, clear, detach,
-   fall, chain, spawn, win, and top-out.
-2. When replay corrects an observer, render the corrected current state
-   immediately. Presentation must not add a second timing or buffering model.
-   Reduced-motion mode uses immediate placement and short fades.
-3. Add a tablet layout with the local bottle, compact opponent projections,
-   countdown, connection state, and results.
-4. Add QR invitations and a clear cast-launch flow.
-5. Add sound-independent cues, focus/keyboard states, screen-reader status, color
-   contrast checks, and touch-target verification.
-6. Remove the existing soundtrack files unless their distribution rights are
-   established. Replace them with original or clearly licensed music and effects.
-7. Lazy-load Firebase products by route and measure command rate, progress rate,
-   replay cost, RTDB bandwidth, and late-command rewind frequency.
+- Add deterministic tests for complete level and three-round transitions, including tied timing and simultaneous terminal events.
+- Add browser tests for next-level readiness, scoring, rematch, controller recovery, duplicate delivery, and late-event rewind.
+- Add fault-injection tests for delayed, duplicated, reordered, and temporarily offline event delivery.
+- Run scripted four-device playtests: one cast, two controllers, and one reconnecting or duplicate controller.
+- Measure command-to-render latency, replay cost, checkpoint memory, journal growth, and reconnect duration.
+- Add concise diagnostics for room ID, game ID, player ID, local tick, observed tick, lag, journal head, and connection state.
+- Verify a clean-clone setup, emulator workflow, production build, preview deploy, and Firebase Rules deploy.
 
-Acceptance:
+Acceptance criteria:
 
-- Zero-tolerance screenshots cover deterministic move, lock, clear, fall, chain,
-  disconnect, rewind correction, and finish states.
-- The controller remains responsive under injected RTDB latency and loss.
-- A four-device playtest completes without manual resynchronization.
-- Core status and results are understandable without sound or color alone.
+- Replaying the same journal always produces the same board, scores, and lifecycle state.
+- Delayed or duplicated delivery does not corrupt a board or award points twice.
+- A refreshed controller resumes without losing acknowledged input.
+- Four-device play remains responsive and understandable through disconnect and reconnect.
+- Production failures can be diagnosed without exposing private data or materialized game state.
 
-### 5. Multiplayer attacks
+### 4. Multiplayer attacks
 
-Goal: add cross-player effects only after isolated bottles and recovery are
-stable.
-
-Before coding, freeze a new versioned attack contract covering generation,
-targets, cancellation, colors, placement, lead ticks, receipts, simultaneous
-results, and tie handling.
-
-Implementation then adds immutable interaction facts ordered by
-`(serverTime, pushId)`, target-local apply ticks, replayable receipts, rules, and
-late-arrival tests. Interactions remain inputs to a target simulation; they never
-transport target board state.
-
-Acceptance:
-
-- Every observer schedules the same ordered interactions on the same target
-  ticks.
-- Reload/replay reproduces attacks and terminal hashes.
-- Delayed and tied interactions have fixture-defined results.
-
-### 6. Tetris-style ruleset
-
-Goal: prove that the room, command, replay, recovery, lifecycle, and presentation
-pipeline supports a second deterministic engine.
-
-Before coding, freeze board/spawn dimensions, seven-bag seed derivation,
-rotation/kicks, gravity/lock timing, line clears, top-out, hard/soft drop, and the
-initial garbage table as a versioned rules document and fixtures.
-
-Implement it behind the same start/command/progress interfaces. Ruleset-specific
-commands or settings must be explicit protocol versions, not optional fields
-interpreted differently by clients.
-
-Acceptance:
-
-- Live play and command replay produce identical Tetris-style hashes.
-- Tablet and cast routes switch renderers without changing room or recovery
-  semantics.
-- A full match, reload, result, and rematch pass the same lifecycle suite.
-
-### 7. Release hardening
-
-Goal: satisfy the MVP acceptance criteria in production-like conditions.
+Add attacks only after the base protocol and lifecycle are stable in real-device play.
 
 Implementation:
 
-1. Run repeated two-, three-, and four-device matches on ordinary Wi-Fi.
-2. Test slow joins, suspended tabs, controller reload, duplicate delivery, late
-   commands, host display mode, and Firebase reconnect.
-3. Add structured diagnostics for rules version, game ID, epoch, tick lag, last
-   sequence, hash mismatch, rewind count, and write backlog without collecting
-   personal data.
-4. Add data-expiry operations and an incident/runbook for auth, rules, quota, and
-   incompatible-client failures.
-5. Verify GitHub Pages base paths, PR previews, Firebase authorized domains, and
-   production rules deployment from a clean environment.
+- Define deterministic attack generation from Color Cure clear outcomes.
+- Represent attacks as immutable, replayable protocol events.
+- Define deterministic targeting for two to four players.
+- Define attack timing, ordering, cancellation, and simultaneous-clear behavior.
+- Add engine, protocol, observer, and lifecycle tests before enabling attacks in the UI.
 
-Acceptance:
+Acceptance criteria:
 
-- Four players complete repeated matches without manual resynchronization.
-- Reloaded clients converge to the same hashes.
-- No unauthorized Rules test succeeds.
-- CI gates type checks, engine tests, Rules tests, browser tests, and production
-  build.
+- Every participant derives identical attack targets and effects from the same journals.
+- Late or duplicate delivery cannot apply an attack twice.
+- Attacks do not require synchronized clocks or networked board snapshots.
 
-## Recommended decisions for review
+### 5. Tetris ruleset
 
-These defaults keep the next implementation slices narrow:
+Implement Tetris as a second deterministic engine behind the existing ruleset boundary.
 
-1. **Authentication:** anonymous authentication is sufficient for the MVP.
-2. **Disconnected player:** pause their tick indefinitely, mark them disconnected,
-   and let the host restart/end the round; do not infer a gameplay loss yet.
-3. **Epoch handoff:** support same-device reload first. Reject or visibly block a
-   second concurrent controller until an atomic handoff design is implemented.
-4. **Observer timing:** use no delay or shared clock. The cast advances its own
-   local `displayTick`; progress commands expose per-controller lag only.
-5. **Replay checkpoints:** retain one local checkpoint per player, immediately
-   after the most recently processed input or progress command. Replace it on
-   every controller record, persist it locally for reload, and use full replay
-   from tick zero as the fallback.
-6. **Finish policy:** use first valid server-ordered terminal declaration with a
-   short 250 ms presentation settlement window; treat exact policy as versioned
-   match configuration.
-7. **Attacks:** defer them until recovery, finish, and four-device single-board
-   synchronization are stable.
-8. **Casting:** tab/browser casting is acceptable for the MVP.
-9. **Tetris:** implement it only after the Color Cure lifecycle is complete.
+Implementation:
 
-## Suggested PR sequence
+- Define tetrominoes, rotation, lock delay, line clearing, scoring, levels, and top-out.
+- Define deterministic garbage attacks and ordering.
+- Reuse the existing controller journal, replay, cast, room, and lifecycle infrastructure.
+- Keep Tetris disabled in production until engine and multiplayer protocol coverage are complete.
 
-Keep each change independently reviewable:
+Acceptance criteria:
 
-1. Transactional rooms, stable seats, and Firebase Rules test suite.
-2. Rules deployment workflow and production operations documentation.
-3. Countdown, finish declarations, results, and rematch lifecycle.
-4. Derived animations, tablet layout, QR flow, accessibility, and original audio.
-5. Versioned multiplayer attacks, if approved.
-6. Versioned Tetris-style engine and renderer.
-7. Four-device hardening and release checklist.
+- Tetris produces identical state from identical seed and journal input.
+- Garbage exchange is deterministic under delay, duplication, and reordering.
+- Color Cure behavior is unchanged.
 
-Each PR must preserve the invariant that Firebase contains replay inputs and
-lightweight projections only—never materialized game state.
+## Decisions currently in force
+
+- Anonymous Firebase Authentication remains the default identity mechanism.
+- A disconnected controller pauses its own progression; the cast may continue advancing its display tick and report increasing lag.
+- A second controller for the same player must not write concurrently; explicit takeover is preferable to silent coexistence.
+- Observer timing remains local and lag-aware rather than synchronized to controller clocks.
+- Replay checkpoints remain local caches and must be reconstructible from immutable journals.
+- A Color Cure match is three rounds, and scoring remains based on opponents' remaining viruses at the clearing player's clear tick.
+- Multiplayer attacks remain deferred until room/session reliability and release-hardening work are complete.
+- Cast is a first-class host mode and must remain independently testable.
+
+## Suggested pull-request sequence
+
+1. Transactional room creation/joining, frozen active rosters, stable seats, and Rules unit tests.
+2. Presence, duplicate-controller ownership/takeover, leave/end-room flows, and rules deployment automation.
+3. Compact opponent views, live gamepad diagnostics, licensed audio/mute controls, and bundle targets.
+4. Expanded lifecycle/recovery browser coverage, fault injection, diagnostics, and four-device playtesting.
+5. Deterministic Color Cure attacks.
+6. Deterministic Tetris engine and garbage protocol.
+
+Each pull request should preserve the client-authoritative replay model, include deterministic coverage for new protocol behavior, and avoid introducing networked materialized state.

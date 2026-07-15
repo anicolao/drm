@@ -5,6 +5,9 @@
   export let state: BottleState;
   let canvas: HTMLCanvasElement;
   let lastFrame = '';
+  let transition: 'clear' | 'lock' | 'finish' | '' = '';
+  let observed = '';
+  let transitionTimer: ReturnType<typeof setTimeout> | undefined;
 
   const CELL = 10;
   const LEFT = 6;
@@ -82,12 +85,32 @@
     for (const cell of cells) cell.kind === 'virus' ? drawVirus(context, cell) : drawPill(context, cell, cells);
   }
 
-  onMount(draw);
-  $: state, draw();
+  function showReplayTransition() {
+    if (!canvas) return;
+    const next = `${state.viruses}:${state.pills}:${state.phase}`;
+    if (!observed) { observed = next; return; }
+    if (next === observed) return;
+    const [viruses, pills, phase] = observed.split(':');
+    observed = next;
+    transition = state.viruses < Number(viruses) ? 'clear'
+      : state.phase !== phase ? 'finish'
+      : state.pills > Number(pills) ? 'lock' : '';
+    if (!transition) return;
+    if (transitionTimer) clearTimeout(transitionTimer);
+    transitionTimer = setTimeout(() => transition = '', 420);
+  }
+
+  onMount(() => { draw(); showReplayTransition(); return () => { if (transitionTimer) clearTimeout(transitionTimer); }; });
+  $: state, draw(), showReplayTransition();
 </script>
 
-<canvas bind:this={canvas} class="bottle" width="92" height="180" aria-label="Pill bottle" data-cell-count={WIDTH * HEIGHT} data-virus-count={state.viruses}></canvas>
+<canvas bind:this={canvas} class="bottle" class:clear={transition==='clear'} class:lock={transition==='lock'} class:finish={transition==='finish'} width="92" height="180" aria-label="Pill bottle" data-cell-count={WIDTH * HEIGHT} data-virus-count={state.viruses}></canvas>
 
 <style>
-  .bottle { display:block; width:min(27vw,180px); height:auto; margin:auto; image-rendering:pixelated }
+  .bottle { display:block; width:min(27vw,180px); height:auto; margin:auto; image-rendering:pixelated;transform-origin:50% 100% }
+  .bottle.clear{animation:clear-flash .42s ease-out}.bottle.lock{animation:lock-bump .18s ease-out}.bottle.finish{animation:finish-glow .42s ease-out}
+  @keyframes clear-flash{35%{filter:brightness(2) drop-shadow(0 0 15px var(--yellow));transform:scale(1.025)}}
+  @keyframes lock-bump{45%{transform:translateY(2px)}}
+  @keyframes finish-glow{50%{filter:brightness(1.7) drop-shadow(0 0 18px var(--cyan))}}
+  @media(prefers-reduced-motion:reduce){.bottle.clear,.bottle.lock,.bottle.finish{animation:none}}
 </style>

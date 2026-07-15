@@ -8,6 +8,7 @@
 - [x] Direct invitation URL joined the requested room
 - [x] No nonfunctional controls are displayed
 - [x] UI waits for the host start record
+- [x] Waiting screen teaches keyboard and gamepad controls
 
 ---
 

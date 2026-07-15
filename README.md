@@ -55,6 +55,17 @@ Copy `.env.example` to `.env` when the dedicated Firebase project is ready. Run
 [E2E_GUIDE.md](E2E_GUIDE.md) for emulator-backed, zero-pixel-tolerance scenarios.
 Pull requests deploy under `/drm/pr<PR number>/` and receive a preview link.
 
+## Development environment
+
+Enter the pinned Nix development shell before installing dependencies or running project commands:
+
+```sh
+nix develop
+npm ci
+```
+
+The shell supplies the Node and Java versions required by the application, Firebase emulators, and test tooling.
+
 ## License
 
 Copyright (C) 2026 Alex Nicolaou. Licensed under the GNU General Public License,
