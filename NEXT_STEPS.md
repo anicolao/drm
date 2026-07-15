@@ -53,8 +53,8 @@ The following work is complete or working in prototype form:
   configuration, and CI.
 - Anonymous authentication, room creation/joining, room codes, host lobby,
   player roster, and ruleset selection.
-- Color Cure phone controls, keyboard controls, tablet bottle rendering, and a
-  shared cast route.
+- Color Cure phone, keyboard, and standard Bluetooth gamepad controls; tablet
+  bottle rendering; and a shared cast route.
 - The frozen `pill-bottle/3` rule definition: seeded xorshift32 generation,
   level-scaled virus layouts, capsule stream, progressive gravity, level
   countdowns, soft/hard drop, lock delay, matching, settling, rotation/kicks,
