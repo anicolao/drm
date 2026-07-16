@@ -130,7 +130,7 @@ export function subscribePillBottleLifecycle(
       startDefinition = start;
       playerIds = Object.keys(start.players);
       round = start.round;
-      previousPoints = await loadPreviousPillScores(start.previousGameId);
+      previousPoints = await loadPreviousPillScores(start.previousGameId, start.matchId);
       await Promise.all(playerIds.map(async (playerId) => {
         const recordsSnapshot = await get(ref(realtimeDatabase!, `games/${gameId}/players/${playerId}/records`));
         const records: ControllerRecord[] = [];
@@ -207,7 +207,7 @@ export async function startPillBottleRematch(gameId: string) {
   const startSnapshot = await get(ref(realtimeDatabase, `games/${gameId}/start`));
   if (!startSnapshot.exists()) throw new Error('The previous game no longer exists.');
   const start = parsePillStart(startSnapshot.val());
-  if (start.hostUid !== auth.currentUser.uid) return;
+  if (!start.players[auth.currentUser.uid]) return;
   const readiness = await get(ref(realtimeDatabase, `games/${gameId}/rematch/ready`));
   const ready = new Set<string>();
   readiness.forEach((child) => { ready.add(parsePillRematchReady(child.val()).playerId); });
@@ -229,11 +229,11 @@ export async function startPillBottleRematch(gameId: string) {
       audioOutput: start.audioOutput,
       matchId: advanceRound ? start.matchId : nextGameId,
       round: advanceRound ? start.round + 1 : 0,
-      ...(advanceRound ? { previousGameId: gameId } : {}),
+      previousGameId: gameId,
       serverTime: serverTimestamp()
     });
   } catch (cause) {
-    // Another host display may have completed the immutable start record first. Reading is
+    // Another ready participant may have completed the immutable start record first. Reading is
     // permitted once that record establishes membership; an empty reserved game remains
     // unreadable, so preserve the original failure in that case.
     try {
@@ -436,13 +436,14 @@ function deriveRoundPoints(
   return points;
 }
 
-async function loadPreviousPillScores(previousGameId?: string) {
+async function loadPreviousPillScores(previousGameId: string | undefined, matchId: string) {
   const totals: Record<string, number> = {};
   let gameId = previousGameId;
   while (gameId && realtimeDatabase) {
     const startSnapshot = await get(ref(realtimeDatabase, `games/${gameId}/start`));
     if (!startSnapshot.exists()) break;
     const start = parsePillStart(startSnapshot.val());
+    if (start.matchId !== matchId) break;
     const terminalSnapshot = await get(ref(realtimeDatabase, `games/${gameId}/terminals`));
     const terminalRecords: Array<{ playerId: string; result: 'cleared' | 'lost'; tick: number }> = [];
     terminalSnapshot.forEach((child) => { terminalRecords.push(parsePillTerminal(child.val())); });

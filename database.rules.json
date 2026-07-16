@@ -6,7 +6,7 @@
       "$gameId": {
         ".read": "auth != null && data.child('start/members').child(auth.uid).val() == true",
         "start": {
-          ".write": "auth != null && !data.exists() && newData.child('hostUid').val() == auth.uid",
+          ".write": "auth != null && !data.exists() && ((!newData.child('previousGameId').exists() && newData.child('hostUid').val() == auth.uid) || (newData.child('previousGameId').exists() && root.child('games/'+newData.child('previousGameId').val()+'/start/players/'+auth.uid).exists()))",
           ".validate": "newData.hasChildren(['type','roomId','ruleset','rulesVersion','seed','tickRate','hostUid','audioOutput','members','players','settings','serverTime']) && newData.child('type').val() == 'game/started' && newData.child('ruleset').val() == 'pill-bottle' && (newData.child('rulesVersion').val() == 'pill-bottle/2' || newData.child('rulesVersion').val() == 'pill-bottle/3') && newData.child('tickRate').val() == 60 && newData.child('seed').isNumber() && newData.child('seed').val() % 1 == 0 && newData.child('seed').val() >= 0 && newData.child('seed').val() <= 4294967295 && newData.child('roomId').isString() && newData.child('roomId').val().length <= 128 && newData.child('hostUid').isString() && newData.child('hostUid').val().length <= 128 && (newData.child('audioOutput').val() == 'cast' || newData.child('audioOutput').val() == 'controllers') && (!newData.child('matchId').exists() || (newData.child('matchId').isString() && newData.child('matchId').val().length <= 128)) && (!newData.child('round').exists() || (newData.child('round').isNumber() && newData.child('round').val() % 1 == 0 && newData.child('round').val() >= 0 && newData.child('round').val() <= 2)) && (!newData.child('previousGameId').exists() || (newData.child('previousGameId').isString() && newData.child('previousGameId').val().length <= 128)) && newData.child('members').child(auth.uid).val() == true && newData.child('players').hasChildren() && newData.child('serverTime').isNumber()",
           "type": { ".validate": true },
           "roomId": { ".validate": true },
@@ -151,7 +151,7 @@
             }
           },
           "nextGameId": {
-            ".write": "auth != null && !data.exists() && root.child('games/'+$gameId+'/start/hostUid').val() == auth.uid",
+            ".write": "auth != null && !data.exists() && root.child('games/'+$gameId+'/start/players/'+auth.uid).exists()",
             ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 128"
           },
           "$other": { ".validate": false }
