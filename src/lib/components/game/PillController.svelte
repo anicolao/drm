@@ -1,0 +1,172 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { base } from '$app/paths';
+  import Logo from '$lib/components/Logo.svelte';
+  import PillBottle from '$lib/components/PillBottle.svelte';
+  import GameAudio from '$lib/components/GameAudio.svelte';
+  import { gravityTicksForState } from '$lib/game/pill-bottle';
+  import { firebaseConfigured } from '$lib/firebase/config';
+  import { joinRoom, subscribeRoom, subscribeRoomPlayers, type RoomPlayer } from '$lib/firebase/rooms';
+  import { createPillBottleController, type PillCommand, type ControllerState } from '$lib/firebase/pill-bottle';
+  import { StandardGamepadControls, type GamepadControlAction } from '$lib/input/gamepad';
+  import { HeldActionRepeater } from '$lib/input/held-repeat';
+
+  let code=''; let joined=false; let joining=false; let needsName=false; let playerName=''; let error='';
+  let roomId=''; let activeGameId=''; let controller: ReturnType<typeof createPillBottleController> | undefined;
+  let roomUnsubscribe=()=>{}; let playersUnsubscribe=()=>{}; let players:RoomPlayer[]=[]; let state: ControllerState={tick:0,ready:false}; let downHeld=false;
+  let gamepadFrame=0; let gamepadConnected=false; let gamepadName=''; let online=true; const gamepadControls=new StandardGamepadControls(); const dropSources=new Set<'pointer'|'keyboard'|'gamepad'>();
+  const touchMoveRepeater=new HeldActionRepeater<-1|1>((dx)=>send({type:'input/move',payload:{dx}}));
+  $: controlsEnabled=Boolean(state.ready&&state.bottle?.phase==='playing'&&!state.lifecycle?.finished);
+  $: connectionLabel=!online?'OFFLINE':!state.ready?'CONNECTING':'CONNECTED';
+  $: standings=(state.lifecycle?.playerIds??[]).map((playerId,index)=>({
+    playerId,
+    name:players.find(player=>player.uid===playerId)?.displayName??(playerId===state.playerId?playerName:`Player ${index+1}`),
+    score:state.lifecycle?.scores[playerId]??0,
+    roundPoints:state.lifecycle?.roundPoints[playerId]??0
+  })).sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name));
+  $: opponentDisplays=(state.opponents??[]).map((opponent,index)=>({
+    ...opponent,
+    name:players.find(player=>player.uid===opponent.playerId)?.displayName??`Player ${index+1}`,
+    score:state.lifecycle?.scores[opponent.playerId]??0
+  }));
+
+  onMount(()=>{
+    void initialize();
+    gamepadFrame=requestAnimationFrame(pollGamepads);
+    const release=()=>void releaseAllControls();
+    const visibility=()=>{if(document.hidden){release();gamepadControls.reset();controller?.suspend();}else controller?.resume();};
+    const pagehide=()=>{release();gamepadControls.reset();controller?.suspend();};
+    const network=()=>online=navigator.onLine;network();
+    window.addEventListener('blur',release);window.addEventListener('keydown',keyDown);window.addEventListener('keyup',keyUp);window.addEventListener('pagehide',pagehide);window.addEventListener('online',network);window.addEventListener('offline',network);document.addEventListener('visibilitychange',visibility);
+    return()=>{cancelAnimationFrame(gamepadFrame);roomUnsubscribe();playersUnsubscribe();controller?.destroy();window.removeEventListener('blur',release);window.removeEventListener('keydown',keyDown);window.removeEventListener('keyup',keyUp);window.removeEventListener('pagehide',pagehide);window.removeEventListener('online',network);window.removeEventListener('offline',network);document.removeEventListener('visibilitychange',visibility);};
+  });
+
+  async function initialize(){
+    code=new URL(window.location.href).searchParams.get('code')?.toUpperCase()??'';
+    if(!/^[A-Z]{4}$/.test(code)){error='A valid four-letter room code is required.';return;}
+    if(!firebaseConfigured){error='Firebase configuration is required.';return;}
+    playerName=localStorage.getItem('drm-player-name')??'';
+    if(!playerName){needsName=true;return;}
+    await performJoin();
+  }
+  async function performJoin(){
+    joining=true;error='';
+    try{
+      const room=await joinRoom(code,playerName);roomId=room.id;joined=true;needsName=false;
+      playersUnsubscribe=subscribeRoomPlayers(room.id,next=>players=next,cause=>error=cause.message);
+      if(room.activeGameId){if(room.ruleset==='tetris'){window.location.assign(`${base}/play?code=${code}`);return}startController(room.activeGameId);}
+      roomUnsubscribe=subscribeRoom(room.id,(next)=>{if(next.activeGameId){if(next.ruleset==='tetris')window.location.assign(`${base}/play?code=${code}`);else startController(next.activeGameId);}},(cause)=>error=cause.message);
+    }catch(cause){error=cause instanceof Error?cause.message:String(cause);}
+    finally{joining=false;}
+  }
+  async function saveAndJoin(){
+    const name=playerName.trim();if(!name||name.length>24){error='Player name must be between 1 and 24 characters.';return;}
+    playerName=name;localStorage.setItem('drm-player-name',name);await performJoin();
+  }
+  function startController(gameId:string){
+    if(controller&&activeGameId===gameId)return;controller?.destroy();activeGameId=gameId;state={tick:0,ready:false};error='';
+    controller=createPillBottleController(gameId,(next)=>{state=next;if(next.error)error=next.error;});
+  }
+  function send(input:PillCommand){
+    if(!controlsEnabled)return;
+    navigator.vibrate?.(12);void controller?.command(input).catch((cause)=>error=cause instanceof Error?cause.message:String(cause));
+  }
+  function beginDown(source:'pointer'|'keyboard'|'gamepad'){
+    if(dropSources.has(source))return;const start=dropSources.size===0;dropSources.add(source);downHeld=true;
+    if(start)send({type:'input/soft-drop-start',payload:{}});
+  }
+  function endDown(source:'pointer'|'keyboard'|'gamepad'){if(!dropSources.delete(source))return;downHeld=dropSources.size>0;if(!downHeld)send({type:'input/soft-drop-end',payload:{}});}
+  function releaseAllDown(){if(dropSources.size===0)return;dropSources.clear();downHeld=false;send({type:'input/soft-drop-end',payload:{}});}
+  function releaseAllControls(){touchMoveRepeater.stop();releaseAllDown();}
+  function pressMove(event:PointerEvent,dx:-1|1){
+    touchMoveRepeater.start(dx);
+    try{(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);}catch{/* Pointer capture is optional. */}
+  }
+  function pressDown(event:PointerEvent){
+    beginDown('pointer');
+    try{(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);}catch{/* Pointer capture is optional for synthetic and unsupported pointers. */}
+  }
+  function releasePointerDown(){endDown('pointer');}
+  function gamepadAction(action:GamepadControlAction){
+    if(action==='move-left')send({type:'input/move',payload:{dx:-1}});
+    else if(action==='move-right')send({type:'input/move',payload:{dx:1}});
+    else if(action==='hard-drop')send({type:'input/hard-drop',payload:{}});
+    else if(action==='rotate-clockwise')send({type:'input/rotate',payload:{direction:'clockwise'}});
+    else if(action==='rotate-counterclockwise')send({type:'input/rotate',payload:{direction:'counterclockwise'}});
+    else if(action==='soft-drop-start')beginDown('gamepad');
+    else endDown('gamepad');
+  }
+  function pollGamepads(now:number){
+    const gamepads=typeof navigator.getGamepads==='function'?Array.from(navigator.getGamepads()):[];
+    const active=gamepads.find(gamepad=>Boolean(gamepad?.connected));const connected=Boolean(active);
+    if(connected!==gamepadConnected){gamepadConnected=connected;gamepadName=active?.id??'';}
+    const actions=gamepadControls.sample(gamepads,now);
+    if(controlsEnabled)for(const action of actions)gamepadAction(action);
+    else{gamepadControls.reset();endDown('gamepad');}
+    gamepadFrame=requestAnimationFrame(pollGamepads);
+  }
+  function typingTarget(target:EventTarget|null){return target instanceof HTMLElement&&(target.matches('input,textarea,select')||target.isContentEditable);}
+  function keyDown(event:KeyboardEvent){
+    if(typingTarget(event.target)||!controlsEnabled)return;
+    if(event.key==='ArrowDown'){event.preventDefault();if(!event.repeat)beginDown('keyboard');return;}
+    const command = event.key==='ArrowLeft'?{type:'input/move',payload:{dx:-1}} as PillCommand
+      :event.key==='ArrowRight'?{type:'input/move',payload:{dx:1}} as PillCommand
+      :event.key==='ArrowUp'&&!event.repeat?{type:'input/hard-drop',payload:{}} as PillCommand
+      :event.key.toLowerCase()==='r'&&!event.repeat?{type:'input/rotate',payload:{direction:'clockwise'}} as PillCommand
+      :event.key.toLowerCase()==='t'&&!event.repeat?{type:'input/rotate',payload:{direction:'counterclockwise'}} as PillCommand:undefined;
+    if(command){event.preventDefault();send(command);}
+  }
+  function keyUp(event:KeyboardEvent){if(event.key==='ArrowDown'){event.preventDefault();endDown('keyboard');}}
+  async function nextRound(){try{await controller?.requestRematch();}catch(cause){error=cause instanceof Error?cause.message:String(cause);}}
+</script>
+
+<div class="controller-shell"><nav><Logo compact/><span>{code||'NO ROOM'}</span></nav>
+{#if needsName}<main class="join"><form class="card" on:submit|preventDefault={saveAndJoin}><p class="eyebrow">Joining room {code}</p><h1>WHAT SHOULD PLAYERS CALL YOU?</h1><label>Player name<input aria-label="Player name" maxlength="24" autocomplete="nickname" bind:value={playerName}/></label><button disabled={joining}>{joining?'Joining…':'Join room'}</button></form>{#if error}<p role="alert">{error}</p>{/if}</main>
+{:else if error}<main class="join"><p class="eyebrow">Controller error</p><h1>{error}</h1>{#if state.ownershipConflict}<button on:click={()=>controller?.takeOver()}>Take over on this device</button>{/if}</main>
+{:else if !joined}<main class="join"><p class="eyebrow">Joining room…</p></main>
+{:else if !activeGameId}<main class="join"><p class="eyebrow">Joined room {code}</p><h1>WAITING FOR HOST</h1><p role="status">You are in. Keep this screen open; controls appear when the host starts Color Cure.</p><div class="control-guide compact"><span>← → MOVE</span><span>↓ SOFT DROP</span><span>↑ HARD DROP</span><span>A / R ↻</span><span>B / T ↺</span></div></main>
+{:else}<main class="landscape-controller" aria-label="Pill Bottle controller"><GameAudio state={state.bottle} enabled={state.audioOutput==='controllers'} rainSignal={state.rainSignal??0}/>
+  {#if state.lifecycle&&state.lifecycle.playerIds.length>1}<aside class="controller-scoreboard" aria-label="Scores"><strong>ROUND {state.lifecycle.round+1}/3</strong>{#each standings as player}<span class:you={player.playerId===state.playerId}>{player.name} <b>{player.score}</b>{#if player.roundPoints>0}<small>+{player.roundPoints}</small>{/if}</span>{/each}</aside>{/if}
+  {#if opponentDisplays.length}<aside class="opponent-boards" aria-label="Opponent boards">{#each opponentDisplays as opponent (opponent.playerId)}<article class:eliminated={state.lifecycle?.terminalPlayerIds.includes(opponent.playerId)}><strong>{opponent.name}</strong><PillBottle state={opponent.state} label={`${opponent.name} opponent bottle`} showPreview={false}/><span>{opponent.state.viruses} · {opponent.score} pts</span></article>{/each}</aside>{/if}
+  <div class="status-strip" role="status" aria-live="polite"><span class:offline={!online} class:connecting={online&&!state.ready}>● {connectionLabel}</span>{#if gamepadConnected}<span title={gamepadName}>GAMEPAD READY</span>{:else}<span>TOUCH / KEYBOARD</span>{/if}</div>
+  <section class="session"><strong>{playerName}</strong><span>room {code}</span>{#if state.bottle}<PillBottle state={state.bottle}/><span>{state.lifecycle?.playerIds.length===1?`level ${state.bottle.level}`:`round ${(state.lifecycle?.round??state.bottle.level)+1}/3`} · {state.bottle.viruses} viruses</span><span>speed {gravityTicksForState(state.bottle)} ticks · {state.bottle.pills} pills</span>{#if state.lifecycle?.terminalResults[state.playerId??'']==='cleared'}<strong class="countdown">LEVEL CLEAR</strong>{:else if state.bottle.phase==='lost'&&!state.lifecycle?.finished}<strong class="result">ELIMINATED · WAITING</strong>{/if}{/if}<span class="tick">tick {state.tick}</span>{#if state.lastCommand}<small class="command-status">{state.lastCommand}</small>{/if}</section>
+  {#if state.lifecycle?.finished}<div class="match-result" role="status" aria-live="polite"><strong>{state.lifecycle.playerIds.length===1?'GAME OVER':state.lifecycle.matchComplete?'MATCH COMPLETE':`ROUND ${state.lifecycle.round+1} COMPLETE`}</strong><button on:click={nextRound} disabled={state.lifecycle.readyPlayerIds.includes(state.playerId??'')}>{state.lifecycle.matchComplete?'PLAY AGAIN':'NEXT LEVEL'}</button><small>{state.lifecycle.readyPlayerIds.length}/{state.lifecycle.playerIds.length} ready</small></div>{/if}
+  <section class="dpad" aria-label="Movement controls">
+    <button class="up" aria-label="Hard drop" title="Arrow Up" disabled={!controlsEnabled} on:pointerdown={()=>send({type:'input/hard-drop',payload:{}})}>↑</button>
+    <button class="left" aria-label="Move left" title="Arrow Left" disabled={!controlsEnabled} on:pointerdown={(event)=>pressMove(event,-1)} on:pointerup={()=>touchMoveRepeater.stop()} on:pointercancel={()=>touchMoveRepeater.stop()} on:lostpointercapture={()=>touchMoveRepeater.stop()}>←</button>
+    <button class:held={downHeld} class="down" aria-label="Accelerate down" title="Arrow Down" disabled={!controlsEnabled} on:pointerdown={pressDown} on:pointerup={releasePointerDown} on:pointercancel={releasePointerDown} on:lostpointercapture={releasePointerDown}>↓</button>
+    <button class="right" aria-label="Move right" title="Arrow Right" disabled={!controlsEnabled} on:pointerdown={(event)=>pressMove(event,1)} on:pointerup={()=>touchMoveRepeater.stop()} on:pointercancel={()=>touchMoveRepeater.stop()} on:lostpointercapture={()=>touchMoveRepeater.stop()}>→</button>
+  </section>
+  <section class="rotations" aria-label="Rotation controls">
+    <button aria-label="Rotate counterclockwise" title="T" disabled={!controlsEnabled} on:pointerdown={()=>send({type:'input/rotate',payload:{direction:'counterclockwise'}})}>↺</button>
+    <button aria-label="Rotate clockwise" title="R" disabled={!controlsEnabled} on:pointerdown={()=>send({type:'input/rotate',payload:{direction:'clockwise'}})}>↻</button>
+  </section>
+  <div class="control-guide" aria-label="Control hints"><span>STICK / D-PAD · MOVE</span><span>A · CLOCKWISE</span><span>B · COUNTER</span></div>
+</main>{/if}</div>
+
+<style>
+  .controller-shell{min-height:100vh;padding:0 1rem;overflow:hidden}.controller-shell nav>span{font-weight:bold;color:var(--yellow)}
+  .join{width:min(100%,520px);margin:auto;text-align:center;padding-top:5rem}.join form{display:grid;gap:1.2rem;text-align:left}.join form h1{font-size:1.4rem}.join form button{width:100%}.join>p:last-child{color:var(--muted);line-height:1.7}[role=alert]{color:var(--pink)}
+  .landscape-controller{position:fixed;left:0;top:0;width:100vw;width:100dvw;height:100vh;height:100dvh;max-width:100vw;max-height:100vh;overflow:hidden;background:radial-gradient(circle at 50% 50%,#24203a 0,transparent 45%),var(--bg);touch-action:none;user-select:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+  .status-strip{position:absolute;z-index:7;left:max(.55rem,env(safe-area-inset-left));top:max(.45rem,env(safe-area-inset-top));display:flex;gap:.35rem}.status-strip span{border:1px solid #464958;background:rgba(8,9,13,.75);color:var(--cyan);padding:.28rem .38rem;font-size:clamp(.42rem,1.35dvh,.55rem);font-weight:700;letter-spacing:.06em}.status-strip .connecting{color:var(--yellow)}.status-strip .offline{color:var(--pink)}
+  .session{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:grid;text-align:center;gap:min(.2rem,.6dvh);color:var(--muted);text-transform:uppercase;font-size:clamp(.42rem,1.45dvh,.58rem);max-height:96dvh}.session :global(.bottle-shell){width:min(23vw,38dvh,150px)}.session strong{color:var(--text);font-size:clamp(.58rem,2dvh,.8rem)}.session .tick{color:var(--yellow);font-size:clamp(.58rem,2dvh,.8rem)}
+  .session .countdown{color:var(--yellow)}.session .result{color:var(--pink)}.match-result{position:fixed;inset:0;z-index:5;background:rgba(8,9,13,.9);display:grid;place-content:center;gap:1rem}.match-result strong{font-size:clamp(2rem,7vw,5rem);color:var(--yellow)}.match-result button{font-size:1rem}
+  .controller-scoreboard{position:absolute;z-index:6;top:max(.5rem,env(safe-area-inset-top));right:max(.55rem,env(safe-area-inset-right));display:grid;gap:min(.25rem,.7dvh);max-width:24vw;text-align:right;text-transform:uppercase;font-size:clamp(.45rem,1.6dvh,.65rem);color:var(--muted)}.controller-scoreboard span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.controller-scoreboard strong{color:var(--text)}.controller-scoreboard b,.controller-scoreboard small,.controller-scoreboard .you{color:var(--yellow)}.controller-scoreboard small{margin-left:.25rem}
+  .opponent-boards{position:absolute;z-index:4;left:max(.55rem,env(safe-area-inset-left));top:max(3rem,calc(env(safe-area-inset-top) + 2.5rem));display:flex;gap:.45rem;align-items:start}.opponent-boards article{display:grid;justify-items:center;gap:.15rem;width:min(8vw,62px);color:var(--muted);text-transform:uppercase;font-size:.42rem;text-align:center}.opponent-boards article.eliminated{opacity:.45;filter:saturate(.35)}.opponent-boards strong{width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}.opponent-boards :global(.bottle-shell){width:100%}.opponent-boards span{white-space:nowrap}
+  .dpad{position:absolute;left:max(.55rem,4vw,env(safe-area-inset-left));bottom:max(.55rem,3dvh,env(safe-area-inset-bottom));width:min(34vw,68dvh,280px);height:min(58dvh,230px);display:grid;grid-template:repeat(2,1fr)/repeat(3,1fr);gap:min(.55rem,1.5dvh)}.dpad button,.rotations button{font-size:min(5vw,10dvh,3rem);background:#292c38;color:var(--text);border:1px solid #4a4d60;box-shadow:4px 4px 0 var(--ink);padding:0}.dpad button:active,.rotations button:active,.dpad .held{background:var(--cyan);color:var(--ink);transform:translate(2px,2px);box-shadow:2px 2px 0 var(--ink)}
+  .up{grid-area:1/2}.left{grid-area:2/1}.down{grid-area:2/2}.right{grid-area:2/3}
+  .rotations{position:absolute;right:max(.55rem,4vw,env(safe-area-inset-right));bottom:max(.55rem,3dvh,env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(2,min(14vw,28dvh,130px));gap:min(1rem,2.5dvh);height:min(35dvh,150px)}.rotations button:first-child{background:color-mix(in srgb,var(--pink),#292c38 45%)}.rotations button:last-child{background:color-mix(in srgb,var(--cyan),#292c38 45%)}
+  .control-guide{position:absolute;left:50%;bottom:.6rem;transform:translateX(-50%);display:flex;gap:.6rem;color:#7f8291;font-size:.5rem;white-space:nowrap}.control-guide.compact{position:static;transform:none;justify-content:center;flex-wrap:wrap;margin-top:1.5rem;color:var(--muted);font-size:.65rem;white-space:normal}.control-guide.compact span{border:1px solid #3c3f50;padding:.45rem}
+  @media(orientation:portrait){
+    .session{top:max(4.4rem,calc(env(safe-area-inset-top) + 3.8rem));transform:translateX(-50%);gap:.12rem;max-height:52dvh}
+    .session :global(.bottle-shell){width:min(43vw,20dvh,155px)}
+    .controller-scoreboard{top:max(3.2rem,calc(env(safe-area-inset-top) + 2.7rem));max-width:25vw;font-size:.45rem}
+    .opponent-boards{left:auto;right:max(.45rem,env(safe-area-inset-right));top:max(8rem,calc(env(safe-area-inset-top) + 7.5rem));display:grid;gap:.35rem}.opponent-boards article{width:min(15vw,54px)}
+    .dpad{left:max(.45rem,env(safe-area-inset-left));bottom:max(.65rem,env(safe-area-inset-bottom));width:min(52vw,220px);height:min(27dvh,220px);gap:.4rem}
+    .rotations{right:max(.45rem,env(safe-area-inset-right));bottom:max(.65rem,env(safe-area-inset-bottom));grid-template-columns:repeat(2,min(20vw,82px));height:min(16dvh,125px);gap:.5rem}
+    .dpad button,.rotations button{font-size:clamp(1.4rem,8vw,2.4rem)}
+    .landscape-controller>.control-guide{display:none}
+  }
+  @media(max-height:430px){.landscape-controller>.control-guide{display:none}}
+  @media(prefers-reduced-motion:reduce){.match-result{animation:none}}
+</style>

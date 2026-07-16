@@ -35,7 +35,7 @@
   }
   async function startGame(destination: 'play' | 'cast') {
     starting = true; error = '';
-    try { const hostMode=destination==='play'?'player':'display';activeGameId = ruleset==='tetris'?await startTetrisGame(roomId,players,hostMode):await startPillBottleGame(roomId, players,hostMode);const route=ruleset==='tetris'?(destination==='play'?'tetris':'tetris-cast'):destination;await goto(`${base}/${route}?code=${code}`); }
+    try { const hostMode=destination==='play'?'player':'display';activeGameId = ruleset==='tetris'?await startTetrisGame(roomId,players,hostMode):await startPillBottleGame(roomId, players,hostMode);await goto(`${base}/${destination}?code=${code}`); }
     catch (cause) { error = cause instanceof Error ? cause.message : String(cause); }
     finally { starting = false; }
   }
@@ -43,7 +43,7 @@
 <div class="shell"><nav><Logo compact /><span>ROOM</span></nav>
 {#if loading}<p class="eyebrow">Loading room…</p>
 {:else if error}<section class="card error"><h1>ROOM UNAVAILABLE</h1><p role="alert">{error}</p><a class="button secondary" href={`${base}/`}>Return home</a></section>
-{:else}<header><div><p class="eyebrow">Room code</p><h1>{code}</h1></div><div class="join-tools">{#if joinHref}<JoinQr href={joinHref} label="Scan with a controller" />{/if}<div class="links"><a class="button secondary" href={`${base}/play?code=${code}`}>Join on another device</a><a class="button secondary" href={`${base}/${ruleset==='tetris'?'tetris-cast':'cast'}?code=${code}`}>Open shared display</a></div></div></header>
+{:else}<header><div><p class="eyebrow">Room code</p><h1>{code}</h1></div><div class="join-tools">{#if joinHref}<JoinQr href={joinHref} label="Scan with a controller" />{/if}<div class="links"><a class="button secondary" href={`${base}/play?code=${code}`}>Join on another device</a><a class="button secondary" href={`${base}/cast?code=${code}`}>Open shared display</a></div></div></header>
 <main><section class="card"><p class="eyebrow">Game configuration</p><div class="modes"><button disabled={Boolean(activeGameId)||choosing} class:chosen={ruleset==='tetris'} on:click={()=>choose('tetris')}>▦<strong>BLOCK STACK</strong><small>Tetris-style rules</small></button><button disabled={Boolean(activeGameId)||choosing} class:chosen={ruleset==='doctor'} on:click={()=>choose('doctor')}>●<strong>COLOR CURE</strong><small>Dr. Mario-style rules</small></button></div>{#if activeGameId}<p class="notice active" role="status">Game started · 60 ticks/second</p>{:else}<div class="starts"><button disabled={starting || choosing || players.length === 0} on:click={()=>startGame('play')}>{starting ? 'Starting…' : 'Play'}</button><button class="secondary" disabled={starting || choosing || !hasControllerPlayer} on:click={()=>startGame('cast')}>{starting ? 'Starting…' : 'I am the TV'}</button></div><p class="notice"><strong>Play</strong> uses this device as the host's controller. <strong>I am the TV</strong> keeps this device on the shared display for the other players.</p>{/if}</section>
 <section class="card roster"><p class="eyebrow">Joined players · {players.length}</p>{#each players as player}<div><span class="avatar">●</span><strong>{player.displayName}</strong><small>{player.role.toUpperCase()}</small></div>{/each}{#if players.length === 0}<p>No players have joined.</p>{/if}</section></main>{/if}
 </div>
