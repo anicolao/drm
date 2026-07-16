@@ -8,11 +8,13 @@
   import { joinRoom, subscribeRoom, subscribeRoomPlayers, type RoomPlayer } from '$lib/firebase/rooms';
   import { createPillBottleController, type PillCommand, type ControllerState } from '$lib/firebase/pill-bottle';
   import { StandardGamepadControls, type GamepadControlAction } from '$lib/input/gamepad';
+  import { HeldActionRepeater } from '$lib/input/held-repeat';
 
   let code=''; let joined=false; let joining=false; let needsName=false; let playerName=''; let error='';
   let roomId=''; let activeGameId=''; let controller: ReturnType<typeof createPillBottleController> | undefined;
   let roomUnsubscribe=()=>{}; let playersUnsubscribe=()=>{}; let players:RoomPlayer[]=[]; let state: ControllerState={tick:0,ready:false}; let downHeld=false;
   let gamepadFrame=0; let gamepadConnected=false; let gamepadName=''; let online=true; const gamepadControls=new StandardGamepadControls(); const dropSources=new Set<'pointer'|'keyboard'|'gamepad'>();
+  const touchMoveRepeater=new HeldActionRepeater<-1|1>((dx)=>send({type:'input/move',payload:{dx}}));
   $: controlsEnabled=Boolean(state.ready&&state.bottle?.phase==='playing'&&!state.lifecycle?.finished);
   $: connectionLabel=!online?'OFFLINE':!state.ready?'CONNECTING':'CONNECTED';
   $: standings=(state.lifecycle?.playerIds??[]).map((playerId,index)=>({
@@ -25,7 +27,7 @@
   onMount(()=>{
     void initialize();
     gamepadFrame=requestAnimationFrame(pollGamepads);
-    const release=()=>void releaseAllDown();
+    const release=()=>void releaseAllControls();
     const visibility=()=>{if(document.hidden){release();gamepadControls.reset();controller?.suspend();}else controller?.resume();};
     const pagehide=()=>{release();gamepadControls.reset();controller?.suspend();};
     const network=()=>online=navigator.onLine;network();
@@ -69,6 +71,11 @@
   }
   function endDown(source:'pointer'|'keyboard'|'gamepad'){if(!dropSources.delete(source))return;downHeld=dropSources.size>0;if(!downHeld)send({type:'input/soft-drop-end',payload:{}});}
   function releaseAllDown(){if(dropSources.size===0)return;dropSources.clear();downHeld=false;send({type:'input/soft-drop-end',payload:{}});}
+  function releaseAllControls(){touchMoveRepeater.stop();releaseAllDown();}
+  function pressMove(event:PointerEvent,dx:-1|1){
+    touchMoveRepeater.start(dx);
+    try{(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);}catch{/* Pointer capture is optional. */}
+  }
   function pressDown(event:PointerEvent){
     beginDown('pointer');
     try{(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);}catch{/* Pointer capture is optional for synthetic and unsupported pointers. */}
@@ -119,9 +126,9 @@
   {#if state.lifecycle?.finished}<div class="match-result" role="status" aria-live="polite"><strong>{state.lifecycle.playerIds.length===1?'GAME OVER':state.lifecycle.matchComplete?'MATCH COMPLETE':`ROUND ${state.lifecycle.round+1} COMPLETE`}</strong><button on:click={nextRound} disabled={state.lifecycle.readyPlayerIds.includes(state.playerId??'')}>{state.lifecycle.matchComplete?'PLAY AGAIN':'NEXT LEVEL'}</button><small>{state.lifecycle.readyPlayerIds.length}/{state.lifecycle.playerIds.length} ready</small></div>{/if}
   <section class="dpad" aria-label="Movement controls">
     <button class="up" aria-label="Hard drop" title="Arrow Up" disabled={!controlsEnabled} on:pointerdown={()=>send({type:'input/hard-drop',payload:{}})}>↑</button>
-    <button class="left" aria-label="Move left" title="Arrow Left" disabled={!controlsEnabled} on:pointerdown={()=>send({type:'input/move',payload:{dx:-1}})}>←</button>
+    <button class="left" aria-label="Move left" title="Arrow Left" disabled={!controlsEnabled} on:pointerdown={(event)=>pressMove(event,-1)} on:pointerup={()=>touchMoveRepeater.stop()} on:pointercancel={()=>touchMoveRepeater.stop()} on:lostpointercapture={()=>touchMoveRepeater.stop()}>←</button>
     <button class:held={downHeld} class="down" aria-label="Accelerate down" title="Arrow Down" disabled={!controlsEnabled} on:pointerdown={pressDown} on:pointerup={releasePointerDown} on:pointercancel={releasePointerDown} on:lostpointercapture={releasePointerDown}>↓</button>
-    <button class="right" aria-label="Move right" title="Arrow Right" disabled={!controlsEnabled} on:pointerdown={()=>send({type:'input/move',payload:{dx:1}})}>→</button>
+    <button class="right" aria-label="Move right" title="Arrow Right" disabled={!controlsEnabled} on:pointerdown={(event)=>pressMove(event,1)} on:pointerup={()=>touchMoveRepeater.stop()} on:pointercancel={()=>touchMoveRepeater.stop()} on:lostpointercapture={()=>touchMoveRepeater.stop()}>→</button>
   </section>
   <section class="rotations" aria-label="Rotation controls">
     <button aria-label="Rotate counterclockwise" title="T" disabled={!controlsEnabled} on:pointerdown={()=>send({type:'input/rotate',payload:{direction:'counterclockwise'}})}>↺</button>
