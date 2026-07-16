@@ -13,6 +13,7 @@
   const CELL = 10;
   const LEFT = 6;
   const TOP = 11;
+  const RENDER_SCALE = 2;
   const palette = { cyan: '#39d9e6', pink: '#ff4f91', yellow: '#ffd84a' };
   type DrawCell = Cell & { row: number; col: number };
 
@@ -21,18 +22,38 @@
   }
 
   function drawVirus(context: CanvasRenderingContext2D, cell: DrawCell) {
-    const x = LEFT + cell.col * CELL + 1;
-    const y = TOP + cell.row * CELL + 1;
-    context.fillStyle = palette[cell.color];
-    context.fillRect(x + 2, y, 4, 1);
-    context.fillRect(x + 1, y + 1, 6, 1);
-    context.fillRect(x, y + 2, 8, 4);
-    context.fillRect(x + 1, y + 6, 2, 2);
-    context.fillRect(x + 5, y + 6, 2, 2);
+    const x = LEFT + cell.col * CELL;
+    const y = TOP + cell.row * CELL;
     context.fillStyle = '#08090d';
-    context.fillRect(x + 2, y + 3, 1, 2);
-    context.fillRect(x + 5, y + 3, 1, 2);
-    context.fillRect(x + 3, y + 6, 2, 1);
+    context.beginPath();
+    context.roundRect(x + .25, y + 1.25, 9.5, 7, 3);
+    context.fill();
+    context.fillRect(x + 2, y + .25, 2.25, 2.5);
+    context.fillRect(x + 5.75, y + .25, 2.25, 2.5);
+    context.fillRect(x + 1.25, y + 7, 2.75, 2.5);
+    context.fillRect(x + 6, y + 7, 2.75, 2.5);
+    context.fillStyle = palette[cell.color];
+    context.beginPath();
+    context.roundRect(x + 1.25, y + 2, 7.5, 5.5, 2);
+    context.fill();
+    context.fillRect(x + 2.75, y + 1, 1.25, 2);
+    context.fillRect(x + 6, y + 1, 1.25, 2);
+    context.fillRect(x + 2, y + 7, 1.5, 1.5);
+    context.fillRect(x + 6.5, y + 7, 1.5, 1.5);
+    context.fillStyle = 'rgba(255,255,255,.34)';
+    context.fillRect(x + 2, y + 2.25, 5.75, .75);
+    context.fillStyle = '#08090d';
+    context.fillRect(x + 2.5, y + 4, 1.5, 1.75);
+    context.fillRect(x + 6, y + 4, 1.5, 1.75);
+    context.fillRect(x + 4.25, y + 6.25, 1.5, .75);
+  }
+
+  function halfRadii(dx: number, dy: number, radius: number) {
+    if (dx === 1) return [radius, 0, 0, radius];
+    if (dx === -1) return [0, radius, radius, 0];
+    if (dy === 1) return [radius, radius, 0, 0];
+    if (dy === -1) return [0, 0, radius, radius];
+    return radius;
   }
 
   function drawPill(context: CanvasRenderingContext2D, cell: DrawCell, cells: DrawCell[]) {
@@ -41,16 +62,24 @@
     const dy = mate?.row === cell.row ? 0 : (mate?.row ?? cell.row) - cell.row;
     const x = LEFT + cell.col * CELL;
     const y = TOP + cell.row * CELL;
+    const radii = halfRadii(dx, dy, 4);
+    context.fillStyle = '#08090d';
+    context.beginPath();
+    context.roundRect(x + .25, y + .25, 9.5, 9.5, radii);
+    context.fill();
     context.fillStyle = palette[cell.color];
-    context.fillRect(x + (dx === -1 ? 0 : 2), y + (dy === -1 ? 0 : 2), dx === 0 ? 6 : 8, dy === 0 ? 6 : 8);
-    if (!mate || (dx === 0 && dy === 0)) {
-      context.fillRect(x + 1, y + 2, 8, 6);
-      context.fillRect(x + 2, y + 1, 6, 8);
-    }
+    context.beginPath();
+    context.roundRect(x + 1.25, y + 1.25, 7.5, 7.5, halfRadii(dx, dy, 3));
+    context.fill();
+    context.save();
+    context.beginPath();
+    context.roundRect(x + 1.25, y + 1.25, 7.5, 7.5, halfRadii(dx, dy, 3));
+    context.clip();
     context.fillStyle = 'rgba(255,255,255,.38)';
-    context.fillRect(x + 2, y + 2, dx === 1 ? 8 : 4, 1);
+    context.fillRect(x + 1.75, y + 1.75, 6.5, 1.25);
     context.fillStyle = 'rgba(0,0,0,.28)';
-    context.fillRect(x + 2, y + 7, dx === 1 ? 8 : 5, 1);
+    context.fillRect(x + 1.75, y + 7.25, 6.5, 1.25);
+    context.restore();
   }
 
   function draw() {
@@ -60,8 +89,10 @@
     lastFrame = frame;
     const context = canvas.getContext('2d');
     if (!context) return;
-    context.imageSmoothingEnabled = false;
+    context.setTransform(1, 0, 0, 1, 0, 0);
     context.clearRect(0, 0, canvas.width, canvas.height);
+    context.setTransform(RENDER_SCALE, 0, 0, RENDER_SCALE, 0, 0);
+    context.imageSmoothingEnabled = true;
 
     context.fillStyle = '#606477';
     context.fillRect(26, 0, 40, 3);
@@ -114,14 +145,14 @@
       <span class="preview-half left" style={`--preview-color:${palette[preview[0]]}`}></span><span class="preview-half right" style={`--preview-color:${palette[preview[1]]}`}></span>
     {/if}
   </div>
-  <canvas bind:this={canvas} class="bottle" class:clear={transition==='clear'} class:lock={transition==='lock'} class:finish={transition==='finish'} class:rain={transition==='rain'} width="92" height="180" aria-label="Pill bottle" data-cell-count={WIDTH * HEIGHT} data-virus-count={state.viruses} data-next-colors={preview.join(',')} data-active-pill={state.active ? 'true' : 'false'} data-pending-rain-count={state.pendingRain?.length ?? 0} data-rain-rows={state.fallingRain?.map(piece => piece.row).join(',') ?? ''} data-garbage-count={state.board.filter(cell => cell?.id.startsWith('g')).length}></canvas>
+  <canvas bind:this={canvas} class="bottle" class:clear={transition==='clear'} class:lock={transition==='lock'} class:finish={transition==='finish'} class:rain={transition==='rain'} width="184" height="360" aria-label="Pill bottle" data-cell-count={WIDTH * HEIGHT} data-virus-count={state.viruses} data-next-colors={preview.join(',')} data-active-pill={state.active ? 'true' : 'false'} data-pending-rain-count={state.pendingRain?.length ?? 0} data-rain-rows={state.fallingRain?.map(piece => piece.row).join(',') ?? ''} data-garbage-count={state.board.filter(cell => cell?.id.startsWith('g')).length}></canvas>
 </div>
 
 <style>
   .bottle-shell{width:min(27vw,180px);margin:auto}.next-pill{height:clamp(18px,4vw,28px);display:flex;align-items:center;justify-content:center;margin-bottom:.15rem}
   .preview-half{display:block;width:clamp(11px,2.4vw,18px);aspect-ratio:1;background:var(--preview-color);border:2px solid rgba(8,9,13,.8);box-shadow:inset 2px 2px rgba(255,255,255,.35),inset -2px -2px rgba(0,0,0,.28)}
   .preview-half.left{border-radius:999px 0 0 999px;border-right-width:1px}.preview-half.right{border-radius:0 999px 999px 0;border-left-width:1px}
-  .bottle { display:block; width:100%; height:auto; image-rendering:pixelated;transform-origin:50% 100% }
+  .bottle { display:block; width:100%; height:auto; image-rendering:auto;transform-origin:50% 100% }
   .bottle.clear{animation:clear-flash .42s ease-out}.bottle.lock{animation:lock-bump .18s ease-out}.bottle.finish{animation:finish-glow .42s ease-out}.bottle.rain{animation:rain-shake .42s ease-out}
   @keyframes clear-flash{35%{filter:brightness(2) drop-shadow(0 0 15px var(--yellow));transform:scale(1.025)}}
   @keyframes lock-bump{45%{transform:translateY(2px)}}
