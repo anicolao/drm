@@ -23,7 +23,7 @@ test('US-006: shared Block Stack display replays controller gravity', async ({ b
   await expect(page.getByText('Joined players · 2')).toBeVisible({ timeout: 10_000 });
 
   await page.getByRole('button', { name: 'I am the TV' }).click();
-  await expect(page).toHaveURL(/\/tetris-cast\?code=TEST$/, { timeout: 10_000 });
+  await expect(page).toHaveURL(/\/cast\?code=TEST$/, { timeout: 10_000 });
   await expect(controller.getByLabel('Block Stack controller')).toBeVisible({ timeout: 10_000 });
   const castBoard = page.getByRole('img', { name: 'Block Stack board' });
   await expect(castBoard).toBeVisible({ timeout: 10_000 });

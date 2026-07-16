@@ -14,7 +14,7 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await tester.step('joined-room', { description: 'Second device joins and waits for a real start record', networkStatus: 'skip', verifications: [
     { spec: 'Direct invitation URL joined the requested room', check: async () => await expect(playerPage.getByText('Joined room TEST')).toBeVisible() },
     { spec: 'No nonfunctional controls are displayed', check: async () => await expect(playerPage.getByRole('button')).toHaveCount(0) },
-    { spec: 'UI waits for the host start record', check: async () => await expect(playerPage.getByText(/controls appear when the host starts Color Cure/)).toBeVisible() },
+    { spec: 'UI waits for the host start record', check: async () => await expect(playerPage.getByText(/controls appear when the host starts the game/)).toBeVisible() },
     { spec: 'Waiting screen teaches keyboard and gamepad controls', check: async () => await expect(playerPage.getByText('A / R ↻')).toBeVisible() }
   ]});
   await expect(page.getByText('Joined players · 2')).toBeVisible({ timeout: 10000 }); await expect(page.getByText('Jo', { exact: true })).toBeVisible();
