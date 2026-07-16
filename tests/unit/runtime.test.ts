@@ -4,6 +4,7 @@ import { FixedTickClock } from '../../src/lib/runtime/fixed-tick-clock.ts';
 import { deriveMatchLifecycle } from '../../src/lib/runtime/lifecycle.ts';
 import { ReplayObserver, type ReplayAdapter } from '../../src/lib/runtime/replay-observer.ts';
 import { controllerStorageKey,loadStoredArray,loadStoredValue,saveStoredArray,saveStoredValue } from '../../src/lib/runtime/local-store.ts';
+import { commandForGamepadAction,commandForKey } from '../../src/lib/runtime/core-input.ts';
 
 test('fixed tick clock follows elapsed time independently of render frequency', () => {
   const sixty = new FixedTickClock(60);
@@ -61,4 +62,10 @@ test('shared local storage safely versions controller data',()=>{
   assert.deepEqual(loadStoredArray(storage,key,(value)=>value as{id:string}),[{id:'a'}]);
   saveStoredValue(storage,'checkpoint',{tick:4});assert.deepEqual(loadStoredValue(storage,'checkpoint',(value)=>value as{tick:number}),{tick:4});
   values.set(key,'not json');assert.deepEqual(loadStoredArray(storage,key,(value)=>value),[]);
+});
+
+test('shared semantic input maps keyboard and gamepad identically for every game',()=>{
+  assert.deepEqual(commandForGamepadAction('move-left'),commandForKey({key:'ArrowLeft',repeat:false}));
+  assert.deepEqual(commandForGamepadAction('rotate-clockwise'),commandForKey({key:'r',repeat:false}));
+  assert.equal(commandForKey({key:'ArrowUp',repeat:true}),undefined);
 });

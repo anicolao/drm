@@ -10,6 +10,7 @@
   import { createPillBottleController, type PillCommand, type ControllerState } from '$lib/firebase/pill-bottle';
   import { StandardGamepadControls, type GamepadControlAction } from '$lib/input/gamepad';
   import { HeldActionRepeater } from '$lib/input/held-repeat';
+  import { commandForGamepadAction,commandForKey } from '$lib/runtime/core-input';
 
   let code=''; let joined=false; let joining=false; let needsName=false; let playerName=''; let error='';
   let roomId=''; let activeGameId=''; let controller: ReturnType<typeof createPillBottleController> | undefined;
@@ -88,13 +89,7 @@
   }
   function releasePointerDown(){endDown('pointer');}
   function gamepadAction(action:GamepadControlAction){
-    if(action==='move-left')send({type:'input/move',payload:{dx:-1}});
-    else if(action==='move-right')send({type:'input/move',payload:{dx:1}});
-    else if(action==='hard-drop')send({type:'input/hard-drop',payload:{}});
-    else if(action==='rotate-clockwise')send({type:'input/rotate',payload:{direction:'clockwise'}});
-    else if(action==='rotate-counterclockwise')send({type:'input/rotate',payload:{direction:'counterclockwise'}});
-    else if(action==='soft-drop-start')beginDown('gamepad');
-    else endDown('gamepad');
+    if(action==='soft-drop-start')beginDown('gamepad');else if(action==='soft-drop-end')endDown('gamepad');else send(commandForGamepadAction(action));
   }
   function pollGamepads(now:number){
     const gamepads=typeof navigator.getGamepads==='function'?Array.from(navigator.getGamepads()):[];
@@ -109,11 +104,7 @@
   function keyDown(event:KeyboardEvent){
     if(typingTarget(event.target)||!controlsEnabled)return;
     if(event.key==='ArrowDown'){event.preventDefault();if(!event.repeat)beginDown('keyboard');return;}
-    const command = event.key==='ArrowLeft'?{type:'input/move',payload:{dx:-1}} as PillCommand
-      :event.key==='ArrowRight'?{type:'input/move',payload:{dx:1}} as PillCommand
-      :event.key==='ArrowUp'&&!event.repeat?{type:'input/hard-drop',payload:{}} as PillCommand
-      :event.key.toLowerCase()==='r'&&!event.repeat?{type:'input/rotate',payload:{direction:'clockwise'}} as PillCommand
-      :event.key.toLowerCase()==='t'&&!event.repeat?{type:'input/rotate',payload:{direction:'counterclockwise'}} as PillCommand:undefined;
+    const command=commandForKey(event) as PillCommand|undefined;
     if(command){event.preventDefault();send(command);}
   }
   function keyUp(event:KeyboardEvent){if(event.key==='ArrowDown'){event.preventDefault();endDown('keyboard');}}

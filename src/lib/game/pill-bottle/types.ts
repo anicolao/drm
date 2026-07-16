@@ -56,12 +56,8 @@ export interface BottleState {
   rainGravityCounter?: number;
 }
 
-export type PillInput =
-  | { type: 'input/move'; payload: { dx: -1 | 1 } }
-  | { type: 'input/rotate'; payload: { direction: 'clockwise' | 'counterclockwise' } }
-  | { type: 'input/soft-drop-start'; payload: Record<string, never> }
-  | { type: 'input/soft-drop-end'; payload: Record<string, never> }
-  | { type: 'input/hard-drop'; payload: Record<string, never> };
+import type { RealtimeGameInput } from '../../runtime/core-input.ts';
+export type PillInput = RealtimeGameInput;
 
 export interface PillRainInput {
   type: 'attack/rain';
