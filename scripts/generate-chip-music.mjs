@@ -40,6 +40,32 @@ const tracks = [
     progression: [0, 3, 7, 12],
     melody: [12, 15, 19, 24, 15, 19, 22, 27, 19, 22, 24, 31, 24, 27, 31, 36],
     arp: [0, 7, 12, 15, 19, 24, 19, 15], leadDuty: 0.125, swing: 0, energy: 1.08, seed: 83, fanfare: true
+  },
+  {
+    slug: 'granite-promenade', title: 'Granite Promenade', bpm: 132, bars: 18, root: 45,
+    progression: [0, 0, 5, 3, 0, 8, 7, 0, 5, 3, 10, 7, 0, 5, 8, 7, 3, 0],
+    melody: [12, null, 15, 14, 12, null, 19, 17, 15, null, 14, 11, 12, null, 7, 11,
+      12, 15, 17, null, 20, 19, 15, 14, 12, null, 11, 14, 15, 12, 7, null],
+    arp: [0, 7, 12, 15, 12, 7, 3, 7], leadDuty: 0.25, swing: 0.045, energy: 0.78, seed: 109
+  },
+  {
+    slug: 'snowbound-sabre', title: 'Snowbound Sabre', bpm: 176, bars: 20, root: 40,
+    progression: [0, 7, 3, 8, 0, 10, 7, 5, 0, 3, 8, 7, 5, 10, 7, 0, 8, 5, 7, 0],
+    melody: [12, 13, 16, 19, 16, 13, 12, 8, 12, 16, 19, 20, 19, 16, 13, 11,
+      24, 23, 20, 19, 16, 19, 20, 23, 19, 16, 13, 16, 19, 13, 11, 8],
+    arp: [0, 12, 7, 15, 3, 12, 10, 19], leadDuty: 0.125, swing: 0, energy: 1.08, seed: 127
+  },
+  {
+    slug: 'granite-promenade-clear', title: 'Granite Promenade Clear', bpm: 132, bars: 4, root: 45,
+    progression: [0, 5, 7, 12],
+    melody: [12, 15, 14, 19, 15, 19, 20, 24, 19, 23, 24, 27, 24, 27, 31, 36],
+    arp: [0, 7, 12, 15, 19, 24, 19, 15], leadDuty: 0.25, swing: 0, energy: 0.94, seed: 113, fanfare: true
+  },
+  {
+    slug: 'snowbound-sabre-clear', title: 'Snowbound Sabre Clear', bpm: 176, bars: 4, root: 40,
+    progression: [0, 3, 8, 12],
+    melody: [12, 16, 19, 24, 16, 20, 23, 28, 19, 23, 24, 31, 24, 28, 31, 36],
+    arp: [0, 12, 7, 15, 19, 24, 19, 12], leadDuty: 0.125, swing: 0, energy: 1.12, seed: 131, fanfare: true
   }
 ];
 
