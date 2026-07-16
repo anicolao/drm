@@ -93,9 +93,9 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   const gamesResponse = await fetch('http://127.0.0.1:9000/games.json?ns=drm-e2e', { headers: { authorization: 'Bearer owner' } });
   const games = await gamesResponse.json() as Record<string, { start: { players: Record<string, unknown> } }>;
   const [gameId] = Object.entries(games).find(([, game]) => playerIds.every((playerId) => playerId! in game.start.players))!;
-  await Promise.all(playerIds.map((playerId) => fetch(`http://127.0.0.1:9000/games/${gameId}/terminals/${playerId}.json?ns=drm-e2e`, {
-    method: 'PUT', headers: { authorization: 'Bearer owner', 'content-type': 'application/json' }, body: JSON.stringify({ type: 'player/terminal', playerId, tick: 5, result: 'lost', stateHash: 'pb3-00000000', serverTime: Date.now() })
-  })));
+  await fetch(`http://127.0.0.1:9000/games/${gameId}/terminals/${playerIds[0]}.json?ns=drm-e2e`, {
+    method: 'PUT', headers: { authorization: 'Bearer owner', 'content-type': 'application/json' }, body: JSON.stringify({ type: 'player/terminal', playerId: playerIds[0], tick: 5, result: 'lost', stateHash: 'pb3-00000000', serverTime: Date.now() })
+  });
   await expect(playerPage.getByRole('button', { name: 'NEXT LEVEL' })).toBeVisible({ timeout: 10000 });
   await expect(returningPage.getByRole('button', { name: 'NEXT LEVEL' })).toBeVisible({ timeout: 10000 });
   await playerPage.getByRole('button', { name: 'NEXT LEVEL' }).click();
@@ -105,14 +105,15 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await tester.step('both-ready', { description: 'Both ready controllers enter the next round regardless of click order', networkStatus: 'skip', verifications: [
     { spec: 'The first ready controller enters the successor game', check: async () => await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '10') },
     { spec: 'The second ready controller enters the same successor game', check: async () => await expect(returningPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '10') },
+    { spec: 'The survivor scores the viruses left by the player who topped out', check: async () => await expect(playerPage.getByLabel('Scores')).toContainText('Sam 5') },
     { spec: 'Neither controller reports a permission failure', check: async () => { await expect(playerPage.getByText(/permission/i)).not.toBeVisible(); await expect(returningPage.getByText(/permission/i)).not.toBeVisible(); } }
   ]});
   const nextGamesResponse = await fetch('http://127.0.0.1:9000/games.json?ns=drm-e2e', { headers: { authorization: 'Bearer owner' } });
   const nextGames = await nextGamesResponse.json() as Record<string, { start: { players: Record<string, unknown>; round?: number } }>;
   const [nextGameId] = Object.entries(nextGames).find(([, game]) => game.start.round === 1 && playerIds.every((playerId) => playerId! in game.start.players))!;
-  await Promise.all(playerIds.map((playerId) => fetch(`http://127.0.0.1:9000/games/${nextGameId}/terminals/${playerId}.json?ns=drm-e2e`, {
-    method: 'PUT', headers: { authorization: 'Bearer owner', 'content-type': 'application/json' }, body: JSON.stringify({ type: 'player/terminal', playerId, tick: 5, result: 'lost', stateHash: 'pb3-00000000', serverTime: Date.now() })
-  })));
+  await fetch(`http://127.0.0.1:9000/games/${nextGameId}/terminals/${playerIds[1]}.json?ns=drm-e2e`, {
+    method: 'PUT', headers: { authorization: 'Bearer owner', 'content-type': 'application/json' }, body: JSON.stringify({ type: 'player/terminal', playerId: playerIds[1], tick: 5, result: 'lost', stateHash: 'pb3-00000000', serverTime: Date.now() })
+  });
   await expect(playerPage.getByRole('button', { name: 'NEXT LEVEL' })).toBeVisible({ timeout: 10000 });
   await expect(returningPage.getByRole('button', { name: 'NEXT LEVEL' })).toBeVisible({ timeout: 10000 });
   await returningPage.getByRole('button', { name: 'NEXT LEVEL' }).click();
@@ -121,6 +122,7 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await expect(returningPage.getByRole('button', { name: 'NEXT LEVEL' })).not.toBeVisible({ timeout: 10000 });
   await tester.step('reverse-ready-order', { description: 'Reversing ready order starts the final round without a permission race', networkStatus: 'skip', verifications: [
     { spec: 'Both controllers reach round three', check: async () => { await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '15'); await expect(returningPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '15'); } },
+    { spec: 'Survivor points accumulate across rounds', check: async () => { await expect(playerPage.getByLabel('Scores')).toContainText('Jo 10'); await expect(playerPage.getByLabel('Scores')).toContainText('Sam 5'); } },
     { spec: 'The reversed ready order produces no permission failure', check: async () => { await expect(playerPage.getByText(/permission/i)).not.toBeVisible(); await expect(returningPage.getByText(/permission/i)).not.toBeVisible(); } }
   ]});
   await returningContext.close(); await context.close(); tester.generateDocs();

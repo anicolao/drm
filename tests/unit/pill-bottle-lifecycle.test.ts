@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { authoritativeScoringTick, derivePillMatchLifecycle } from '../../src/lib/game/pill-bottle.ts';
+import { authoritativeScoringTick, derivePillMatchLifecycle, derivePillRoundPoints } from '../../src/lib/game/pill-bottle.ts';
 import { parsePillRematchReady, parsePillTerminal } from '../../src/lib/protocol/pill-bottle.ts';
 
 test('the last surviving multiplayer controller is the winner', () => {
@@ -50,4 +50,28 @@ test('scoring never advances an opponent beyond an authoritative controller chec
   assert.equal(authoritativeScoringTick(records, 100), 80);
   assert.equal(authoritativeScoringTick(records, 100, 70), 60);
   assert.equal(authoritativeScoringTick([], 100), 0);
+});
+
+test('a sole survivor scores viruses left by opponents who topped out', () => {
+  const start = { seed: 123, round: 0, players: { one: { seat: 0 }, two: { seat: 1 }, three: { seat: 2 } } };
+  const twoPlayer = derivePillMatchLifecycle(['one', 'two'], [{ playerId: 'one', result: 'lost', tick: 20 }], []);
+  assert.deepEqual(derivePillRoundPoints(start, twoPlayer, new Map()), { one: 0, two: 5 });
+
+  const threePlayer = derivePillMatchLifecycle(['one', 'two', 'three'], [
+    { playerId: 'one', result: 'lost', tick: 20 },
+    { playerId: 'two', result: 'lost', tick: 30 }
+  ], []);
+  assert.deepEqual(derivePillRoundPoints(start, threePlayer, new Map()), { one: 0, two: 0, three: 10 });
+});
+
+test('survivor fallback does not replace clear scoring or award a draw', () => {
+  const start = { seed: 123, round: 0, players: { one: { seat: 0 }, two: { seat: 1 } } };
+  const cleared = derivePillMatchLifecycle(['one', 'two'], [{ playerId: 'one', result: 'cleared', tick: 20 }], []);
+  assert.deepEqual(derivePillRoundPoints(start, cleared, new Map()), { one: 5, two: 0 });
+
+  const draw = derivePillMatchLifecycle(['one', 'two'], [
+    { playerId: 'one', result: 'lost', tick: 20 },
+    { playerId: 'two', result: 'lost', tick: 20 }
+  ], []);
+  assert.deepEqual(derivePillRoundPoints(start, draw, new Map()), { one: 0, two: 0 });
 });
