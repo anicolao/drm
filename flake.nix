@@ -15,6 +15,7 @@
             nodejs_22
             jdk21
             git
+            ffmpeg
           ];
 
           shellHook = ''
