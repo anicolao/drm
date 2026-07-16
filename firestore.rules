@@ -4,14 +4,30 @@ service cloud.firestore {
     match /rooms/{roomId} {
       allow create: if request.auth != null && request.resource.data.hostUid == request.auth.uid
         && request.resource.data.code is string
-        && request.resource.data.code.matches('^[A-Z]{4}$');
+        && request.resource.data.code.matches('^[A-Z]{4}$')
+        && (!request.resource.data.keys().hasAny(['playerCount']) || request.resource.data.playerCount == 1);
       allow read: if request.auth != null;
       allow update: if request.auth != null && resource.data.hostUid == request.auth.uid
-        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['ruleset', 'status', 'activeGameId', 'startedAt']);
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['ruleset', 'status', 'activeGameId', 'startedAt'])
+        || request.auth != null && resource.data.status == 'lobby'
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['playerCount'])
+        && request.resource.data.playerCount == resource.data.playerCount + 1
+        && request.resource.data.playerCount <= 4
+        && getAfter(/databases/$(database)/documents/rooms/$(roomId)/players/$(request.auth.uid)).data.uid == request.auth.uid;
     }
     match /rooms/{roomId}/players/{uid} {
       allow read: if request.auth != null;
-      allow create, update: if request.auth != null && request.auth.uid == uid
+      allow create: if request.auth != null && request.auth.uid == uid
+        && getAfter(/databases/$(database)/documents/rooms/$(roomId)).data.status == 'lobby'
+        && request.resource.data.uid == uid
+        && request.resource.data.keys().hasOnly(['uid', 'displayName', 'role', 'joinedAt'])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() >= 1
+        && request.resource.data.displayName.size() <= 24
+        && request.resource.data.role == (
+          getAfter(/databases/$(database)/documents/rooms/$(roomId)).data.hostUid == uid ? 'host' : 'player'
+        );
+      allow update: if request.auth != null && request.auth.uid == uid
         && request.resource.data.uid == uid
         && request.resource.data.keys().hasOnly(['uid', 'displayName', 'role', 'joinedAt'])
         && request.resource.data.displayName is string
