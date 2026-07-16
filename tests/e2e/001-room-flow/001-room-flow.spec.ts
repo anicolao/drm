@@ -22,7 +22,7 @@ test('US-001: host creates and configures a real room', async ({ page }, testInf
   await tester.step('room-created', { description: 'Firestore room contains only its real host', networkStatus: 'skip', verifications: [
     { spec: 'Room code contains exactly four letters', check: async () => await expect(page.locator('header h1')).toHaveText(/^[A-Z]{4}$/) },
     { spec: 'Exactly one named host membership exists', check: async () => { await expect(page.getByText('Joined players · 1')).toBeVisible(); await expect(page.getByText('Alex')).toBeVisible(); } },
-    { spec: 'Play and TV starts require the implemented Color Cure rules', check: async () => { await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeDisabled(); await expect(page.getByRole('button', { name: 'I am the TV' })).toBeDisabled(); } }
+    { spec: 'Block Stack can start locally while TV mode still requires a controller', check: async () => { await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeEnabled(); await expect(page.getByRole('button', { name: 'I am the TV' })).toBeDisabled(); } }
   ]});
   const colorCure = page.getByRole('button', { name: /COLOR CURE Dr\. Mario-style/ });
   await colorCure.click();

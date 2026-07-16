@@ -26,7 +26,7 @@
   onMount(()=>{void load();return()=>{stopRoom();stopPlayers();stopProgress();stopAttacks();};});
   async function load(){
     code=new URL(window.location.href).searchParams.get('code')??'';joinHref=new URL(`${base}/play?code=${code}`,window.location.origin).href;
-    try{if(!code)throw new Error('A room code is required.');if(!firebaseConfigured)throw new Error('Firebase configuration is required.');const room=await getRoom(code);ruleset=room.ruleset;loaded=true;stopPlayers=subscribeRoomPlayers(room.id,next=>players=next,cause=>error=cause.message);if(room.activeGameId)watchGame(room.activeGameId);stopRoom=subscribeRoom(room.id,next=>{if(next.activeGameId)watchGame(next.activeGameId);},cause=>error=cause.message);}catch(cause){error=cause instanceof Error?cause.message:String(cause)}
+    try{if(!code)throw new Error('A room code is required.');if(!firebaseConfigured)throw new Error('Firebase configuration is required.');const room=await getRoom(code);ruleset=room.ruleset;loaded=true;stopPlayers=subscribeRoomPlayers(room.id,next=>players=next,cause=>error=cause.message);if(room.activeGameId){if(room.ruleset==='tetris'){window.location.assign(`${base}/tetris-cast?code=${code}`);return}watchGame(room.activeGameId)}stopRoom=subscribeRoom(room.id,next=>{if(next.activeGameId){if(next.ruleset==='tetris')window.location.assign(`${base}/tetris-cast?code=${code}`);else watchGame(next.activeGameId)}},cause=>error=cause.message);}catch(cause){error=cause instanceof Error?cause.message:String(cause)}
   }
   function smoothLag(entries:PlayerProgress[]){
     const now=performance.now();

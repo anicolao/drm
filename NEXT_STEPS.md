@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This plan reflects the current `main` branch plus the rules cleanup prepared on `feature/remove-legacy-rtdb-paths`.
+This plan reflects the current `main` branch plus the Block Stack MVP prepared on `feature/tetris-mvp`.
 
 The prototype is now playable. The next priority is to make rooms and sessions reliable enough for real multiplayer use, then improve presentation and release hardening before expanding the game rules.
 
@@ -27,7 +27,7 @@ This intentionally avoids clock synchronization, continuous state snapshots, and
 
 - Static TypeScript/Vite application with Firebase Hosting, GitHub Pages, and pull-request previews.
 - Firebase Authentication, Firestore rooms, join codes, lobby roster, and Realtime Database game journals.
-- Versioned rulesets with Color Cure as the playable ruleset and Tetris visible but disabled.
+- Versioned playable Color Cure and Block Stack rulesets behind the same room and replay boundaries.
 - Deterministic Color Cure engine with seeded boards, pill movement, rotation, matching, gravity, virus clearing, win, and loss.
 - Full level progression:
   - level 0 begins at 50 ticks per pill row;
@@ -48,7 +48,7 @@ This intentionally avoids clock synchronization, continuous state snapshots, and
   - stick dead-zone and held-input repeat behavior are covered by unit tests.
 - Host mode that can be fixed by URL or switched explicitly in development.
 - Default-deny Firebase rules with validation for current room and event schemas; production rules have been deployed.
-- Automated checks currently covering 46 unit tests and four documented browser scenarios, plus production builds and screenshot clipping checks.
+- Automated checks currently covering 51 unit tests and five documented browser scenarios, plus production builds and screenshot clipping checks.
 
 ### Completed presentation and playability work on `main`
 
@@ -75,7 +75,6 @@ This intentionally avoids clock synchronization, continuous state snapshots, and
 - Firebase Rules have no emulator-backed unit test suite and no dedicated rules deployment workflow.
 - A detailed live gamepad diagnostics/binding view remains unimplemented.
 - Diagnostics, retention/expiry, fault-injection coverage, and four-device playtesting remain incomplete.
-- The Tetris ruleset is not implemented.
 
 ## Remaining implementation order
 
@@ -167,20 +166,19 @@ Acceptance criteria:
 - Late or duplicate delivery cannot apply an attack twice.
 - Attacks do not require synchronized clocks or networked board snapshots.
 
-### 5. Tetris ruleset
+### 5. Block Stack follow-ons
 
-Implement Tetris as a second deterministic engine behind the existing ruleset boundary.
+The deterministic Block Stack MVP is implemented with a 10×20 visible matrix plus hidden rows, seeded seven-bag pieces, SRS rotation and kicks, next queue, ghost piece, gravity, bounded lock delay, line clears, score, levels, top-out, controller journals, cast replay, music, and multiplayer last-survivor results.
 
 Implementation:
 
-- Define tetrominoes, rotation, lock delay, line clearing, scoring, levels, and top-out.
 - Define deterministic garbage attacks and ordering.
-- Reuse the existing controller journal, replay, cast, room, and lifecycle infrastructure.
-- Keep Tetris disabled in production until engine and multiplayer protocol coverage are complete.
+- Add hold, T-spin recognition, combos, back-to-back scoring, and richer multiplayer rounds only as versioned follow-ons.
+- Extend kick fixtures to cover every ordered SRS transition and lock-reset boundary.
 
 Acceptance criteria:
 
-- Tetris produces identical state from identical seed and journal input.
+- Block Stack continues to produce identical state from identical seed and journal input.
 - Garbage exchange is deterministic under delay, duplication, and reordering.
 - Color Cure behavior is unchanged.
 
@@ -201,6 +199,6 @@ Acceptance criteria:
 2. Presence, leave/end-room flows, retention policy, and rules deployment automation.
 3. Live gamepad diagnostics, audio licensing documentation, and bundle targets.
 4. Expanded lifecycle/recovery browser coverage, fault injection, diagnostics, and four-device playtesting.
-5. Deterministic Tetris engine and garbage protocol.
+5. Deterministic Block Stack garbage protocol and advanced scoring.
 
 Each pull request should preserve the client-authoritative replay model, include deterministic coverage for new protocol behavior, and avoid introducing networked materialized state.
