@@ -6,8 +6,11 @@ import {
   type ActivePill,
   type BottleState,
   type Cell,
+  type Color,
   type Orientation,
-  type PillInput
+  type PillClearEvent,
+  type PillInput,
+  type PillRainInput
 } from './types.ts';
 
 const index = (row: number, col: number) => row * WIDTH + col;
@@ -153,8 +156,12 @@ function clearMatches(state: BottleState) {
     }
   }
 
-  for (const clearedIndex of cleared) {
-    if (state.board[clearedIndex]?.kind === 'virus') state.viruses--;
+  const virusColors: Color[] = [];
+  for (const clearedIndex of [...cleared].sort((left, right) => left - right)) {
+    if (state.board[clearedIndex]?.kind === 'virus') {
+      virusColors.push(state.board[clearedIndex]!.color);
+      state.viruses--;
+    }
     state.board[clearedIndex] = null;
   }
   if (cleared.size && state.viruses === 0) {
@@ -164,7 +171,7 @@ function clearMatches(state: BottleState) {
     state.softDrop = false;
     state.resolving = false;
   }
-  return cleared.size > 0;
+  return cleared.size > 0 ? virusColors : undefined;
 }
 
 function dropFreedPills(state: BottleState) {
@@ -219,7 +226,7 @@ function dropFreedPills(state: BottleState) {
 }
 
 function lock(state: BottleState) {
-  if (!state.active) return;
+  if (!state.active) return [] as PillClearEvent[];
   const pill = state.active;
   pillCells(pill).forEach(([row, col], half) => {
     state.board[index(row, col)] = { kind: 'pill', color: pill.colors[half], id: `p${pill.id}${half}` };
@@ -228,12 +235,14 @@ function lock(state: BottleState) {
   state.pills++;
   state.gravityCounter = 0;
   state.chain = 0;
-  if (clearMatches(state)) {
+  const virusColors = clearMatches(state);
+  if (virusColors) {
     state.chain = 1;
     if (state.phase === 'playing') state.resolving = true;
   } else {
     spawn(state);
   }
+  return virusColors ? [{ type: 'clear', tick: state.tick, chain: 1, virusColors } satisfies PillClearEvent] : [];
 }
 
 function move(state: BottleState, rowDelta: number, colDelta: number) {
@@ -245,8 +254,33 @@ function move(state: BottleState, rowDelta: number, colDelta: number) {
   return true;
 }
 
-export function applyInput(state: BottleState, input: PillInput) {
-  if (state.phase !== 'playing' || !state.active) return;
+function applyRain(state: BottleState, input: PillRainInput) {
+  if (state.phase !== 'playing') return;
+  const activeCells = state.active ? pillCells(state.active) : [];
+  for (let item = 0; item < input.payload.colors.length; item++) {
+    const column = input.payload.columns[item];
+    if (column < 0 || column >= WIDTH) continue;
+    const occupiedByActive = new Set(activeCells.filter(([, col]) => col === column).map(([row]) => row));
+    let row = HEIGHT - 1;
+    while (row >= 0 && (state.board[index(row, column)] || occupiedByActive.has(row))) row--;
+    if (row < 0) {
+      state.phase = 'lost';
+      state.active = null;
+      state.softDrop = false;
+      return;
+    }
+    state.board[index(row, column)] = {
+      kind: 'pill', color: input.payload.colors[item], id: `g${input.payload.attackId}-${item}x`
+    };
+  }
+}
+
+export function applyInput(state: BottleState, input: PillInput | PillRainInput) {
+  if (input.type === 'attack/rain') {
+    applyRain(state, input);
+    return [] as PillClearEvent[];
+  }
+  if (state.phase !== 'playing' || !state.active) return [] as PillClearEvent[];
   if (input.type === 'input/move') {
     move(state, 0, input.payload.dx);
   } else if (input.type === 'input/rotate') {
@@ -270,12 +304,13 @@ export function applyInput(state: BottleState, input: PillInput) {
     state.softDrop = false;
   } else if (input.type === 'input/hard-drop' && PILL_BOTTLE_RULES.hardDrop) {
     while (move(state, 1, 0));
-    lock(state);
+    return lock(state);
   }
+  return [] as PillClearEvent[];
 }
 
 export function advanceTick(state: BottleState) {
-  if (state.phase === 'lost') return;
+  if (state.phase === 'lost') return [] as PillClearEvent[];
   state.tick++;
 
   if (state.phase === 'countdown') {
@@ -283,22 +318,23 @@ export function advanceTick(state: BottleState) {
       state.level++;
       populateLevel(state);
     }
-    return;
+    return [] as PillClearEvent[];
   }
 
   if (state.resolving) {
-    if (state.tick % PILL_BOTTLE_RULES.resolutionGravityTicks !== 0) return;
-    if (dropFreedPills(state)) return;
-    if (clearMatches(state)) {
+    if (state.tick % PILL_BOTTLE_RULES.resolutionGravityTicks !== 0) return [] as PillClearEvent[];
+    if (dropFreedPills(state)) return [] as PillClearEvent[];
+    const virusColors = clearMatches(state);
+    if (virusColors) {
       state.chain++;
-      return;
+      return [{ type: 'clear', tick: state.tick, chain: state.chain, virusColors } satisfies PillClearEvent];
     }
     state.resolving = false;
     spawn(state);
-    return;
+    return [] as PillClearEvent[];
   }
 
-  if (!state.active) return;
+  if (!state.active) return [] as PillClearEvent[];
   const interval = state.softDrop ? PILL_BOTTLE_RULES.softDropTicks : gravityTicksForState(state);
   state.gravityCounter++;
   if (state.gravityCounter >= interval) {
@@ -306,7 +342,8 @@ export function advanceTick(state: BottleState) {
     if (!move(state, 1, 0)) state.active.groundedAt ??= state.tick;
   }
   if (state.active?.groundedAt !== undefined
-    && state.tick - state.active.groundedAt >= PILL_BOTTLE_RULES.lockDelayTicks) lock(state);
+    && state.tick - state.active.groundedAt >= PILL_BOTTLE_RULES.lockDelayTicks) return lock(state);
+  return [] as PillClearEvent[];
 }
 
 export function activeCells(state: BottleState) {

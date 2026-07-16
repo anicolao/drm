@@ -5,14 +5,19 @@
   import chillClear from '../../../audio/06. Chill Clear.mp3?url';
   import fever from '../../../audio/03. Fever.mp3?url';
   import feverClear from '../../../audio/04. Fever Clear.mp3?url';
+  import rainCue from '../../../audio/12. Combo Fanfare 1.mp3?url';
 
   export let state: BottleState | undefined;
   export let enabled = false;
+  export let rainSignal = 0;
 
   let music: HTMLAudioElement | undefined;
   let clear: HTMLAudioElement | undefined;
   let playingLevel: number | undefined;
   let observedPhase: BottleState['phase'] | undefined;
+  let observedRainSignal = 0;
+  let rain: HTMLAudioElement | undefined;
+  let pendingRain = false;
   let needsActivation = false;
 
   const tracks = (level: number) => level % 2 === 0
@@ -29,8 +34,10 @@
     try {
       await audio.play();
       needsActivation = false;
+      return true;
     } catch {
       needsActivation = true;
+      return false;
     }
   }
 
@@ -56,10 +63,20 @@
     void play(clear);
   }
 
+  function playRain() {
+    stop(rain);
+    rain = new Audio(rainCue);
+    rain.preload = 'auto';
+    rain.volume = .65;
+    pendingRain = true;
+    void play(rain).then((played) => { if (played) pendingRain = false; });
+  }
+
   async function activate() {
     if (!state || !enabled) return;
     if (state.phase === 'playing') startMusic(state.level);
     else if (clear) await play(clear);
+    if (pendingRain && rain && await play(rain)) pendingRain = false;
   }
 
   function update() {
@@ -69,25 +86,32 @@
       playingLevel = undefined;
       observedPhase = state?.phase;
       needsActivation = false;
+      observedRainSignal = rainSignal;
+      pendingRain = false;
       return;
     }
+    if (rainSignal > observedRainSignal) playRain();
+    observedRainSignal = rainSignal;
     if (state.phase === 'countdown' && observedPhase === 'playing') playClear(state.level);
     else if (state.phase === 'playing' && (observedPhase !== 'playing' || playingLevel !== state.level)) startMusic(state.level);
     else if (state.phase === 'lost') { stop(music); stop(clear); }
     observedPhase = state.phase;
   }
 
-  $: enabled, state, update();
+  $: enabled, state, rainSignal, update();
   onMount(() => {
     const unlock = () => { if (needsActivation) void activate(); };
+    const externalRain = () => { if (enabled) playRain(); };
     window.addEventListener('pointerdown', unlock, true);
     window.addEventListener('keydown', unlock, true);
+    window.addEventListener('drm-rain', externalRain);
     return () => {
       window.removeEventListener('pointerdown', unlock, true);
       window.removeEventListener('keydown', unlock, true);
+      window.removeEventListener('drm-rain', externalRain);
     };
   });
-  onDestroy(() => { stop(music); stop(clear); });
+  onDestroy(() => { stop(music); stop(clear); stop(rain); });
 </script>
 
 {#if enabled && needsActivation}

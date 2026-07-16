@@ -6,6 +6,7 @@ import {
   type ControllerRecord,
   type PillBottleSettings,
   type PillInput,
+  type PillRainInput,
   type ReplayCommand
 } from '../game/pill-bottle.ts';
 
@@ -67,6 +68,17 @@ export interface PillTerminalRecord {
 
 export interface PillRematchReadyRecord {
   playerId: string;
+  serverTime: number;
+}
+
+export interface PillAttackInteractionRecord {
+  type: 'attack/generated';
+  attackId: string;
+  sourcePlayerId: string;
+  sourceTick: number;
+  sourceChain: number;
+  targetPlayerIds: string[];
+  colors: Array<'cyan' | 'pink' | 'yellow'>;
   serverTime: number;
 }
 
@@ -167,6 +179,21 @@ export function parsePillControllerRecord(
     clientSeq: value.clientSeq as number,
     tick: value.tick as number
   };
+  if (value.type === 'attack/rain') {
+    if (!isObject(value.payload) || !hasOnlyKeys(value.payload, ['attackId', 'colors', 'columns'])
+      || !isString(value.payload.attackId) || !Array.isArray(value.payload.colors) || !Array.isArray(value.payload.columns)
+      || value.payload.colors.length < 2 || value.payload.colors.length > 4
+      || value.payload.colors.length !== value.payload.columns.length
+      || !value.payload.colors.every((color) => ['cyan', 'pink', 'yellow'].includes(color as string))
+      || !value.payload.columns.every((column) => isInteger(column, 0, 7))
+      || new Set(value.payload.columns).size !== value.payload.columns.length) throw new Error('Invalid pill rain attack.');
+    return {
+      ...common,
+      type: value.type,
+      payload: value.payload as unknown as PillRainInput['payload'],
+      ...(options.pending ? {} : { serverTime: value.serverTime as number })
+    } as PillControllerRecord | PendingPillControllerRecord;
+  }
   if (value.type === 'progress/tick') {
     if (!isObject(value.payload) || !hasOnlyKeys(value.payload, ['phase', 'stateHash'])
       || !['playing', 'countdown', 'lost'].includes(value.payload.phase as string)
@@ -218,4 +245,17 @@ export function parsePillRematchReady(value: unknown): PillRematchReadyRecord {
   if (!isObject(value) || !hasOnlyKeys(value, ['playerId', 'serverTime'])
     || !isString(value.playerId) || !isServerTime(value.serverTime)) throw new Error('Invalid pill rematch readiness.');
   return value as unknown as PillRematchReadyRecord;
+}
+
+export function parsePillAttackInteraction(value: unknown): PillAttackInteractionRecord {
+  if (!isObject(value) || !hasOnlyKeys(value, ['type', 'attackId', 'sourcePlayerId', 'sourceTick', 'sourceChain', 'targetPlayerIds', 'colors', 'serverTime'])
+    || value.type !== 'attack/generated' || !isString(value.attackId) || !isString(value.sourcePlayerId)
+    || !isInteger(value.sourceTick) || !isInteger(value.sourceChain, 1, 100)
+    || !Array.isArray(value.targetPlayerIds) || value.targetPlayerIds.length < 1 || value.targetPlayerIds.length > 3
+    || !value.targetPlayerIds.every((playerId) => isString(playerId)) || new Set(value.targetPlayerIds).size !== value.targetPlayerIds.length
+    || !Array.isArray(value.colors) || value.colors.length < 2 || value.colors.length > 4
+    || !value.colors.every((color) => ['cyan', 'pink', 'yellow'].includes(color as string)) || !isServerTime(value.serverTime)) {
+    throw new Error('Invalid pill attack interaction.');
+  }
+  return value as unknown as PillAttackInteractionRecord;
 }

@@ -14,7 +14,7 @@ import {
   type ControllerRecord,
   type ReplayCommand
 } from '../../src/lib/game/pill-bottle.ts';
-import { parsePillCommand, parsePillControllerRecord, parsePillProgress, parsePillStart } from '../../src/lib/protocol/pill-bottle.ts';
+import { parsePillAttackInteraction, parsePillCommand, parsePillControllerRecord, parsePillProgress, parsePillStart } from '../../src/lib/protocol/pill-bottle.ts';
 
 const commands: ReplayCommand[] = [
   { commandId: 'b', tick: 0, clientSeq: 2, input: { type: 'input/hard-drop', payload: {} } },
@@ -100,6 +100,23 @@ test('network validators reject materialized state and invalid command payloads'
   };
   assert.equal(parsePillControllerRecord('record', tick).type, 'progress/tick');
   assert.throws(() => parsePillControllerRecord('record', { ...tick, state: serializeBottle(createBottle(1, 0)) }), /controller record/);
+});
+
+test('rain interactions and target journal records have strict schemas', () => {
+  const interaction = parsePillAttackInteraction({
+    type: 'attack/generated', attackId: 'one-attack', sourcePlayerId: 'one', sourceTick: 40, sourceChain: 1,
+    targetPlayerIds: ['two'], colors: ['cyan', 'pink'], serverTime: 100
+  });
+  assert.deepEqual(interaction.colors, ['cyan', 'pink']);
+  const rainRecord = {
+    type: 'attack/rain', playerId: 'two', epochId: 'epoch', clientSeq: 2, tick: 45,
+    payload: { attackId: interaction.attackId, colors: interaction.colors, columns: [2, 5] }, serverTime: 110
+  };
+  const rain = parsePillControllerRecord('rain-command', rainRecord);
+  assert.equal(rain.type, 'attack/rain');
+  assert.throws(() => parsePillControllerRecord('rain-command', {
+    ...rainRecord, payload: { ...rainRecord.payload, columns: [2, 2] }
+  }), /rain attack/);
 });
 
 test('observer rewinds from its last command checkpoint when a command arrives late', () => {
