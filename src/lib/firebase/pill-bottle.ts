@@ -1,8 +1,9 @@
-import { doc, serverTimestamp as firestoreTimestamp, updateDoc } from 'firebase/firestore';
 import { get, onChildAdded, onDisconnect, onValue, push, ref, runTransaction, serverTimestamp, set, type Unsubscribe } from 'firebase/database';
-import { auth, firestore, realtimeDatabase } from './config';
+import { auth, realtimeDatabase } from './config';
 import { FixedTickClock } from '$lib/runtime/fixed-tick-clock';
-import { randomGameSeed } from '$lib/runtime/start-game';
+import { requestRematchReady, startRematch } from '$lib/runtime/rematch';
+import { subscribeInteractions } from '$lib/runtime/interactions';
+import { installationId } from '$lib/runtime/writer-lease';
 import {
   advanceTick,
   advanceToTick,
@@ -43,8 +44,6 @@ import {
 } from '$lib/protocol/pill-bottle';
 
 export type PillCommand = PillInput;
-
-const gameSeed = randomGameSeed;
 
 export interface ControllerState {
   playerId?: string;
@@ -165,63 +164,13 @@ export function subscribePillBottleLifecycle(
 }
 
 export async function requestPillBottleRematch(gameId: string) {
-  if (!auth?.currentUser || !realtimeDatabase) throw new Error('Firebase is unavailable.');
-  const playerId = auth.currentUser.uid;
-  const readyRef = ref(realtimeDatabase, `games/${gameId}/rematch/ready/${playerId}`);
-  if ((await get(readyRef)).exists()) return;
-  await set(readyRef, {
-    playerId,
-    serverTime: serverTimestamp()
-  });
+  return requestRematchReady(gameId);
 }
 
 export async function startPillBottleRematch(gameId: string) {
-  if (!auth?.currentUser || !firestore || !realtimeDatabase) throw new Error('Firebase is unavailable.');
-  const startSnapshot = await get(ref(realtimeDatabase, `games/${gameId}/start`));
-  if (!startSnapshot.exists()) throw new Error('The previous game no longer exists.');
-  const start = parsePillStart(startSnapshot.val());
-  if (!start.players[auth.currentUser.uid]) return;
-  const readiness = await get(ref(realtimeDatabase, `games/${gameId}/rematch/ready`));
-  const ready = new Set<string>();
-  readiness.forEach((child) => { ready.add(parsePillRematchReady(child.val()).playerId); });
-  if (!Object.keys(start.players).every((playerId) => ready.has(playerId))) return;
-
-  const proposedGameId = crypto.randomUUID();
-  const nextGameIdRef = ref(realtimeDatabase, `games/${gameId}/rematch/nextGameId`);
-  const claim = await runTransaction(nextGameIdRef, (current) => current === null ? proposedGameId : undefined, {
-    applyLocally: false
-  });
-  const nextGameId = claim.committed ? claim.snapshot.val() : (await get(nextGameIdRef)).val();
-  if (typeof nextGameId !== 'string') throw new Error('Could not reserve the rematch.');
-  const advanceRound = Object.keys(start.players).length > 1 && start.round + 1 < PILL_BOTTLE_RULES.matchRounds;
-  const nextStart = ref(realtimeDatabase, `games/${nextGameId}/start`);
-  try {
-    await set(nextStart, {
-      type: 'game/started', roomId: start.roomId, ruleset: start.ruleset, rulesVersion: start.rulesVersion,
-      seed: gameSeed(), tickRate: start.tickRate, hostUid: start.hostUid, members: start.members,
-      players: start.players, settings: start.settings,
-      audioOutput: start.audioOutput,
-      matchId: advanceRound ? start.matchId : nextGameId,
-      round: advanceRound ? start.round + 1 : 0,
-      previousGameId: gameId,
-      serverTime: serverTimestamp()
-    });
-  } catch (cause) {
-    // Another ready participant may have completed the immutable start record first. Reading is
-    // permitted once that record establishes membership; an empty reserved game remains
-    // unreadable, so preserve the original failure in that case.
-    try {
-      const existingStart = await get(nextStart);
-      const existing = existingStart.exists() ? parsePillStart(existingStart.val()) : undefined;
-      if (!existing || existing.roomId !== start.roomId || existing.hostUid !== start.hostUid) throw cause;
-    } catch {
-      throw cause;
-    }
-  }
-  await updateDoc(doc(firestore, 'rooms', start.roomId), {
-    status: 'active', activeGameId: nextGameId, startedAt: firestoreTimestamp()
-  });
-  return nextGameId;
+  return startRematch(gameId, parsePillStart, start => ({
+    advance: Object.keys(start.players).length > 1 && start.round + 1 < PILL_BOTTLE_RULES.matchRounds
+  }));
 }
 
 function withoutServerTime(record: ReturnType<typeof parsePillControllerRecord>): ControllerRecord {
@@ -338,40 +287,7 @@ export function subscribePillBottleProgress(
 
 export function subscribePillBottleAttacks(gameId: string, receive: () => void, fail: (error: Error) => void) {
   if (!realtimeDatabase) throw new Error('Firebase is unavailable.');
-  let destroyed = false;
-  let unsubscribe = () => {};
-  void (async () => {
-    try {
-      const interactions = ref(realtimeDatabase!, `games/${gameId}/interactions`);
-      const existing = await get(interactions);
-      const known = new Set<string>();
-      existing.forEach((child) => { known.add(child.key!); });
-      if (destroyed) return;
-      unsubscribe = onChildAdded(interactions, (child) => {
-        try {
-          parsePillAttackInteraction(child.val());
-          if (!known.delete(child.key!)) receive();
-        } catch (cause) {
-          fail(cause instanceof Error ? cause : new Error(String(cause)));
-        }
-      }, fail);
-    } catch (cause) {
-      fail(cause instanceof Error ? cause : new Error(String(cause)));
-    }
-  })();
-  return () => { destroyed = true; unsubscribe(); };
-}
-
-function installationId() {
-  const created = crypto.randomUUID();
-  try {
-    const existing = localStorage.getItem('drm-client-id');
-    if (existing) return existing;
-    localStorage.setItem('drm-client-id', created);
-  } catch {
-    // The writer lease still protects the journal when durable browser storage is unavailable.
-  }
-  return created;
+  return subscribeInteractions(realtimeDatabase,gameId,parsePillAttackInteraction,()=>receive(),fail);
 }
 
 function applyRecord(state: BottleState, record: ControllerRecord) {
