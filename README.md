@@ -42,7 +42,8 @@ reconstructed from commands. Clears of two or more match lines during one pill's
 replayable rain attacks against every remaining opponent. Controllers and the
 shared display show a replay-derived preview of the next pill. Incoming rain is
 queued until the current pill finishes resolving, then falls from the top at one
-row per quarter second before the next pill spawns. Additional rulesets remain to
+row per quarter second before the next pill spawns. Matches made by landed rain
+resolve normally but cannot generate another attack. Additional rulesets remain to
 be implemented.
 
 The player route accepts touch and keyboard controls plus standard browser

@@ -252,7 +252,13 @@ function advanceRain(state: BottleState) {
   }
   delete state.fallingRain;
   delete state.rainGravityCounter;
-  startRainOrSpawn(state);
+  const cleared = clearMatches(state);
+  if (cleared) {
+    state.chain = 1;
+    if (state.phase === 'playing') state.resolving = true;
+  } else {
+    startRainOrSpawn(state);
+  }
 }
 
 function dropFreedPills(state: BottleState) {
@@ -397,7 +403,7 @@ export function advanceTick(state: BottleState) {
     if (dropFreedPills(state)) return [] as PillClearEvent[];
     const cleared = clearMatches(state);
     if (cleared) {
-      state.resolutionLineColors = [...(state.resolutionLineColors ?? []), ...cleared.lineColors];
+      if (state.resolutionLineColors) state.resolutionLineColors = [...state.resolutionLineColors, ...cleared.lineColors];
       state.chain++;
       return state.resolving ? [] : finishResolution(state);
     }

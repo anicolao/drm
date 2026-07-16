@@ -62,7 +62,7 @@ This intentionally avoids clock synchronization, continuous state snapshots, and
 - A pinned Nix development shell providing Node 22 and Java 21 for application and Firebase Emulator tooling.
 - Gameplay music routed by immutable start metadata: Chill on even levels, Fever on odd levels, and the corresponding clear cue on completion. Shared-display games play from the cast; games without a shared display play from each controller.
 - Replayable rain attacks earned by clearing at least two rows or columns over one pill's complete settling sequence, sent to every remaining opponent through immutable interactions and applied through the target's own journal. The rain cue also plays for qualifying single-player clears.
-- Deterministic next-pill previews are shown above every controller and shared-display bottle without advancing the authoritative RNG. Incoming rain is queued until the current pill finishes resolving, falls independently from the top at one row per quarter second, and must finish before the next pill spawns. Rain never participates in the preceding pill's clear resolution.
+- Deterministic next-pill previews are shown above every controller and shared-display bottle without advancing the authoritative RNG. Incoming rain is queued until the current pill finishes resolving, falls independently from the top at one row per quarter second, and must finish before the next pill spawns. Matches caused by landed rain clear and resolve normally but are attack-ineligible.
 - Browser coverage and refreshed visual baselines for the new join and controller guidance.
 
 ### Known prototype limitations
