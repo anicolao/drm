@@ -1,0 +1,3 @@
+<script lang="ts">export let opponents:unknown[]=[];export let label='Opponents';</script>
+{#if opponents.length}<aside class="opponents" aria-label={label}>{#each opponents as opponent}<div class="opponent"><slot {opponent}/></div>{/each}</aside>{/if}
+<style>.opponents{position:absolute;right:max(.5rem,env(safe-area-inset-right));top:50%;transform:translateY(-50%);display:grid;gap:.45rem;max-height:72dvh;overflow:hidden}.opponent{display:grid;justify-items:center;color:var(--muted);font-size:.48rem;text-transform:uppercase}@media(orientation:portrait){.opponents{top:max(3rem,env(safe-area-inset-top));transform:none;grid-auto-flow:column;max-width:50vw}}</style>
