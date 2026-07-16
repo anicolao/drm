@@ -1,5 +1,5 @@
 import { doc, serverTimestamp as firestoreTimestamp, updateDoc } from 'firebase/firestore';
-import { get, onChildAdded, onValue, push, ref, runTransaction, serverTimestamp, set, type Unsubscribe } from 'firebase/database';
+import { get, onChildAdded, onDisconnect, onValue, push, ref, runTransaction, serverTimestamp, set, type Unsubscribe } from 'firebase/database';
 import { auth, firestore, realtimeDatabase } from './config';
 import type { RoomPlayer } from './rooms';
 import {
@@ -84,6 +84,7 @@ export interface ControllerState {
   lifecycle?: PillMatchLifecycle;
   audioOutput?: 'cast' | 'controllers';
   rainSignal?: number;
+  ownershipConflict?: boolean;
 }
 
 export interface PlayerProgress {
@@ -481,8 +482,11 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
   let lifecycle: PillMatchLifecycle | undefined;
   let audioOutput: 'cast' | 'controllers' | undefined;
   let rainSignal = 0;
+  let ownershipConflict = false;
+  let ownsWriter = false;
   let participantIds: string[] = [];
   let stopInteractions = () => {};
+  let stopWriter = () => {};
   const appliedAttacks = new Set<string>();
   let outbox = loadControllerOutbox(gameId, playerId);
   let attackOutbox = loadAttackOutbox(gameId, playerId);
@@ -491,7 +495,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
   const publish = (error?: string) => receive({
-    playerId, tick, ready, bottle: bottle ? structuredClone(bottle) : undefined, lastCommand, error, lifecycle, audioOutput, rainSignal
+    playerId, tick, ready, bottle: bottle ? structuredClone(bottle) : undefined, lastCommand, error, lifecycle, audioOutput, rainSignal, ownershipConflict
   });
 
   const stopLifecycle = subscribePillBottleLifecycle(gameId, (next) => {
@@ -655,6 +659,24 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
       audioOutput = start.audioOutput;
       participantIds = Object.keys(start.players);
       if (!start.players[playerId]) throw new Error('Player is not part of this pill-bottle/3 game.');
+      const writerRef = ref(realtimeDatabase!, `games/${gameId}/players/${playerId}/writer`);
+      const writerClaim = await runTransaction(writerRef, (current) => current === null || current?.epochId === epochId
+        ? { epochId, clientId: installationId() }
+        : undefined, { applyLocally: false });
+      if (!writerClaim.committed || writerClaim.snapshot.val()?.epochId !== epochId) {
+        ownershipConflict = true;
+        throw new Error('This controller is already active in another tab.');
+      }
+      ownsWriter = true;
+      await onDisconnect(writerRef).remove();
+      stopWriter = onValue(writerRef, (writer) => {
+        if (!ownsWriter || writer.val()?.epochId === epochId) return;
+        ownsWriter = false;
+        ownershipConflict = true;
+        suspended = true;
+        cancelAnimationFrame(frame);
+        publish('Control moved to another tab or device.');
+      });
       const historySnapshot = await get(ref(realtimeDatabase!, `games/${gameId}/players/${playerId}/records`));
       const byId = new Map<string, ControllerRecord>();
       historySnapshot.forEach((child) => {
@@ -767,6 +789,11 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
   return {
     command,
     requestRematch: () => requestPillBottleRematch(gameId),
+    async takeOver() {
+      if (!realtimeDatabase) return;
+      await set(ref(realtimeDatabase, `games/${gameId}/players/${playerId}/writer`), null);
+      window.location.reload();
+    },
     suspend,
     resume,
     destroy() {
@@ -775,8 +802,14 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
       unsubscribe();
       stopLifecycle();
       stopInteractions();
+      stopWriter();
       cancelAnimationFrame(frame);
       if (retryTimer) clearTimeout(retryTimer);
+      if (ownsWriter && realtimeDatabase) {
+        const writerRef = ref(realtimeDatabase, `games/${gameId}/players/${playerId}/writer`);
+        void onDisconnect(writerRef).cancel();
+        void runTransaction(writerRef, (current) => current?.epochId === epochId ? null : current, { applyLocally: false });
+      }
       window.removeEventListener('online', online);
     }
   };

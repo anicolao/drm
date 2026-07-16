@@ -33,6 +33,11 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await expect(page).toHaveURL(/\/cast\?code=TEST$/, { timeout: 10000 });
   await expect(playerPage.getByLabel('Pill Bottle controller')).toBeVisible({ timeout: 10000 });
   await expect(playerPage.getByRole('button', { name: 'Move left' })).toBeEnabled({ timeout: 10000 });
+  const duplicatePage = await context.newPage();
+  await duplicatePage.goto('/play?code=TEST');
+  await expect(duplicatePage.getByText('This controller is already active in another tab.')).toBeVisible({ timeout: 10000 });
+  await expect(duplicatePage.getByRole('button', { name: 'Take over on this device' })).toBeVisible();
+  await duplicatePage.close();
   await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-cell-count', '128');
   await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '5');
   await expect.poll(() => playerPage.evaluate(() => ({ width: document.documentElement.scrollWidth <= innerWidth, height: document.documentElement.scrollHeight <= innerHeight }))).toEqual({ width: true, height: true });
