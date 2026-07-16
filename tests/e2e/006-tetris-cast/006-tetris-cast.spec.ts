@@ -30,6 +30,8 @@ test('US-006: shared Block Stack display replays controller gravity', async ({ b
   const filledPositions = () => castBoard.locator('i').evaluateAll((cells) => cells.flatMap((cell, index) => cell.classList.contains('filled') ? [index] : []));
   const initialPositions = await filledPositions();
   await expect.poll(filledPositions, { timeout: 3_000 }).not.toEqual(initialPositions);
+  await expect(castBoard).toHaveAttribute('data-active-row', '3', { timeout: 5_000 });
+  await castBoard.evaluate((board) => board.replaceWith(board.cloneNode(true)));
 
   await tester.step('cast-gravity', {
     description: 'The shared display advances its replay-derived falling piece',
