@@ -35,3 +35,24 @@
 - [x] The portrait controller fits the viewport
 
 ---
+
+## Both ready controllers enter the next round regardless of click order
+
+![Both ready controllers enter the next round regardless of click order](./screenshots/003-both-ready.png)
+
+**Verifications:**
+- [x] The first ready controller enters the successor game
+- [x] The second ready controller enters the same successor game
+- [x] Neither controller reports a permission failure
+
+---
+
+## Reversing ready order starts the final round without a permission race
+
+![Reversing ready order starts the final round without a permission race](./screenshots/004-reverse-ready-order.png)
+
+**Verifications:**
+- [x] Both controllers reach round three
+- [x] The reversed ready order produces no permission failure
+
+---
