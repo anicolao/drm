@@ -1,9 +1,8 @@
 import { doc, serverTimestamp as firestoreTimestamp, updateDoc } from 'firebase/firestore';
 import { get, onChildAdded, onDisconnect, onValue, push, ref, runTransaction, serverTimestamp, set, type Unsubscribe } from 'firebase/database';
 import { auth, firestore, realtimeDatabase } from './config';
-import type { RoomPlayer } from './rooms';
 import { FixedTickClock } from '$lib/runtime/fixed-tick-clock';
-import { randomGameSeed, startRealtimeGame } from '$lib/runtime/start-game';
+import { randomGameSeed } from '$lib/runtime/start-game';
 import {
   advanceTick,
   advanceToTick,
@@ -17,8 +16,6 @@ import {
   hashState,
   PillBottleObserver,
   PILL_BOTTLE_RULES,
-  PILL_BOTTLE_RULES_VERSION,
-  PILL_BOTTLE_SETTINGS,
   type BottleState,
   type ControllerRecord,
   type PillClearEvent,
@@ -48,10 +45,6 @@ import {
 export type PillCommand = PillInput;
 
 const gameSeed = randomGameSeed;
-
-export async function startPillBottleGame(roomId: string, members: RoomPlayer[], hostMode: 'player' | 'display') {
-  return startRealtimeGame({ruleset:'pill-bottle',rulesVersion:PILL_BOTTLE_RULES_VERSION,tickRate:PILL_BOTTLE_RULES.tickRate,settings:PILL_BOTTLE_SETTINGS},roomId,members,hostMode);
-}
 
 export interface ControllerState {
   playerId?: string;

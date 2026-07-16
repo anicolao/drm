@@ -6,8 +6,7 @@
   import JoinQr from '$lib/components/JoinQr.svelte';
   import { firebaseConfigured } from '$lib/firebase/config';
   import { ensureAnonymousUser, getRoom, subscribeRoomPlayers, updateRoomRuleset, type RoomPlayer } from '$lib/firebase/rooms';
-  import { startPillBottleGame } from '$lib/firebase/pill-bottle';
-  import { startTetrisGame } from '$lib/firebase/tetris';
+  import { startRegisteredGame } from '$lib/runtime/game-registry';
   let code = ''; let ruleset: 'tetris' | 'doctor' = 'tetris'; let players: RoomPlayer[] = [];
   let roomId = ''; let activeGameId = ''; let loading = true; let starting = false; let choosing = false; let error = '';
   let joinHref = '';
@@ -35,7 +34,7 @@
   }
   async function startGame(destination: 'play' | 'cast') {
     starting = true; error = '';
-    try { const hostMode=destination==='play'?'player':'display';activeGameId = ruleset==='tetris'?await startTetrisGame(roomId,players,hostMode):await startPillBottleGame(roomId, players,hostMode);await goto(`${base}/${destination}?code=${code}`); }
+    try { const hostMode=destination==='play'?'player':'display';activeGameId=await startRegisteredGame(ruleset,roomId,players,hostMode);await goto(`${base}/${destination}?code=${code}`); }
     catch (cause) { error = cause instanceof Error ? cause.message : String(cause); }
     finally { starting = false; }
   }
