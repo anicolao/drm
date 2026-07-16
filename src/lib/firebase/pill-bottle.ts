@@ -215,10 +215,11 @@ export async function startPillBottleRematch(gameId: string) {
   if (!Object.keys(start.players).every((playerId) => ready.has(playerId))) return;
 
   const proposedGameId = crypto.randomUUID();
-  const claim = await runTransaction(ref(realtimeDatabase, `games/${gameId}/rematch/nextGameId`), (current) => current ?? proposedGameId, {
+  const nextGameIdRef = ref(realtimeDatabase, `games/${gameId}/rematch/nextGameId`);
+  const claim = await runTransaction(nextGameIdRef, (current) => current === null ? proposedGameId : undefined, {
     applyLocally: false
   });
-  const nextGameId = claim.snapshot.val();
+  const nextGameId = claim.committed ? claim.snapshot.val() : (await get(nextGameIdRef)).val();
   if (typeof nextGameId !== 'string') throw new Error('Could not reserve the rematch.');
   const advanceRound = Object.keys(start.players).length > 1 && start.round + 1 < PILL_BOTTLE_RULES.matchRounds;
   const nextStart = ref(realtimeDatabase, `games/${nextGameId}/start`);
