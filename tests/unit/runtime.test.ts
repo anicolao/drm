@@ -6,6 +6,7 @@ import { ReplayObserver, type ReplayAdapter } from '../../src/lib/runtime/replay
 import { controllerStorageKey,loadStoredArray,loadStoredValue,saveStoredArray,saveStoredValue } from '../../src/lib/runtime/local-store.ts';
 import { commandForGamepadAction,commandForKey } from '../../src/lib/runtime/core-input.ts';
 import { parseTetrisRecord } from '../../src/lib/protocol/tetris.ts';
+import { DurableOutbox } from '../../src/lib/runtime/durable-outbox.ts';
 
 test('fixed tick clock follows elapsed time independently of render frequency', () => {
   const sixty = new FixedTickClock(60);
@@ -76,4 +77,22 @@ test('shared controller envelope rejects malformed Tetris records',()=>{
   assert.equal(record.type,'input/move');
   assert.throws(()=>parseTetrisRecord('id',{type:'input/move',playerId:'p',epochId:'e',clientSeq:1,tick:2,payload:{dx:0},serverTime:3}),/payload/);
   assert.throws(()=>parseTetrisRecord('id',{type:'progress/tick',playerId:'p',epochId:'e',clientSeq:1,tick:2,payload:{phase:'playing',stateHash:'bad'},serverTime:3}),/payload/);
+});
+
+test('durable outbox preserves order, retries, and acknowledges delivered records',async()=>{
+  type Item={id:string;sequence:number};
+  const persisted:Item[][]=[],delivered:string[]=[];
+  let fail=true;
+  const outbox=new DurableOutbox<Item>({
+    initial:[],order:(a,b)=>a.sequence-b.sequence,identify:item=>item.id,
+    persist:items=>persisted.push([...items]),retryMilliseconds:5,
+    deliver:async item=>{if(fail){fail=false;throw new Error('offline')}delivered.push(item.id)}
+  });
+  outbox.enqueue({id:'second',sequence:2});
+  outbox.enqueue({id:'first',sequence:1});
+  await new Promise(resolve=>setTimeout(resolve,25));
+  assert.deepEqual(delivered,['first','second']);
+  assert.deepEqual(outbox.values(),[]);
+  assert.deepEqual(persisted.at(-1),[]);
+  outbox.destroy();
 });
