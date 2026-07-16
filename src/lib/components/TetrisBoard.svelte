@@ -2,14 +2,23 @@
   import { ghostRow,pieceCells,TETRIS_HIDDEN_ROWS,TETRIS_VISIBLE_HEIGHT,TETRIS_WIDTH,type TetrisState,type Tetromino } from '$lib/game/tetris';
   export let state:TetrisState;export let label='Block Stack board';export let compact=false;
   const colors:Record<Tetromino,string>={I:'#30d9d4',J:'#4d72ff',L:'#ff9f43',O:'#f5d547',S:'#5fe06d',T:'#b66cff',Z:'#ff4f64'};
-  $: active=state.active?pieceCells(state.active):[];
-  $: ghost=state.active?pieceCells({...state.active,row:ghostRow(state)}):[];
-  function cellAt(visibleRow:number,col:number){const row=visibleRow+TETRIS_HIDDEN_ROWS;const activeCell=active.find(cell=>cell.row===row&&cell.col===col);if(activeCell)return{kind:state.active!.kind,active:true,ghost:false};const locked=state.board[row*TETRIS_WIDTH+col];if(locked)return{kind:locked,active:false,ghost:false};const ghostCell=ghost.find(cell=>cell.row===row&&cell.col===col);return ghostCell?{kind:state.active!.kind,active:false,ghost:true}:undefined}
+  type RenderCell={kind:Tetromino;ghost:boolean}|undefined;
+  function renderCells(current:TetrisState):RenderCell[]{
+    const active=current.active?pieceCells(current.active):[];
+    const ghost=current.active?pieceCells({...current.active,row:ghostRow(current)}):[];
+    return Array.from({length:TETRIS_VISIBLE_HEIGHT*TETRIS_WIDTH},(_,index)=>{
+      const row=Math.floor(index/TETRIS_WIDTH)+TETRIS_HIDDEN_ROWS,col=index%TETRIS_WIDTH;
+      if(current.active&&active.some(cell=>cell.row===row&&cell.col===col))return{kind:current.active.kind,ghost:false};
+      const locked=current.board[row*TETRIS_WIDTH+col];if(locked)return{kind:locked,ghost:false};
+      return current.active&&ghost.some(cell=>cell.row===row&&cell.col===col)?{kind:current.active.kind,ghost:true}:undefined;
+    });
+  }
+  $: cells=renderCells(state);
 </script>
 <div class:compact class="tetris-shell">
   {#if !compact}<div class="next" aria-label={`Next pieces: ${state.next.slice(0,3).join(', ')}`}>{#each state.next.slice(0,3) as piece}<span style={`--piece:${colors[piece]}`}>{piece}</span>{/each}</div>{/if}
-  <div class="matrix" role="img" aria-label={label} data-lines={state.lines} data-score={state.score} data-level={state.level} data-phase={state.phase}>
-    {#each Array(TETRIS_VISIBLE_HEIGHT) as _,row}{#each Array(TETRIS_WIDTH) as _,col}{@const cell=cellAt(row,col)}<i class:filled={Boolean(cell&&!cell.ghost)} class:ghost={cell?.ghost} style={cell?`--piece:${colors[cell.kind]}`:''}></i>{/each}{/each}
+  <div class="matrix" role="img" aria-label={label} data-lines={state.lines} data-score={state.score} data-level={state.level} data-phase={state.phase} data-active-row={state.active?.row}>
+    {#each cells as cell}<i class:filled={Boolean(cell&&!cell.ghost)} class:ghost={cell?.ghost} style={cell?`--piece:${colors[cell.kind]}`:''}></i>{/each}
   </div>
 </div>
 <style>
