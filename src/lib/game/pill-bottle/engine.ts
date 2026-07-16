@@ -86,6 +86,7 @@ function populateLevel(state: BottleState) {
   state.softDrop = false;
   state.chain = 0;
   state.resolving = false;
+  delete state.resolutionLineColors;
   delete state.countdownEndsAt;
 
   let placed = 0;
@@ -182,7 +183,15 @@ function clearMatches(state: BottleState) {
     state.softDrop = false;
     state.resolving = false;
   }
-  return cleared.size > 0 ? { virusColors, lineColors } : undefined;
+  return cleared.size > 0 ? { lineColors } : undefined;
+}
+
+function finishResolution(state: BottleState) {
+  const lineColors = state.resolutionLineColors ?? [];
+  delete state.resolutionLineColors;
+  return lineColors.length > 0
+    ? [{ type: 'clear', tick: state.tick, chain: state.chain, lineColors } satisfies PillClearEvent]
+    : [];
 }
 
 function dropFreedPills(state: BottleState) {
@@ -248,12 +257,13 @@ function lock(state: BottleState) {
   state.chain = 0;
   const cleared = clearMatches(state);
   if (cleared) {
+    state.resolutionLineColors = [...cleared.lineColors];
     state.chain = 1;
     if (state.phase === 'playing') state.resolving = true;
   } else {
     spawn(state);
   }
-  return cleared ? [{ type: 'clear', tick: state.tick, chain: 1, ...cleared } satisfies PillClearEvent] : [];
+  return cleared && !state.resolving ? finishResolution(state) : [];
 }
 
 function move(state: BottleState, rowDelta: number, colDelta: number) {
@@ -337,12 +347,13 @@ export function advanceTick(state: BottleState) {
     if (dropFreedPills(state)) return [] as PillClearEvent[];
     const cleared = clearMatches(state);
     if (cleared) {
+      state.resolutionLineColors = [...(state.resolutionLineColors ?? []), ...cleared.lineColors];
       state.chain++;
-      return [{ type: 'clear', tick: state.tick, chain: state.chain, ...cleared } satisfies PillClearEvent];
+      return state.resolving ? [] : finishResolution(state);
     }
     state.resolving = false;
     spawn(state);
-    return [] as PillClearEvent[];
+    return finishResolution(state);
   }
 
   if (!state.active) return [] as PillClearEvent[];

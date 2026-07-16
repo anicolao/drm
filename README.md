@@ -38,7 +38,7 @@ The production prototype implements Firebase authentication, room coordination,
 a versioned `pill-bottle/3` Color Cure engine, immediate local controls,
 tick-tagged RTDB commands, deterministic replay/state hashes, three-round
 replay-derived scoring, next-level/rematch voting, and a shared canvas display
-reconstructed from commands. Clears of two or more simultaneous match lines generate immutable,
+reconstructed from commands. Clears of two or more match lines during one pill's full settling sequence generate immutable,
 replayable rain attacks against every remaining opponent. Presence and the
 Tetris-style ruleset remain to be implemented.
 

@@ -61,7 +61,7 @@ This intentionally avoids clock synchronization, continuous state snapshots, and
 - Lazily loaded QR generation so the feature does not add work to gameplay routes that do not use it.
 - A pinned Nix development shell providing Node 22 and Java 21 for application and Firebase Emulator tooling.
 - Gameplay music routed by immutable start metadata: Chill on even levels, Fever on odd levels, and the corresponding clear cue on completion. Shared-display games play from the cast; games without a shared display play from each controller.
-- Replayable rain attacks earned by clearing at least two rows or columns with one pill, sent to every remaining opponent through immutable interactions and applied through the target's own journal. The rain cue also plays for qualifying single-player clears.
+- Replayable rain attacks earned by clearing at least two rows or columns over one pill's complete settling sequence, sent to every remaining opponent through immutable interactions and applied through the target's own journal. The rain cue also plays for qualifying single-player clears.
 - Browser coverage and refreshed visual baselines for the new join and controller guidance.
 
 ### Known prototype limitations
@@ -163,7 +163,7 @@ Rain attacks are implemented without changing controller authority or sending ma
 
 Implemented:
 
-- A pill earns rain when it clears at least two match lines, regardless of viruses: two lines send two pieces, three send three, and four or more send four, using the matched line colors.
+- A pill earns rain when its initial clear and subsequent cascades clear at least two match lines in total, regardless of viruses: two lines send two pieces, three send three, and four or more send four, using the matched line colors.
 - The source publishes one immutable interaction targeting every non-terminal opponent.
 - Interactions are ordered by Firebase and deduplicated by attack ID.
 - Each target chooses distinct deterministic columns from the attack ID, applies rain at its current authoritative tick, and appends `attack/rain` to its own journal.
