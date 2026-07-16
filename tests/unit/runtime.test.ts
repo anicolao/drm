@@ -3,6 +3,7 @@ import test from 'node:test';
 import { FixedTickClock } from '../../src/lib/runtime/fixed-tick-clock.ts';
 import { deriveMatchLifecycle } from '../../src/lib/runtime/lifecycle.ts';
 import { ReplayObserver, type ReplayAdapter } from '../../src/lib/runtime/replay-observer.ts';
+import { controllerStorageKey,loadStoredArray,loadStoredValue,saveStoredArray,saveStoredValue } from '../../src/lib/runtime/local-store.ts';
 
 test('fixed tick clock follows elapsed time independently of render frequency', () => {
   const sixty = new FixedTickClock(60);
@@ -52,4 +53,12 @@ test('shared observer rejects conflicting identities and verifies exact progress
   observer.receive({commandId:'a',clientSeq:1,tick:5,type:'progress/tick',payload:{phase:'playing',stateHash:'5:0'}});
   assert.equal(observer.snapshot().hashMatches,true);
   assert.throws(()=>observer.receive({commandId:'a',clientSeq:1,tick:5,type:'add',amount:1}),/Conflicting/);
+});
+
+test('shared local storage safely versions controller data',()=>{
+  const values=new Map<string,string>(),storage={getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value)},removeItem:(key:string)=>{values.delete(key)}};
+  const key=controllerStorageKey('tetris','g','p','outbox');saveStoredArray(storage,key,[{id:'a'}]);
+  assert.deepEqual(loadStoredArray(storage,key,(value)=>value as{id:string}),[{id:'a'}]);
+  saveStoredValue(storage,'checkpoint',{tick:4});assert.deepEqual(loadStoredValue(storage,'checkpoint',(value)=>value as{tick:number}),{tick:4});
+  values.set(key,'not json');assert.deepEqual(loadStoredArray(storage,key,(value)=>value),[]);
 });
