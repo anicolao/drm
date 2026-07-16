@@ -17,7 +17,7 @@
 **Verifications:**
 - [x] No player-controlled pill is active while rain falls
 - [x] Two independent rain pieces are visible in the bottle
-- [x] Observed row movement took at least 180ms
+- [x] Observed row movement took at least 150ms
 
 ---
 

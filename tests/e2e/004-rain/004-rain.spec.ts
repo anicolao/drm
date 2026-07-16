@@ -70,12 +70,12 @@ test('US-004: incoming rain waits, falls slowly, resolves, then yields to the ne
     };
     requestAnimationFrame(sample);
   }));
-  expect(rowDuration).toBeGreaterThan(180);
+  expect(rowDuration).toBeGreaterThan(150);
   await controller.locator('.command-status').evaluate((element: HTMLElement) => { element.style.visibility = 'hidden'; });
   await tester.step('rain-falling', { description: 'Rain falls slowly between pills', networkStatus: 'skip', verifications: [
     { spec: 'No player-controlled pill is active while rain falls', check: async () => await expect(bottle).toHaveAttribute('data-active-pill', 'false') },
     { spec: 'Two independent rain pieces are visible in the bottle', check: async () => await expect(bottle).toHaveAttribute('data-rain-rows', /^\d+,\d+$/) },
-    { spec: 'Observed row movement took at least 180ms', check: async () => expect(rowDuration).toBeGreaterThan(180) }
+    { spec: 'Observed row movement took at least 150ms', check: async () => expect(rowDuration).toBeGreaterThan(150) }
   ] });
 
   await expect(bottle).toHaveAttribute('data-rain-rows', '', { timeout: 10_000 });

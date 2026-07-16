@@ -25,10 +25,13 @@ import {
 } from '$lib/game/pill-bottle';
 export type { PillMatchLifecycle } from '$lib/game/pill-bottle';
 import {
+  loadAttackOutbox,
   loadControllerCheckpoint,
   loadControllerOutbox,
+  saveAttackOutbox,
   saveControllerCheckpoint,
-  saveControllerOutbox
+  saveControllerOutbox,
+  type PendingPillAttackInteraction
 } from '$lib/local/pill-bottle';
 import {
   parsePillControllerRecord,
@@ -480,7 +483,9 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
   let stopInteractions = () => {};
   const appliedAttacks = new Set<string>();
   let outbox = loadControllerOutbox(gameId, playerId);
+  let attackOutbox = loadAttackOutbox(gameId, playerId);
   let flushing = false;
+  let flushingAttacks = false;
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
   const publish = (error?: string) => receive({
@@ -510,6 +515,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
     retryTimer = setTimeout(() => {
       retryTimer = undefined;
       void flushOutbox();
+      void flushAttackOutbox();
     }, 1000);
   };
 
@@ -531,6 +537,27 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
       scheduleFlush();
     } finally {
       flushing = false;
+    }
+  }
+
+  async function flushAttackOutbox() {
+    if (flushingAttacks || !realtimeDatabase || attackOutbox.length === 0) return;
+    flushingAttacks = true;
+    try {
+      for (;;) {
+        const pending = attackOutbox[0];
+        if (!pending) break;
+        const { interactionId, ...interaction } = pending;
+        await set(ref(realtimeDatabase, `games/${gameId}/interactions/${interactionId}`), {
+          ...interaction, serverTime: serverTimestamp()
+        });
+        attackOutbox = attackOutbox.filter((candidate) => candidate.interactionId !== interactionId);
+        saveAttackOutbox(gameId, playerId, attackOutbox);
+      }
+    } catch {
+      scheduleFlush();
+    } finally {
+      flushingAttacks = false;
     }
   }
 
@@ -561,10 +588,15 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
       }
       const attackId = `${playerId}-${epochId}-${event.tick}-${event.chain}`;
       const interactionRef = push(ref(realtimeDatabase!, `games/${gameId}/interactions`));
-      void set(interactionRef, {
+      if (!interactionRef.key) throw new Error('Could not allocate an attack interaction identifier.');
+      const pending: PendingPillAttackInteraction = {
+        interactionId: interactionRef.key,
         type: 'attack/generated', attackId, sourcePlayerId: playerId, sourceTick: event.tick,
-        sourceChain: event.chain, targetPlayerIds: targets, colors, serverTime: serverTimestamp()
-      }).catch(() => {});
+        sourceChain: event.chain, targetPlayerIds: targets, colors
+      };
+      attackOutbox.push(pending);
+      saveAttackOutbox(gameId, playerId, attackOutbox);
+      void flushAttackOutbox();
     }
   }
 
@@ -686,6 +718,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
       void declareTerminal();
       publish();
       void flushOutbox();
+      void flushAttackOutbox();
       frame = requestAnimationFrame(loop);
     } catch (cause) {
       publish(cause instanceof Error ? cause.message : String(cause));
@@ -694,7 +727,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
     }
   }, (error) => publish(error.message));
 
-  const online = () => void flushOutbox();
+  const online = () => { void flushOutbox(); void flushAttackOutbox(); };
   window.addEventListener('online', online);
 
   function suspend() {
