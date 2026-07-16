@@ -80,11 +80,18 @@
     context.beginPath();
     context.roundRect(innerX, innerY, innerWidth, innerHeight, halfRadii(dx, dy, 3));
     context.clip();
-    context.fillStyle = 'rgba(255,255,255,.38)';
-    context.fillRect(x + (dx === -1 ? 0 : 1.75), y + (dy === -1 ? 0 : 1.75), dx === 0 ? 6.5 : 8.25, 1.25);
-    context.fillStyle = 'rgba(0,0,0,.28)';
-    context.fillRect(x + (dx === -1 ? 0 : 1.75), y + (dy === 1 ? 8.75 : 7.25), dx === 0 ? 6.5 : 8.25, 1.25);
+    if (dy !== -1) {
+      context.fillStyle = 'rgba(255,255,255,.38)';
+      context.fillRect(x + (dx === -1 ? 0 : 1.75), y + 1.75, dx === 0 ? 6.5 : 8.25, 1.25);
+    }
+    if (dy !== 1) {
+      context.fillStyle = 'rgba(0,0,0,.28)';
+      context.fillRect(x + (dx === -1 ? 0 : 1.75), y + 7.25, dx === 0 ? 6.5 : 8.25, 1.25);
+    }
     context.restore();
+    context.fillStyle = '#08090d';
+    if (dx === 1) context.fillRect(x + 9.75, y + 1.25, .5, 7.5);
+    if (dy === 1) context.fillRect(x + 1.25, y + 9.75, 7.5, .5);
   }
 
   function drawPreview() {
@@ -124,9 +131,9 @@
     context.fillRect(89, 13, 3, 164);
     context.fillRect(8, 177, 84, 3);
 
-    context.fillStyle = '#151720';
-    for (let column = 1; column < WIDTH; column++) context.fillRect(LEFT + column * CELL, TOP, 1, HEIGHT * CELL);
-    for (let row = 1; row < HEIGHT; row++) context.fillRect(LEFT, TOP + row * CELL, WIDTH * CELL, 1);
+    context.fillStyle = '#0d0f14';
+    for (let column = 1; column < WIDTH; column++) context.fillRect(LEFT + column * CELL, TOP, .35, HEIGHT * CELL);
+    for (let row = 1; row < HEIGHT; row++) context.fillRect(LEFT, TOP + row * CELL, WIDTH * CELL, .35);
 
     const cells: DrawCell[] = [];
     state.board.forEach((cell, index) => {
