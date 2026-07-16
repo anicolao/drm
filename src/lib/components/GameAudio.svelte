@@ -102,13 +102,16 @@
   onMount(() => {
     const unlock = () => { if (needsActivation) void activate(); };
     const externalRain = () => { if (enabled) playRain(); };
+    const externalClear = (event: Event) => { if (enabled) playClear((event as CustomEvent<number>).detail); };
     window.addEventListener('pointerdown', unlock, true);
     window.addEventListener('keydown', unlock, true);
     window.addEventListener('drm-rain', externalRain);
+    window.addEventListener('drm-clear', externalClear);
     return () => {
       window.removeEventListener('pointerdown', unlock, true);
       window.removeEventListener('keydown', unlock, true);
       window.removeEventListener('drm-rain', externalRain);
+      window.removeEventListener('drm-clear', externalClear);
     };
   });
   onDestroy(() => { stop(music); stop(clear); stop(rain); });
