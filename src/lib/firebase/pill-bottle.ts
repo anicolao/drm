@@ -393,10 +393,14 @@ export function subscribePillBottleAttacks(gameId: string, receive: () => void, 
 }
 
 function installationId() {
-  const existing = localStorage.getItem('drm-client-id');
-  if (existing) return existing;
   const created = crypto.randomUUID();
-  localStorage.setItem('drm-client-id', created);
+  try {
+    const existing = localStorage.getItem('drm-client-id');
+    if (existing) return existing;
+    localStorage.setItem('drm-client-id', created);
+  } catch {
+    // The writer lease still protects the journal when durable browser storage is unavailable.
+  }
   return created;
 }
 
@@ -567,12 +571,18 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
     }
   }
 
-  function emitRecord(record: PendingPillControllerRecord) {
+  function queueRecord(record: PendingPillControllerRecord) {
     if (!bottle) return;
-    outbox.push(record);
-    outbox.sort((left, right) => left.clientSeq - right.clientSeq);
-    saveControllerOutbox(gameId, playerId, outbox);
-    saveControllerCheckpoint(gameId, playerId, record, bottle);
+    const next = [...outbox, record].sort((left, right) => left.clientSeq - right.clientSeq);
+    saveControllerOutbox(gameId, playerId, next);
+    outbox = next;
+    clientSeq = record.clientSeq;
+  }
+
+  function finishRecord(record: PendingPillControllerRecord) {
+    if (!bottle) return;
+    try { saveControllerCheckpoint(gameId, playerId, record, bottle); }
+    catch { /* Checkpoints are optional caches; the durable outbox remains replayable. */ }
     void flushOutbox();
   }
 
@@ -580,7 +590,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
     if (tick < lastProgressTick) throw new Error('A controller record cannot precede its latest progress tick.');
     const commandRef = push(ref(realtimeDatabase!, `games/${gameId}/players/${playerId}/records`));
     if (!commandRef.key) throw new Error('Could not allocate a controller record identifier.');
-    return { commandId: commandRef.key, playerId, epochId, clientSeq: ++clientSeq, tick, ...input } as PendingPillControllerRecord;
+    return { commandId: commandRef.key, playerId, epochId, clientSeq: clientSeq + 1, tick, ...input } as PendingPillControllerRecord;
   }
 
   function handleClearEvents(events: PillClearEvent[]) {
@@ -609,8 +619,9 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
   function publishProgress(force = false) {
     if (!bottle || (!force && tick - lastProgressTick < 15)) return;
     const record = makeRecord({ type: 'progress/tick', payload: { phase: bottle.phase, stateHash: hashState(bottle) } });
+    queueRecord(record);
     lastProgressTick = tick;
-    emitRecord(record);
+    finishRecord(record);
   }
 
   async function declareTerminal() {
@@ -702,7 +713,10 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
       clientSeq = records.at(-1)?.clientSeq ?? 0;
       tick = bottle.tick;
       lastProgressTick = records.reduce((latest, record) => record.type === 'progress/tick' ? Math.max(latest, record.tick) : latest, -1);
-      if (records.length > 0) saveControllerCheckpoint(gameId, playerId, records.at(-1)!, bottle);
+      if (records.length > 0) {
+        try { saveControllerCheckpoint(gameId, playerId, records.at(-1)!, bottle); }
+        catch { /* Replaying from the immutable journal remains valid. */ }
+      }
 
       await set(ref(realtimeDatabase!, `games/${gameId}/players/${playerId}/epochs/${epochId}`), {
         clientId: installationId(), startedFromTick: tick, startedFromCommandSeq: clientSeq,
@@ -728,10 +742,11 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
               columns: attackColumns(interaction.attackId, interaction.colors.length)
             }
           };
-          applyInput(bottle, input);
           const record = makeRecord(input);
+          queueRecord(record);
+          applyInput(bottle, input);
           appliedAttacks.add(interaction.attackId);
-          emitRecord(record);
+          finishRecord(record);
           if (bottle.phase === 'lost') { publishProgress(true); void declareTerminal(); }
           publish();
         } catch (cause) {
@@ -774,9 +789,10 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
   async function command(input: PillCommand) {
     if (!ready || !bottle || bottle.phase !== 'playing' || matchFinished) return;
     const phaseBefore = bottle.phase;
-    handleClearEvents(applyInput(bottle, input));
     const record = makeRecord(input);
-    emitRecord(record);
+    queueRecord(record);
+    handleClearEvents(applyInput(bottle, input));
+    finishRecord(record);
     const phaseAfter = bottle.phase as BottleState['phase'];
     if (phaseAfter !== phaseBefore) publishProgress(true);
     if (phaseAfter === 'lost') {
