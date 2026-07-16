@@ -85,6 +85,7 @@ export interface ControllerState {
   audioOutput?: 'cast' | 'controllers';
   rainSignal?: number;
   ownershipConflict?: boolean;
+  opponents?: PlayerProgress[];
 }
 
 export interface PlayerProgress {
@@ -260,7 +261,8 @@ export function subscribePillBottleProgress(
   receive: (players: PlayerProgress[]) => void,
   fail: (error: Error) => void,
   receiveLifecycle?: (lifecycle: PillMatchLifecycle) => void,
-  receiveStart?: (start: ReturnType<typeof parsePillStart>) => void
+  receiveStart?: (start: ReturnType<typeof parsePillStart>) => void,
+  manageRematches = true
 ) {
   if (!realtimeDatabase) throw new Error('Firebase is unavailable.');
   let destroyed = false;
@@ -277,7 +279,7 @@ export function subscribePillBottleProgress(
     matchFinished = lifecycle.finished;
     terminalPlayerIds = new Set(lifecycle.terminalPlayerIds);
     receiveLifecycle?.(lifecycle);
-    if (lifecycle.allReady && !rematchStarting) {
+    if (manageRematches && lifecycle.allReady && !rematchStarting) {
       rematchStarting = true;
       void startPillBottleRematch(gameId).catch((error) => {
         rematchStarting = false;
@@ -490,8 +492,10 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
   let ownershipConflict = false;
   let ownsWriter = false;
   let participantIds: string[] = [];
+  let opponents: PlayerProgress[] = [];
   let stopInteractions = () => {};
   let stopWriter = () => {};
+  let stopOpponents = () => {};
   const appliedAttacks = new Set<string>();
   let outbox = loadControllerOutbox(gameId, playerId);
   let attackOutbox = loadAttackOutbox(gameId, playerId);
@@ -500,7 +504,8 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
   const publish = (error?: string) => receive({
-    playerId, tick, ready, bottle: bottle ? structuredClone(bottle) : undefined, lastCommand, error, lifecycle, audioOutput, rainSignal, ownershipConflict
+    playerId, tick, ready, bottle: bottle ? structuredClone(bottle) : undefined, lastCommand, error, lifecycle, audioOutput, rainSignal, ownershipConflict,
+    opponents: opponents.map((opponent) => ({ ...opponent, state: structuredClone(opponent.state) }))
   });
 
   const stopLifecycle = subscribePillBottleLifecycle(gameId, (next) => {
@@ -671,6 +676,11 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
       audioOutput = start.audioOutput;
       participantIds = Object.keys(start.players);
       if (!start.players[playerId]) throw new Error('Player is not part of this pill-bottle/3 game.');
+      stopOpponents();
+      stopOpponents = subscribePillBottleProgress(gameId, (next) => {
+        opponents = next.filter((candidate) => candidate.playerId !== playerId);
+        publish();
+      }, (cause) => publish(cause.message), undefined, undefined, false);
       const writerRef = ref(realtimeDatabase!, `games/${gameId}/players/${playerId}/writer`);
       const writerClaim = await runTransaction(writerRef, (current) => current === null || current?.epochId === epochId
         ? { epochId, clientId: installationId() }
@@ -820,6 +830,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
       stopLifecycle();
       stopInteractions();
       stopWriter();
+      stopOpponents();
       cancelAnimationFrame(frame);
       if (retryTimer) clearTimeout(retryTimer);
       if (ownsWriter && realtimeDatabase) {

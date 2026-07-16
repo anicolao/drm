@@ -19,6 +19,7 @@
   let rain: HTMLAudioElement | undefined;
   let pendingRain = false;
   let needsActivation = false;
+  let muted = false;
 
   const tracks = (level: number) => level % 2 === 0
     ? { music: chill, clear: chillClear }
@@ -42,6 +43,7 @@
   }
 
   function startMusic(level: number) {
+    if (muted) return;
     if (playingLevel === level && music && !music.paused) return;
     stop(music);
     stop(clear);
@@ -55,6 +57,7 @@
   }
 
   function playClear(level: number) {
+    if (muted) return;
     stop(music);
     stop(clear);
     clear = new Audio(tracks(level).clear);
@@ -64,6 +67,7 @@
   }
 
   function playRain() {
+    if (muted) return;
     stop(rain);
     rain = new Audio(rainCue);
     rain.preload = 'auto';
@@ -73,16 +77,17 @@
   }
 
   async function activate() {
-    if (!state || !enabled) return;
+    if (!state || !enabled || muted) return;
     if (state.phase === 'playing') startMusic(state.level);
     else if (clear) await play(clear);
     if (pendingRain && rain && await play(rain)) pendingRain = false;
   }
 
   function update() {
-    if (!enabled || !state) {
+    if (!enabled || !state || muted) {
       stop(music);
       stop(clear);
+      stop(rain);
       playingLevel = undefined;
       observedPhase = state?.phase;
       needsActivation = false;
@@ -98,8 +103,16 @@
     observedPhase = state.phase;
   }
 
+  function toggleMute() {
+    muted = !muted;
+    localStorage.setItem('drm-audio-muted', muted ? 'true' : 'false');
+    update();
+  }
+
   $: enabled, state, rainSignal, update();
   onMount(() => {
+    muted = localStorage.getItem('drm-audio-muted') === 'true';
+    update();
     const unlock = () => { if (needsActivation) void activate(); };
     const externalRain = () => { if (enabled) playRain(); };
     const externalClear = (event: Event) => { if (enabled) playClear((event as CustomEvent<number>).detail); };
@@ -117,11 +130,16 @@
   onDestroy(() => { stop(music); stop(clear); stop(rain); });
 </script>
 
-{#if enabled && needsActivation}
+{#if enabled}
+  <button class="mute-control" on:click={toggleMute} aria-label={muted ? 'Unmute game audio' : 'Mute game audio'} aria-pressed={muted}>♫ {muted ? 'SOUND OFF' : 'SOUND ON'}</button>
+{/if}
+{#if enabled && needsActivation && !muted}
   <button class="sound-start" on:click={activate} aria-label="Enable game audio">♪ TAP FOR SOUND</button>
 {/if}
 
 <style>
-  .sound-start{position:fixed;z-index:20;top:max(1rem,env(safe-area-inset-top));left:50%;transform:translateX(-50%);background:var(--yellow);font-size:.65rem;padding:.55rem .75rem;white-space:nowrap}
+  .mute-control{position:fixed;z-index:20;top:max(.55rem,env(safe-area-inset-top));left:50%;transform:translateX(-50%);background:rgba(8,9,13,.88);border:1px solid #4a4d60;color:var(--text);font-size:.55rem;padding:.42rem .55rem;box-shadow:2px 2px 0 var(--ink);white-space:nowrap}
+  .mute-control:hover{transform:translateX(-50%)}
+  .sound-start{position:fixed;z-index:20;top:max(2.8rem,calc(env(safe-area-inset-top) + 2.25rem));left:50%;transform:translateX(-50%);background:var(--yellow);font-size:.65rem;padding:.55rem .75rem;white-space:nowrap}
   .sound-start:hover{transform:translateX(-50%)}
 </style>
