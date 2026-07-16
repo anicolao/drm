@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { resetEmulators } from '../helpers/reset-emulators';
+import { TestStepHelper } from '../helpers/test-step-helper';
 
 test.beforeEach(resetEmulators);
 
-test('US-004: incoming rain waits, falls slowly, resolves, then yields to the next pill', async ({ browser, page }) => {
+test('US-004: incoming rain waits, falls slowly, resolves, then yields to the next pill', async ({ browser, page }, testInfo) => {
   await page.goto('/');
   await page.getByLabel('Player name').fill('Host');
   await page.getByRole('button', { name: 'Continue' }).click();
@@ -14,6 +15,7 @@ test('US-004: incoming rain waits, falls slowly, resolves, then yields to the ne
 
   const controllerContext = await browser.newContext({ viewport: { width: 852, height: 393 } });
   const controller = await controllerContext.newPage();
+  const tester = new TestStepHelper(controller, testInfo);
   await controller.goto('/play?code=TEST');
   await controller.getByLabel('Player name').fill('Target');
   await controller.getByRole('button', { name: 'Join room' }).click();
@@ -49,6 +51,11 @@ test('US-004: incoming rain waits, falls slowly, resolves, then yields to the ne
   await expect(bottle).toHaveAttribute('data-pending-rain-count', '1', { timeout: 5_000 });
   await expect(bottle).toHaveAttribute('data-active-pill', 'true');
   await expect(bottle).toHaveAttribute('data-rain-rows', '');
+  await controller.locator('.tick').evaluate((element: HTMLElement) => { element.style.visibility = 'hidden'; });
+  await tester.step('rain-queued', { description: 'Incoming rain waits for the active pill', networkStatus: 'skip', verifications: [
+    { spec: 'The current pill remains active after the attack arrives', check: async () => await expect(bottle).toHaveAttribute('data-active-pill', 'true') },
+    { spec: 'Rain is queued and not yet visible in the bottle', check: async () => { await expect(bottle).toHaveAttribute('data-pending-rain-count', '1'); await expect(bottle).toHaveAttribute('data-rain-rows', ''); } }
+  ] });
 
   await controller.getByRole('button', { name: 'Hard drop' }).dispatchEvent('pointerdown', { pointerId: 10 });
   await expect(bottle).toHaveAttribute('data-active-pill', 'false', { timeout: 5_000 });
@@ -64,9 +71,22 @@ test('US-004: incoming rain waits, falls slowly, resolves, then yields to the ne
     requestAnimationFrame(sample);
   }));
   expect(rowDuration).toBeGreaterThan(180);
+  await controller.locator('.command-status').evaluate((element: HTMLElement) => { element.style.visibility = 'hidden'; });
+  await tester.step('rain-falling', { description: 'Rain falls slowly between pills', networkStatus: 'skip', verifications: [
+    { spec: 'No player-controlled pill is active while rain falls', check: async () => await expect(bottle).toHaveAttribute('data-active-pill', 'false') },
+    { spec: 'Two independent rain pieces are visible in the bottle', check: async () => await expect(bottle).toHaveAttribute('data-rain-rows', /^\d+,\d+$/) },
+    { spec: 'Observed row movement took at least 180ms', check: async () => expect(rowDuration).toBeGreaterThan(180) }
+  ] });
+
   await expect(bottle).toHaveAttribute('data-rain-rows', '', { timeout: 10_000 });
   await expect(bottle).toHaveAttribute('data-garbage-count', '2');
   await expect(bottle).toHaveAttribute('data-active-pill', 'true');
+  await tester.step('next-pill', { description: 'The next pill spawns after rain finishes', networkStatus: 'skip', verifications: [
+    { spec: 'No rain remains in flight', check: async () => await expect(bottle).toHaveAttribute('data-rain-rows', '') },
+    { spec: 'Both rain pieces landed in the bottle', check: async () => await expect(bottle).toHaveAttribute('data-garbage-count', '2') },
+    { spec: 'The next player-controlled pill is now active', check: async () => await expect(bottle).toHaveAttribute('data-active-pill', 'true') }
+  ] });
 
   await controllerContext.close();
+  tester.generateDocs();
 });

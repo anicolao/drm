@@ -37,3 +37,5 @@ Playwright starts all Firebase emulators and the dev server. Java is required. N
 - Cover phone and cast/desktop viewports explicitly.
 - Call `generateDocs()` after the final step.
 - Inspect every regenerated baseline, then rerun without `--update-snapshots`.
+- Every numbered scenario is validated by `npm run check:e2e-conventions`; the repository pre-commit hook runs this automatically.
+- CI rejects any README changes produced by an E2E run, so generated walkthroughs must be current and committed.
