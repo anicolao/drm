@@ -1,5 +1,6 @@
 import { deserializeBottle, hashState, serializeBottle, type BottleState, type ControllerRecord } from '$lib/game/pill-bottle';
 import { parsePillAttackInteraction, parsePillControllerRecord, type PendingPillControllerRecord, type PillAttackInteractionRecord } from '$lib/protocol/pill-bottle';
+import { loadStoredArray, loadStoredValue, saveStoredArray, saveStoredValue } from '$lib/runtime/local-store';
 
 export interface LocalControllerCheckpoint {
   commandId: string;
@@ -14,43 +15,31 @@ const prefix = (gameId: string, playerId: string) => `drm-pill-bottle:${gameId}:
 export type PendingPillAttackInteraction = Omit<PillAttackInteractionRecord, 'serverTime'> & { interactionId: string };
 
 export function loadControllerOutbox(gameId: string, playerId: string): PendingPillControllerRecord[] {
-  try {
-    const value: unknown = JSON.parse(localStorage.getItem(`${prefix(gameId, playerId)}:outbox`) ?? '[]');
-    if (!Array.isArray(value)) return [];
-    return value.map((record) => {
+  return loadStoredArray(localStorage,`${prefix(gameId, playerId)}:outbox`,(record) => {
       if (!record || typeof record !== 'object' || typeof (record as { commandId?: unknown }).commandId !== 'string') {
         throw new Error('Invalid local controller outbox.');
       }
       const { commandId, ...data } = record as ControllerRecord;
       return parsePillControllerRecord(commandId, data, { pending: true }) as PendingPillControllerRecord;
     });
-  } catch {
-    return [];
-  }
 }
 
 export function saveControllerOutbox(gameId: string, playerId: string, records: readonly PendingPillControllerRecord[]) {
-  localStorage.setItem(`${prefix(gameId, playerId)}:outbox`, JSON.stringify(records));
+  saveStoredArray(localStorage,`${prefix(gameId, playerId)}:outbox`,records);
 }
 
 export function loadAttackOutbox(gameId: string, playerId: string): PendingPillAttackInteraction[] {
-  try {
-    const value: unknown = JSON.parse(localStorage.getItem(`${prefix(gameId, playerId)}:attacks`) ?? '[]');
-    if (!Array.isArray(value)) return [];
-    return value.map((pending) => {
+  return loadStoredArray(localStorage,`${prefix(gameId, playerId)}:attacks`,(pending) => {
       if (!pending || typeof pending !== 'object' || typeof (pending as { interactionId?: unknown }).interactionId !== 'string') {
         throw new Error('Invalid local attack outbox.');
       }
       const { interactionId, ...interaction } = pending as PendingPillAttackInteraction;
-      return { interactionId, ...parsePillAttackInteraction({ ...interaction, serverTime: 0 }) };
-    }).map(({ serverTime: _serverTime, ...pending }) => pending);
-  } catch {
-    return [];
-  }
+      const {serverTime:_serverTime,...parsed}=parsePillAttackInteraction({...interaction,serverTime:0});return{interactionId,...parsed};
+    });
 }
 
 export function saveAttackOutbox(gameId: string, playerId: string, interactions: readonly PendingPillAttackInteraction[]) {
-  localStorage.setItem(`${prefix(gameId, playerId)}:attacks`, JSON.stringify(interactions));
+  saveStoredArray(localStorage,`${prefix(gameId, playerId)}:attacks`,interactions);
 }
 
 export function saveControllerCheckpoint(
@@ -66,18 +55,16 @@ export function saveControllerCheckpoint(
     state: serializeBottle(state),
     stateHash: hashState(state)
   };
-  localStorage.setItem(`${prefix(gameId, playerId)}:checkpoint`, JSON.stringify(checkpoint));
+  saveStoredValue(localStorage,`${prefix(gameId, playerId)}:checkpoint`,checkpoint);
 }
 
 export function loadControllerCheckpoint(gameId: string, playerId: string): LocalControllerCheckpoint | undefined {
-  try {
-    const value = JSON.parse(localStorage.getItem(`${prefix(gameId, playerId)}:checkpoint`) ?? 'null') as Partial<LocalControllerCheckpoint> | null;
+  return loadStoredValue(localStorage,`${prefix(gameId, playerId)}:checkpoint`,(raw)=>{
+    const value=raw as Partial<LocalControllerCheckpoint>;
     if (!value || typeof value.commandId !== 'string' || !Number.isInteger(value.clientSeq) || !Number.isInteger(value.tick)
-      || typeof value.stateHash !== 'string') return undefined;
+      || typeof value.stateHash !== 'string') throw new Error('Invalid local checkpoint.');
     const state = deserializeBottle(value.state);
-    if (state.tick !== value.tick || hashState(state) !== value.stateHash) return undefined;
+    if (state.tick !== value.tick || hashState(state) !== value.stateHash) throw new Error('Invalid local checkpoint state.');
     return value as LocalControllerCheckpoint;
-  } catch {
-    return undefined;
-  }
+  });
 }
