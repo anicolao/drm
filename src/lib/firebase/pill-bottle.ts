@@ -1,9 +1,10 @@
-import { get, onChildAdded, onDisconnect, onValue, push, ref, runTransaction, serverTimestamp, set, type Unsubscribe } from 'firebase/database';
+import { get, onChildAdded, onValue, push, ref, serverTimestamp, set, type Unsubscribe } from 'firebase/database';
 import { auth, realtimeDatabase } from './config';
 import { FixedTickClock } from '$lib/runtime/fixed-tick-clock';
 import { requestRematchReady, startRematch } from '$lib/runtime/rematch';
 import { subscribeInteractions } from '$lib/runtime/interactions';
-import { installationId } from '$lib/runtime/writer-lease';
+import { WriterLease } from '$lib/runtime/writer-lease';
+import { DurableOutbox } from '$lib/runtime/durable-outbox';
 import {
   advanceTick,
   advanceToTick,
@@ -326,7 +327,6 @@ async function loadPreviousPillScores(previousGameId: string | undefined, matchI
 export function createPillBottleController(gameId: string, receive: (state: ControllerState) => void) {
   if (!auth?.currentUser || !realtimeDatabase) throw new Error('Firebase is unavailable.');
   const playerId = auth.currentUser.uid;
-  const epochId = crypto.randomUUID();
   let tick = 0;
   let clientSeq = 0;
   let lastProgressTick = -1;
@@ -346,22 +346,33 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
   let audioOutput: 'cast' | 'controllers' | undefined;
   let rainSignal = 0;
   let ownershipConflict = false;
-  let ownsWriter = false;
   let participantIds: string[] = [];
   let opponents: PlayerProgress[] = [];
   let stopInteractions = () => {};
-  let stopWriter = () => {};
   let stopOpponents = () => {};
   const appliedAttacks = new Set<string>();
-  let outbox = loadControllerOutbox(gameId, playerId);
-  let attackOutbox = loadAttackOutbox(gameId, playerId);
-  let flushing = false;
-  let flushingAttacks = false;
-  let retryTimer: ReturnType<typeof setTimeout> | undefined;
+  const initialOutbox = loadControllerOutbox(gameId, playerId);
+  const initialAttackOutbox = loadAttackOutbox(gameId, playerId);
 
   const publish = (error?: string) => receive({
     playerId, tick, ready, bottle: bottle ? structuredClone(bottle) : undefined, lastCommand, error, lifecycle, audioOutput, rainSignal, ownershipConflict,
     opponents: opponents.map((opponent) => ({ ...opponent, state: structuredClone(opponent.state) }))
+  });
+
+  const lease = new WriterLease(realtimeDatabase, `games/${gameId}/players/${playerId}/writer`, () => {
+    ownershipConflict = true; ready = false; suspended = true; cancelAnimationFrame(frame);
+    publish('Control moved to another tab or device.');
+  });
+  const epochId = lease.epochId;
+  const controllerOutbox = new DurableOutbox<PendingPillControllerRecord>({
+    initial: initialOutbox, order: (a,b) => a.clientSeq-b.clientSeq, identify: item => item.commandId,
+    persist: items => saveControllerOutbox(gameId,playerId,items),
+    deliver: async record => { const {commandId,...data}=record; await set(ref(realtimeDatabase!,`games/${gameId}/players/${playerId}/records/${commandId}`),{...data,serverTime:serverTimestamp()}); }
+  });
+  const interactionOutbox = new DurableOutbox<PendingPillAttackInteraction>({
+    initial: initialAttackOutbox, order: () => 0, identify: item => item.interactionId,
+    persist: items => saveAttackOutbox(gameId,playerId,items),
+    deliver: async pending => { const {interactionId,...data}=pending; await set(ref(realtimeDatabase!,`games/${gameId}/interactions/${interactionId}`),{...data,serverTime:serverTimestamp()}); }
   });
 
   const stopLifecycle = subscribePillBottleLifecycle(gameId, (next) => {
@@ -382,62 +393,9 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
     publish();
   }, (error) => publish(error.message));
 
-  const scheduleFlush = () => {
-    if (retryTimer || destroyed) return;
-    retryTimer = setTimeout(() => {
-      retryTimer = undefined;
-      void flushOutbox();
-      void flushAttackOutbox();
-    }, 1000);
-  };
-
-  async function flushOutbox() {
-    if (flushing || !realtimeDatabase || outbox.length === 0) return;
-    flushing = true;
-    try {
-      for (;;) {
-        const record = [...outbox].sort((left, right) => left.clientSeq - right.clientSeq)[0];
-        if (!record) break;
-        const { commandId, ...data } = record;
-        await set(ref(realtimeDatabase, `games/${gameId}/players/${playerId}/records/${commandId}`), {
-          ...data, serverTime: serverTimestamp()
-        });
-        outbox = outbox.filter((pending) => pending.commandId !== commandId);
-        saveControllerOutbox(gameId, playerId, outbox);
-      }
-    } catch {
-      scheduleFlush();
-    } finally {
-      flushing = false;
-    }
-  }
-
-  async function flushAttackOutbox() {
-    if (flushingAttacks || !realtimeDatabase || attackOutbox.length === 0) return;
-    flushingAttacks = true;
-    try {
-      for (;;) {
-        const pending = attackOutbox[0];
-        if (!pending) break;
-        const { interactionId, ...interaction } = pending;
-        await set(ref(realtimeDatabase, `games/${gameId}/interactions/${interactionId}`), {
-          ...interaction, serverTime: serverTimestamp()
-        });
-        attackOutbox = attackOutbox.filter((candidate) => candidate.interactionId !== interactionId);
-        saveAttackOutbox(gameId, playerId, attackOutbox);
-      }
-    } catch {
-      scheduleFlush();
-    } finally {
-      flushingAttacks = false;
-    }
-  }
-
   function queueRecord(record: PendingPillControllerRecord) {
     if (!bottle) return;
-    const next = [...outbox, record].sort((left, right) => left.clientSeq - right.clientSeq);
-    saveControllerOutbox(gameId, playerId, next);
-    outbox = next;
+    controllerOutbox.enqueue(record);
     clientSeq = record.clientSeq;
   }
 
@@ -445,7 +403,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
     if (!bottle) return;
     try { saveControllerCheckpoint(gameId, playerId, record, bottle); }
     catch { /* Checkpoints are optional caches; the durable outbox remains replayable. */ }
-    void flushOutbox();
+    void controllerOutbox.flush();
   }
 
   function makeRecord(input: PillInput | PillRainInput | { type: 'progress/tick'; payload: { phase: BottleState['phase']; stateHash: string } }) {
@@ -472,9 +430,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
         type: 'attack/generated', attackId, sourcePlayerId: playerId, sourceTick: event.tick,
         sourceChain: event.chain, targetPlayerIds: targets, colors
       };
-      attackOutbox.push(pending);
-      saveAttackOutbox(gameId, playerId, attackOutbox);
-      void flushAttackOutbox();
+      interactionOutbox.enqueue(pending);
     }
   }
 
@@ -533,31 +489,17 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
         opponents = next.filter((candidate) => candidate.playerId !== playerId);
         publish();
       }, (cause) => publish(cause.message), undefined, undefined, false);
-      const writerRef = ref(realtimeDatabase!, `games/${gameId}/players/${playerId}/writer`);
-      const writerClaim = await runTransaction(writerRef, (current) => current === null || current?.epochId === epochId
-        ? { epochId, clientId: installationId() }
-        : undefined, { applyLocally: false });
-      if (!writerClaim.committed || writerClaim.snapshot.val()?.epochId !== epochId) {
+      if (!await lease.claim()) {
         ownershipConflict = true;
         throw new Error('This controller is already active in another tab.');
       }
-      ownsWriter = true;
-      await onDisconnect(writerRef).remove();
-      stopWriter = onValue(writerRef, (writer) => {
-        if (!ownsWriter || writer.val()?.epochId === epochId) return;
-        ownsWriter = false;
-        ownershipConflict = true;
-        suspended = true;
-        cancelAnimationFrame(frame);
-        publish('Control moved to another tab or device.');
-      });
       const historySnapshot = await get(ref(realtimeDatabase!, `games/${gameId}/players/${playerId}/records`));
       const byId = new Map<string, ControllerRecord>();
       historySnapshot.forEach((child) => {
         const record = withoutServerTime(parsePillControllerRecord(child.key!, child.val()));
         if (record.playerId === playerId) byId.set(record.commandId, record);
       });
-      for (const record of outbox) byId.set(record.commandId, record);
+      for (const record of controllerOutbox.values()) byId.set(record.commandId, record);
       const records = [...byId.values()].sort((left, right) => left.clientSeq - right.clientSeq);
       for (const record of records) if (record.type === 'attack/rain') appliedAttacks.add(record.payload.attackId);
       records.forEach((record, index) => {
@@ -582,7 +524,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
       }
 
       await set(ref(realtimeDatabase!, `games/${gameId}/players/${playerId}/epochs/${epochId}`), {
-        clientId: installationId(), startedFromTick: tick, startedFromCommandSeq: clientSeq,
+        clientId: lease.clientId, startedFromTick: tick, startedFromCommandSeq: clientSeq,
         serverTime: serverTimestamp()
       });
       const interactions = ref(realtimeDatabase!, `games/${gameId}/interactions`);
@@ -619,8 +561,8 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
       publishProgress(true);
       void declareTerminal();
       publish();
-      void flushOutbox();
-      void flushAttackOutbox();
+      void controllerOutbox.flush();
+      void interactionOutbox.flush();
       frame = requestAnimationFrame(loop);
     } catch (cause) {
       publish(cause instanceof Error ? cause.message : String(cause));
@@ -629,7 +571,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
     }
   }, (error) => publish(error.message));
 
-  const online = () => { void flushOutbox(); void flushAttackOutbox(); };
+  const online = () => { void controllerOutbox.flush(); void interactionOutbox.flush(); };
   window.addEventListener('online', online);
 
   function suspend() {
@@ -668,9 +610,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
     command,
     requestRematch: () => requestPillBottleRematch(gameId),
     async takeOver() {
-      if (!realtimeDatabase) return;
-      await set(ref(realtimeDatabase, `games/${gameId}/players/${playerId}/writer`), null);
-      window.location.reload();
+      if (await lease.takeOver()) { ownershipConflict=false;ready=true;suspended=false;clock.reset();frame=requestAnimationFrame(loop);publish(); }
     },
     suspend,
     resume,
@@ -680,15 +620,9 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
       unsubscribe();
       stopLifecycle();
       stopInteractions();
-      stopWriter();
       stopOpponents();
       cancelAnimationFrame(frame);
-      if (retryTimer) clearTimeout(retryTimer);
-      if (ownsWriter && realtimeDatabase) {
-        const writerRef = ref(realtimeDatabase, `games/${gameId}/players/${playerId}/writer`);
-        void onDisconnect(writerRef).cancel();
-        void runTransaction(writerRef, (current) => current?.epochId === epochId ? null : current, { applyLocally: false });
-      }
+      controllerOutbox.destroy();interactionOutbox.destroy();void lease.release();
       window.removeEventListener('online', online);
     }
   };
