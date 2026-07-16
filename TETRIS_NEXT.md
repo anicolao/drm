@@ -26,7 +26,8 @@ Implemented now:
 - touch, keyboard, D-pad, analog-stick, and A/B rotation controls;
 - controller-authoritative immutable journals, progress hashes, cast replay, one-writer leases, and last-survivor results;
 - controller/cast music routing, mute control, responsive layouts, and replay-derived rendering;
-- 52 repository unit tests and six documented E2E scenarios, including controller and cast gravity.
+- 60 repository unit tests and six documented E2E scenarios, including controller and cast gravity.
+- common `/play` and `/cast` routes, shared elapsed-time clock, checkpointed observer, lifecycle, startup registry, protocol envelopes, local persistence, semantic input, audio host, and lag policy.
 
 ## P0 — correctness and replay integrity
 
@@ -34,7 +35,7 @@ These should be completed before treating Block Stack as reliable multiplayer.
 
 ### Bring transport durability up to Color Cure's standard
 
-The Tetris controller currently writes records fire-and-forget. A rejected or interrupted write can leave a `clientSeq` gap, and refresh recovery only reloads records already acknowledged by Firebase.
+The Tetris controller now has a durable local outbox, ordered retry, and refresh merge. The remaining task is to move that behavior, writer ownership, checkpoints, terminal delivery, and recovery into the same generic controller-session implementation used by Color Cure.
 
 - Reuse or extract Color Cure's durable local outbox, stable command IDs, ordered flush, retry, duplicate suppression, and reconnect behavior.
 - Persist a local replay checkpoint at acknowledged commands and validate it against the journal before reuse.
@@ -53,15 +54,11 @@ Acceptance:
 
 ### Replace the simplified observer with checkpointed rewind/replay
 
-`replayTetris` currently iterates every supplied record even when a record is later than the requested target tick. The cast also replays from tick zero on every animation frame and advances its clock by frame count instead of elapsed time.
+Both games now use the shared elapsed-time clock and checkpointed observer. Tetris no longer replays its complete history from tick zero on every frame. Remaining work is to finish shared controller checkpoints, long-session bounds, and fault-injection coverage.
 
-- Ignore or queue records later than the requested replay tick.
-- Enforce contiguous `clientSeq`, deduplicate command IDs, and reject conflicting duplicates.
-- Introduce a Tetris observer equivalent to the Color Cure observer: per-controller checkpoint, pending sequence map, late-command rewind, and replay-forward.
-- Advance cast time from elapsed monotonic time at 60 ticks/second, including throttled displays, instead of assuming one animation frame equals one tick.
-- Start/resume observers from journal progress rather than replaying an entire long game every frame.
-- Cache states only at controller events, then replay from the nearest checkpoint to the local display tick.
-- Correct and smooth the cast lag calculation, hide insignificant lag, and expose hash mismatches without stopping healthy players.
+- Keep both rulesets on the generic observer contract as new record types are added.
+- Persist/validate local controller checkpoints through the generic controller session.
+- Correctly initialize/resume display clocks from progress after long suspension and reconnect.
 - Bound replay work and checkpoint memory for long sessions.
 
 Acceptance:
