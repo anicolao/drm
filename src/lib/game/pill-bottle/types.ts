@@ -55,6 +55,7 @@ export interface PillClearEvent {
   tick: number;
   chain: number;
   virusColors: Color[];
+  lineColors: Color[];
 }
 
 export interface ReplayCommand {
