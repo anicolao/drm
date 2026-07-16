@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This plan reflects the current `main` branch and the presentation work prepared on `feature/presentation-polish-2`.
+This plan reflects the current `main` branch plus the rules cleanup prepared on `feature/remove-legacy-rtdb-paths`.
 
 The prototype is now playable. The next priority is to make rooms and sessions reliable enough for real multiplayer use, then improve presentation and release hardening before expanding the game rules.
 
@@ -33,7 +33,7 @@ This intentionally avoids clock synchronization, continuous state snapshots, and
   - level 0 begins at 50 ticks per pill row;
   - speed increases by one tick for every 10 pills;
   - subsequent levels reset to `50 - 5 * level` ticks per row;
-  - each level starts with `level * 5` viruses;
+  - each level starts with `(level + 1) * 5` viruses;
   - a countdown separates levels.
 - Three-round multiplayer lifecycle with next-level readiness, rematch readiness, linked round journals, and automatic round transitions.
 - Replay-derived scoring: a player clearing a level earns points equal to the remaining viruses on all opponents' boards at that clear tick. If every terminal player tops out and nobody clears, the sole survivor instead earns the viruses remaining in the lost bottles; simultaneous-loss draws remain worth zero.
@@ -48,9 +48,9 @@ This intentionally avoids clock synchronization, continuous state snapshots, and
   - stick dead-zone and held-input repeat behavior are covered by unit tests.
 - Host mode that can be fixed by URL or switched explicitly in development.
 - Default-deny Firebase rules with validation for current room and event schemas; production rules have been deployed.
-- Automated checks currently covering 43 unit tests and four documented browser scenarios, plus production builds and screenshot clipping checks.
+- Automated checks currently covering 46 unit tests and four documented browser scenarios, plus production builds and screenshot clipping checks.
 
-### Completed on the presentation branch
+### Completed presentation and playability work on `main`
 
 - QR-code controller invitations on the host room and shared display, with the four-letter room code retained as a fallback.
 - Clear controller connection, offline, input-mode, gamepad, waiting, and control-binding feedback.
@@ -65,8 +65,6 @@ This intentionally avoids clock synchronization, continuous state snapshots, and
 - Deterministic next-pill previews are shown above every controller and shared-display bottle without advancing the authoritative RNG. Incoming rain is queued until the current pill finishes resolving, falls independently from the top at one row per quarter second, and must finish before the next pill spawns. Matches caused by landed rain clear and resolve normally but are attack-ineligible.
 - Browser coverage and refreshed visual baselines for the new join and controller guidance.
 
-### Completed on the current presentation branch
-
 - Persistent, accessible mute controls on whichever device is responsible for game audio.
 - Compact opponent bottles reconstructed locally from immutable opponent journals; no board state is synchronized.
 - A complete portrait-phone controller layout with the bottle, opponent context, movement, rotation, status, and scoring kept inside the viewport.
@@ -75,7 +73,6 @@ This intentionally avoids clock synchronization, continuous state snapshots, and
 
 - There is no explicit leave/end-room flow, presence model, or disconnect policy.
 - Firebase Rules have no emulator-backed unit test suite and no dedicated rules deployment workflow.
-- Legacy Realtime Database `commands` and `progress` paths remain in the rules for compatibility.
 - A detailed live gamepad diagnostics/binding view remains unimplemented.
 - Diagnostics, retention/expiry, fault-injection coverage, and four-device playtesting remain incomplete.
 - The Tetris ruleset is not implemented.
@@ -91,7 +88,6 @@ Implementation:
 - Add leave-room and host end-room operations with defined lobby cleanup behavior.
 - Add Realtime Database presence using `onDisconnect`, while keeping presence separate from replay state.
 - Tighten Firestore reads and writes to the minimum needed by lobby members and active participants.
-- Remove legacy `commands` and `progress` rule paths after confirming no supported client uses them.
 - Add Firebase Emulator Rules unit tests for authentication, membership, immutable event writes, event validation, and forbidden materialized-state writes.
 - Add a repeatable Firebase Rules deployment workflow and document its use.
 - Define room/journal expiry and cleanup policy; document when App Check should be enabled.
@@ -136,7 +132,7 @@ Validate the architecture under the failures and device combinations expected in
 Implementation:
 
 - Add deterministic tests for complete level and three-round transitions, including tied timing and simultaneous terminal events.
-- Add browser tests for next-level readiness, scoring, rematch, controller recovery, duplicate delivery, and late-event rewind.
+- Add browser tests for controller recovery, duplicate delivery, and late-event rewind. Next-level readiness, scoring, rematch, and both ready-click orders are covered.
 - Add fault-injection tests for delayed, duplicated, reordered, and temporarily offline event delivery.
 - Run scripted four-device playtests: one cast, two controllers, and one reconnecting or duplicate controller.
 - Measure command-to-render latency, replay cost, checkpoint memory, journal growth, and reconnect duration.
@@ -201,7 +197,7 @@ Acceptance criteria:
 
 ## Suggested pull-request sequence
 
-1. Firebase Rules emulator tests, member-scoped reads, and legacy-path removal.
+1. Firebase Rules emulator tests and member-scoped reads.
 2. Presence, leave/end-room flows, retention policy, and rules deployment automation.
 3. Live gamepad diagnostics, audio licensing documentation, and bundle targets.
 4. Expanded lifecycle/recovery browser coverage, fault injection, diagnostics, and four-device playtesting.
