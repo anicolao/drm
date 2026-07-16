@@ -28,6 +28,18 @@ const tracks = [
     melody: [12, 15, 19, 20, 19, 15, 12, 10, 12, 15, 17, 19, 22, 20, 19, 15,
       24, 22, 19, 17, 19, 20, 22, 19, 17, 15, 12, 15, 17, 19, 15, 10],
     arp: [0, 7, 12, 15, 19, 15, 12, 7], leadDuty: 0.125, swing: 0.02, energy: 1, seed: 73
+  },
+  {
+    slug: 'neon-drift-clear', title: 'Neon Drift Clear', bpm: 128, bars: 4, root: 50,
+    progression: [0, 5, 7, 12],
+    melody: [12, 14, 15, 19, 17, 19, 22, 24, 19, 22, 24, 27, 24, 27, 31, 36],
+    arp: [0, 7, 12, 15, 19, 24, 19, 15], leadDuty: 0.25, swing: 0, energy: 0.9, seed: 41, fanfare: true
+  },
+  {
+    slug: 'capsule-rush-clear', title: 'Capsule Rush Clear', bpm: 168, bars: 4, root: 45,
+    progression: [0, 3, 7, 12],
+    melody: [12, 15, 19, 24, 15, 19, 22, 27, 19, 22, 24, 31, 24, 27, 31, 36],
+    arp: [0, 7, 12, 15, 19, 24, 19, 15], leadDuty: 0.125, swing: 0, energy: 1.08, seed: 83, fanfare: true
   }
 ];
 
@@ -77,6 +89,12 @@ function render(track) {
 
     if (stepInBar === 4 || stepInBar === 12) {
       mix += noise(sample, track.seed + 9) * Math.exp(-beatPosition * 22) * 0.12 * track.energy;
+    }
+
+    if (track.fanfare && time >= totalSeconds - beatSeconds) {
+      const finalPosition = time - (totalSeconds - beatSeconds);
+      const finalPhase = time * midi(track.root + 48);
+      mix += pulse(finalPhase, track.leadDuty) * envelope(finalPosition, beatSeconds, 0.012, 0.32) * 0.16;
     }
 
     const fade = Math.min(1, time / 0.015, (totalSeconds - time) / 0.015);
