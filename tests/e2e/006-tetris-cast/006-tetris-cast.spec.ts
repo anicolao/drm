@@ -37,6 +37,7 @@ test('US-006: shared Block Stack display replays controller gravity', async ({ b
     verifications: [
       { spec: 'The cast visibly moves its active piece as replay advances', check: async () => expect(await filledPositions()).not.toEqual(initialPositions) },
       { spec: 'The cast reconstructs the ghost without receiving board state', check: async () => await expect(castBoard.locator('.ghost')).toHaveCount(4) },
+      { spec: 'Upcoming pieces are rendered as miniature tetrominoes', check: async () => await expect(page.locator('.next-piece')).toHaveCount(3) },
       { spec: 'The controller remains connected while cast gravity advances', check: async () => await expect(controller.getByText(/CONNECTED/)).toBeVisible() }
     ]
   });
