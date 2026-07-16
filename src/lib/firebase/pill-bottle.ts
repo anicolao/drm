@@ -8,9 +8,9 @@ import {
   attackColors,
   attackColumns,
   applyInput,
-  authoritativeScoringTick,
   createBottle,
   deserializeBottle,
+  derivePillRoundPoints,
   derivePillMatchLifecycle,
   hashState,
   PillBottleObserver,
@@ -118,7 +118,7 @@ export function subscribePillBottleLifecycle(
     if (playerIds.length === 0) return;
     const lifecycle = derivePillMatchLifecycle(playerIds, terminals, readyPlayerIds, round);
     if (!startDefinition) return receive(lifecycle);
-    const roundPoints = deriveRoundPoints(startDefinition, lifecycle, histories);
+    const roundPoints = derivePillRoundPoints(startDefinition, lifecycle, histories);
     const scores = Object.fromEntries(playerIds.map((playerId) => [playerId, (previousPoints[playerId] ?? 0) + roundPoints[playerId]]));
     receive({ ...lifecycle, roundPoints, scores });
   };
@@ -412,33 +412,6 @@ function applyRecord(state: BottleState, record: ControllerRecord) {
   if (record.type !== 'progress/tick') applyInput(state, record);
 }
 
-function deriveRoundPoints(
-  start: ReturnType<typeof parsePillStart>,
-  lifecycle: PillMatchLifecycle,
-  histories: Map<string, ControllerRecord[]>
-) {
-  const points = Object.fromEntries(lifecycle.playerIds.map((playerId) => [playerId, 0]));
-  for (const playerId of lifecycle.playerIds) {
-    if (lifecycle.terminalResults[playerId] !== 'cleared') continue;
-    const scoringTick = lifecycle.terminalTicks[playerId];
-    for (const opponentId of lifecycle.playerIds) {
-      if (opponentId === playerId) continue;
-      const records = histories.get(opponentId) ?? [];
-      const targetTick = authoritativeScoringTick(records, scoringTick, lifecycle.terminalTicks[opponentId]);
-      const definition = start.players[opponentId];
-      if (!definition) continue;
-      const state = createBottle(start.seed, definition.seat, start.round);
-      for (const record of records) {
-        if (record.tick > targetTick) break;
-        applyRecord(state, record);
-      }
-      if (state.tick < targetTick && state.phase !== 'lost') advanceToTick(state, targetTick, []);
-      points[playerId] += state.viruses;
-    }
-  }
-  return points;
-}
-
 async function loadPreviousPillScores(previousGameId: string | undefined, matchId: string) {
   const totals: Record<string, number> = {};
   let gameId = previousGameId;
@@ -460,7 +433,7 @@ async function loadPreviousPillScores(previousGameId: string | undefined, matchI
       records.sort((left, right) => left.clientSeq - right.clientSeq);
       histories.set(playerId, records);
     }));
-    const points = deriveRoundPoints(start, lifecycle, histories);
+    const points = derivePillRoundPoints(start, lifecycle, histories);
     for (const playerId of playerIds) totals[playerId] = (totals[playerId] ?? 0) + points[playerId];
     gameId = start.previousGameId;
   }

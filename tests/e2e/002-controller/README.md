@@ -43,6 +43,7 @@
 **Verifications:**
 - [x] The first ready controller enters the successor game
 - [x] The second ready controller enters the same successor game
+- [x] The survivor scores the viruses left by the player who topped out
 - [x] Neither controller reports a permission failure
 
 ---
@@ -53,6 +54,7 @@
 
 **Verifications:**
 - [x] Both controllers reach round three
+- [x] Survivor points accumulate across rounds
 - [x] The reversed ready order produces no permission failure
 
 ---

@@ -36,7 +36,7 @@ This intentionally avoids clock synchronization, continuous state snapshots, and
   - each level starts with `level * 5` viruses;
   - a countdown separates levels.
 - Three-round multiplayer lifecycle with next-level readiness, rematch readiness, linked round journals, and automatic round transitions.
-- Replay-derived scoring: a player clearing a level earns points equal to the remaining viruses on all opponents' boards at that clear tick; the final remaining player receives zero points.
+- Replay-derived scoring: a player clearing a level earns points equal to the remaining viruses on all opponents' boards at that clear tick. If every terminal player tops out and nobody clears, the sole survivor instead earns the viruses remaining in the lost bottles; simultaneous-loss draws remain worth zero.
 - Score and round information on both controller and cast displays.
 - Unified immutable controller event stream containing user commands, progress ticks, readiness, and terminal events.
 - Local durable controller outbox, idempotent event IDs, reconnect recovery, duplicate suppression, and replay checkpoints.
@@ -195,7 +195,7 @@ Acceptance criteria:
 - A second controller for the same player must not write concurrently; explicit takeover is preferable to silent coexistence.
 - Observer timing remains local and lag-aware rather than synchronized to controller clocks.
 - Replay checkpoints remain local caches and must be reconstructible from immutable journals.
-- A Color Cure match is three rounds, and scoring remains based on opponents' remaining viruses at the clearing player's clear tick.
+- A Color Cure match is three rounds. Clear scoring uses opponents' remaining viruses at the clearer’s tick; the no-clear survivor fallback uses each lost opponent's terminal checkpoint.
 - Multiplayer rain attacks use immutable interactions plus target-owned journal records; they never carry board state.
 - Cast is a first-class host mode and must remain independently testable.
 
