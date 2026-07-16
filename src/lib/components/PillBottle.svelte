@@ -4,6 +4,7 @@
 
   export let state: BottleState;
   let canvas: HTMLCanvasElement;
+  let previewCanvas: HTMLCanvasElement;
   let lastFrame = '';
   let transition: 'clear' | 'lock' | 'finish' | 'rain' | '' = '';
   let observed = '';
@@ -56,30 +57,48 @@
     return radius;
   }
 
-  function drawPill(context: CanvasRenderingContext2D, cell: DrawCell, cells: DrawCell[]) {
+  function drawPill(context: CanvasRenderingContext2D, cell: DrawCell, cells: DrawCell[], left = LEFT, top = TOP) {
     const mate = cells.find((other) => other !== cell && pairId(other) === pairId(cell));
     const dx = mate?.col === cell.col ? 0 : (mate?.col ?? cell.col) - cell.col;
     const dy = mate?.row === cell.row ? 0 : (mate?.row ?? cell.row) - cell.row;
-    const x = LEFT + cell.col * CELL;
-    const y = TOP + cell.row * CELL;
+    const x = left + cell.col * CELL;
+    const y = top + cell.row * CELL;
     const radii = halfRadii(dx, dy, 4);
     context.fillStyle = '#08090d';
     context.beginPath();
-    context.roundRect(x + .25, y + .25, 9.5, 9.5, radii);
+    context.roundRect(x, y, 10, 10, radii);
     context.fill();
+    const innerX = x + (dx === -1 ? 0 : 1.25);
+    const innerY = y + (dy === -1 ? 0 : 1.25);
+    const innerWidth = dx === 0 ? 7.5 : 8.75;
+    const innerHeight = dy === 0 ? 7.5 : 8.75;
     context.fillStyle = palette[cell.color];
     context.beginPath();
-    context.roundRect(x + 1.25, y + 1.25, 7.5, 7.5, halfRadii(dx, dy, 3));
+    context.roundRect(innerX, innerY, innerWidth, innerHeight, halfRadii(dx, dy, 3));
     context.fill();
     context.save();
     context.beginPath();
-    context.roundRect(x + 1.25, y + 1.25, 7.5, 7.5, halfRadii(dx, dy, 3));
+    context.roundRect(innerX, innerY, innerWidth, innerHeight, halfRadii(dx, dy, 3));
     context.clip();
     context.fillStyle = 'rgba(255,255,255,.38)';
-    context.fillRect(x + 1.75, y + 1.75, 6.5, 1.25);
+    context.fillRect(x + (dx === -1 ? 0 : 1.75), y + (dy === -1 ? 0 : 1.75), dx === 0 ? 6.5 : 8.25, 1.25);
     context.fillStyle = 'rgba(0,0,0,.28)';
-    context.fillRect(x + 1.75, y + 7.25, 6.5, 1.25);
+    context.fillRect(x + (dx === -1 ? 0 : 1.75), y + (dy === 1 ? 8.75 : 7.25), dx === 0 ? 6.5 : 8.25, 1.25);
     context.restore();
+  }
+
+  function drawPreview() {
+    if (!previewCanvas || state.phase !== 'playing') return;
+    const context = previewCanvas.getContext('2d');
+    if (!context) return;
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+    context.setTransform(RENDER_SCALE, 0, 0, RENDER_SCALE, 0, 0);
+    const cells: DrawCell[] = [
+      { id: 'previewa', kind: 'pill', color: preview[0], row: 0, col: 0 },
+      { id: 'previewb', kind: 'pill', color: preview[1], row: 0, col: 1 }
+    ];
+    for (const cell of cells) drawPill(context, cell, cells, 0, 0);
   }
 
   function draw() {
@@ -116,6 +135,7 @@
     for (const active of activeCells(state)) cells.push({ ...active.cell, row: active.row, col: active.col });
     for (const rain of rainCells(state)) cells.push({ ...rain.cell, row: rain.row, col: rain.col });
     for (const cell of cells) cell.kind === 'virus' ? drawVirus(context, cell) : drawPill(context, cell, cells);
+    drawPreview();
   }
 
   function showReplayTransition() {
@@ -142,16 +162,15 @@
 <div class="bottle-shell">
   <div class="next-pill" aria-label={`Next pill: ${preview[0]} and ${preview[1]}`} aria-hidden={state.phase !== 'playing'}>
     {#if state.phase === 'playing'}
-      <span class="preview-half left" style={`--preview-color:${palette[preview[0]]}`}></span><span class="preview-half right" style={`--preview-color:${palette[preview[1]]}`}></span>
+      <canvas bind:this={previewCanvas} class="preview-pill" width="40" height="20"></canvas>
     {/if}
   </div>
   <canvas bind:this={canvas} class="bottle" class:clear={transition==='clear'} class:lock={transition==='lock'} class:finish={transition==='finish'} class:rain={transition==='rain'} width="184" height="360" aria-label="Pill bottle" data-cell-count={WIDTH * HEIGHT} data-virus-count={state.viruses} data-next-colors={preview.join(',')} data-active-pill={state.active ? 'true' : 'false'} data-pending-rain-count={state.pendingRain?.length ?? 0} data-rain-rows={state.fallingRain?.map(piece => piece.row).join(',') ?? ''} data-garbage-count={state.board.filter(cell => cell?.id.startsWith('g')).length}></canvas>
 </div>
 
 <style>
-  .bottle-shell{width:min(27vw,180px);margin:auto}.next-pill{height:clamp(18px,4vw,28px);display:flex;align-items:center;justify-content:center;margin-bottom:.15rem}
-  .preview-half{display:block;width:clamp(11px,2.4vw,18px);aspect-ratio:1;background:var(--preview-color);border:2px solid rgba(8,9,13,.8);box-shadow:inset 2px 2px rgba(255,255,255,.35),inset -2px -2px rgba(0,0,0,.28)}
-  .preview-half.left{border-radius:999px 0 0 999px;border-right-width:1px}.preview-half.right{border-radius:0 999px 999px 0;border-left-width:1px}
+  .bottle-shell{width:min(34vw,230px);margin:auto}.next-pill{display:flex;align-items:center;justify-content:center;margin-bottom:.15rem}
+  .preview-pill{display:block;width:calc(100% * 20 / 92);height:auto}
   .bottle { display:block; width:100%; height:auto; image-rendering:auto;transform-origin:50% 100% }
   .bottle.clear{animation:clear-flash .42s ease-out}.bottle.lock{animation:lock-bump .18s ease-out}.bottle.finish{animation:finish-glow .42s ease-out}.bottle.rain{animation:rain-shake .42s ease-out}
   @keyframes clear-flash{35%{filter:brightness(2) drop-shadow(0 0 15px var(--yellow));transform:scale(1.025)}}
