@@ -40,6 +40,13 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await duplicatePage.close();
   await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-cell-count', '128');
   await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '5');
+  await expect(playerPage.getByLabel('Sam opponent bottle')).toBeVisible({ timeout: 10000 });
+  const muteAudio = page.getByRole('button', { name: 'Mute game audio' });
+  await expect(muteAudio).toBeVisible();
+  await muteAudio.click();
+  await expect(page.getByRole('button', { name: 'Unmute game audio' })).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('drm-audio-muted'))).toBe('true');
+  await page.getByRole('button', { name: 'Unmute game audio' }).click();
   await expect.poll(() => playerPage.evaluate(() => ({ width: document.documentElement.scrollWidth <= innerWidth, height: document.documentElement.scrollHeight <= innerHeight }))).toEqual({ width: true, height: true });
   await expect(page.getByRole('heading', { name: 'Jo' })).toBeVisible({ timeout: 10000 });
   await expect(page.getByLabel('Pill bottle', { exact: true }).first()).toBeVisible();
@@ -70,6 +77,13 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
     { spec: 'Both rotation directions are available', check: async () => { await expect(playerPage.getByRole('button', { name: 'Rotate clockwise' })).toBeVisible(); await expect(playerPage.getByRole('button', { name: 'Rotate counterclockwise' })).toBeVisible(); } },
     { spec: 'Keyboard bindings expose arrows, R, and T', check: async () => { await expect(playerPage.getByRole('button', { name: 'Move left' })).toHaveAttribute('title', 'Arrow Left'); await expect(playerPage.getByRole('button', { name: 'Rotate clockwise' })).toHaveAttribute('title', 'R'); await expect(playerPage.getByRole('button', { name: 'Rotate counterclockwise' })).toHaveAttribute('title', 'T'); } },
     { spec: 'Recorded command includes its player tick', check: async () => { await expect(playerPage.getByText(/input\/hard-drop · tick/)).toBeVisible(); await playerPage.locator('.command-status').evaluate((element: HTMLElement) => { element.style.visibility = 'hidden'; }); } }
+  ]});
+  await playerPage.setViewportSize({ width: 393, height: 852 });
+  await tester.step('portrait-controller', { description: 'Portrait phones retain the full controller and opponent context', networkStatus: 'skip', verifications: [
+    { spec: 'The local bottle remains visible in portrait', check: async () => await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toBeVisible() },
+    { spec: 'Movement and rotation controls remain available', check: async () => { await expect(playerPage.getByRole('button', { name: 'Move left' })).toBeVisible(); await expect(playerPage.getByRole('button', { name: 'Rotate clockwise' })).toBeVisible(); } },
+    { spec: 'A compact replay-derived opponent bottle is visible', check: async () => await expect(playerPage.getByLabel('Sam opponent bottle')).toBeVisible() },
+    { spec: 'The portrait controller fits the viewport', check: async () => await expect.poll(() => playerPage.evaluate(() => ({ width: document.documentElement.scrollWidth <= innerWidth, height: document.documentElement.scrollHeight <= innerHeight }))).toEqual({ width: true, height: true }) }
   ]});
   await context.close(); tester.generateDocs();
 });

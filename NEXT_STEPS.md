@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This plan reflects `main` plus the presentation and playability work prepared on `feature/presentation-playability-polish`.
+This plan reflects the current `main` branch and the presentation work prepared on `feature/presentation-polish-2`.
 
 The prototype is now playable. The next priority is to make rooms and sessions reliable enough for real multiplayer use, then improve presentation and release hardening before expanding the game rules.
 
@@ -48,7 +48,7 @@ This intentionally avoids clock synchronization, continuous state snapshots, and
   - stick dead-zone and held-input repeat behavior are covered by unit tests.
 - Host mode that can be fixed by URL or switched explicitly in development.
 - Default-deny Firebase rules with validation for current room and event schemas; production rules have been deployed.
-- Automated checks currently covering 34 unit tests and three browser scenarios, plus production builds and screenshot clipping checks.
+- Automated checks currently covering 43 unit tests and four documented browser scenarios, plus production builds and screenshot clipping checks.
 
 ### Completed on the presentation branch
 
@@ -65,34 +65,31 @@ This intentionally avoids clock synchronization, continuous state snapshots, and
 - Deterministic next-pill previews are shown above every controller and shared-display bottle without advancing the authoritative RNG. Incoming rain is queued until the current pill finishes resolving, falls independently from the top at one row per quarter second, and must finish before the next pill spawns. Matches caused by landed rain clear and resolve normally but are attack-ineligible.
 - Browser coverage and refreshed visual baselines for the new join and controller guidance.
 
+### Completed on the current presentation branch
+
+- Persistent, accessible mute controls on whichever device is responsible for game audio.
+- Compact opponent bottles reconstructed locally from immutable opponent journals; no board state is synchronized.
+- A complete portrait-phone controller layout with the bottle, opponent context, movement, rotation, status, and scoring kept inside the viewport.
+
 ### Known prototype limitations
 
-- Room creation and join-code reservation are not transactional.
-- Membership and seat assignment are not protected against concurrent joins or active-game roster changes.
 - There is no explicit leave/end-room flow, presence model, or disconnect policy.
-- Multiple controller tabs for the same player are not coordinated.
 - Firebase Rules have no emulator-backed unit test suite and no dedicated rules deployment workflow.
 - Legacy Realtime Database `commands` and `progress` paths remain in the rules for compatibility.
-- Controller-sized displays show opponent scores but not compact opponent boards.
-- Mute controls and a detailed live gamepad diagnostics/binding view remain unimplemented.
+- A detailed live gamepad diagnostics/binding view remains unimplemented.
 - Diagnostics, retention/expiry, fault-injection coverage, and four-device playtesting remain incomplete.
 - The Tetris ruleset is not implemented.
 
 ## Remaining implementation order
 
-### 1. Room integrity, presence, and security automation
+### 1. Presence, teardown, and security automation
 
-Make room creation, joining, ownership, and teardown safe under concurrent use.
+Finish room teardown and automate security validation. Transactional room creation and joining, the four-player limit, frozen active rosters, and one-writer controller leases with explicit takeover are complete.
 
 Implementation:
 
-- Reserve room IDs and join codes transactionally, including collision handling.
-- Make membership changes transactional and enforce the supported player limit.
-- Freeze the active match roster and stable player seats when a game starts.
-- Reject joins or roster mutation while a match is active, except through an explicit future spectator flow.
 - Add leave-room and host end-room operations with defined lobby cleanup behavior.
 - Add Realtime Database presence using `onDisconnect`, while keeping presence separate from replay state.
-- Define controller ownership for duplicate tabs. Prefer one active writer lease per player with an explicit takeover path.
 - Tighten Firestore reads and writes to the minimum needed by lobby members and active participants.
 - Remove legacy `commands` and `progress` rule paths after confirming no supported client uses them.
 - Add Firebase Emulator Rules unit tests for authentication, membership, immutable event writes, event validation, and forbidden materialized-state writes.
@@ -101,9 +98,6 @@ Implementation:
 
 Acceptance criteria:
 
-- Simultaneous room creation and joining cannot produce duplicate codes, duplicate seats, or excess players.
-- An active roster cannot change accidentally.
-- A second controller tab cannot silently fork a player's journal.
 - Disconnect and takeover states are visible without changing simulation authority.
 - Emulator tests prove unauthorized reads/writes and materialized-state writes are denied.
 - Rules can be deployed independently and reproducibly.
@@ -122,9 +116,8 @@ Completed in this slice:
 
 Remaining polish:
 
-- Add compact opponent boards where they fit without compromising controller input space.
 - Add an optional live gamepad diagnostics/binding view showing active axes and buttons.
-- Add mute controls and document the selected gameplay assets' redistribution status.
+- Document the selected gameplay assets' redistribution status.
 - Set measurable bundle/startup targets and split the large Firebase client chunk where practical.
 - Extend replay-derived effects to distinguish gravity cascades and countdown transitions.
 - Add distinct reconnect and controller-ownership indicators after those session semantics exist.
@@ -208,9 +201,9 @@ Acceptance criteria:
 
 ## Suggested pull-request sequence
 
-1. Transactional room creation/joining, frozen active rosters, stable seats, and Rules unit tests.
-2. Presence, duplicate-controller ownership/takeover, leave/end-room flows, and rules deployment automation.
-3. Compact opponent views, live gamepad diagnostics, licensed audio/mute controls, and bundle targets.
+1. Firebase Rules emulator tests, member-scoped reads, and legacy-path removal.
+2. Presence, leave/end-room flows, retention policy, and rules deployment automation.
+3. Live gamepad diagnostics, audio licensing documentation, and bundle targets.
 4. Expanded lifecycle/recovery browser coverage, fault injection, diagnostics, and four-device playtesting.
 5. Deterministic Tetris engine and garbage protocol.
 

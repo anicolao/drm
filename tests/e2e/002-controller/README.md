@@ -23,3 +23,15 @@
 - [x] Recorded command includes its player tick
 
 ---
+
+## Portrait phones retain the full controller and opponent context
+
+![Portrait phones retain the full controller and opponent context](./screenshots/002-portrait-controller.png)
+
+**Verifications:**
+- [x] The local bottle remains visible in portrait
+- [x] Movement and rotation controls remain available
+- [x] A compact replay-derived opponent bottle is visible
+- [x] The portrait controller fits the viewport
+
+---

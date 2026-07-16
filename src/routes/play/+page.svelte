@@ -23,6 +23,11 @@
     score:state.lifecycle?.scores[playerId]??0,
     roundPoints:state.lifecycle?.roundPoints[playerId]??0
   })).sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name));
+  $: opponentDisplays=(state.opponents??[]).map((opponent,index)=>({
+    ...opponent,
+    name:players.find(player=>player.uid===opponent.playerId)?.displayName??`Player ${index+1}`,
+    score:state.lifecycle?.scores[opponent.playerId]??0
+  }));
 
   onMount(()=>{
     void initialize();
@@ -121,6 +126,7 @@
 {:else if !activeGameId}<main class="join"><p class="eyebrow">Joined room {code}</p><h1>WAITING FOR HOST</h1><p role="status">You are in. Keep this screen open; controls appear when the host starts Color Cure.</p><div class="control-guide compact"><span>← → MOVE</span><span>↓ SOFT DROP</span><span>↑ HARD DROP</span><span>A / R ↻</span><span>B / T ↺</span></div></main>
 {:else}<main class="landscape-controller" aria-label="Pill Bottle controller"><GameAudio state={state.bottle} enabled={state.audioOutput==='controllers'} rainSignal={state.rainSignal??0}/>
   {#if state.lifecycle&&state.lifecycle.playerIds.length>1}<aside class="controller-scoreboard" aria-label="Scores"><strong>ROUND {state.lifecycle.round+1}/3</strong>{#each standings as player}<span class:you={player.playerId===state.playerId}>{player.name} <b>{player.score}</b>{#if player.roundPoints>0}<small>+{player.roundPoints}</small>{/if}</span>{/each}</aside>{/if}
+  {#if opponentDisplays.length}<aside class="opponent-boards" aria-label="Opponent boards">{#each opponentDisplays as opponent (opponent.playerId)}<article class:eliminated={state.lifecycle?.terminalPlayerIds.includes(opponent.playerId)}><strong>{opponent.name}</strong><PillBottle state={opponent.state} label={`${opponent.name} opponent bottle`} showPreview={false}/><span>{opponent.state.viruses} · {opponent.score} pts</span></article>{/each}</aside>{/if}
   <div class="status-strip" role="status" aria-live="polite"><span class:offline={!online} class:connecting={online&&!state.ready}>● {connectionLabel}</span>{#if gamepadConnected}<span title={gamepadName}>GAMEPAD READY</span>{:else}<span>TOUCH / KEYBOARD</span>{/if}</div>
   <section class="session"><strong>{playerName}</strong><span>room {code}</span>{#if state.bottle}<PillBottle state={state.bottle}/><span>{state.lifecycle?.playerIds.length===1?`level ${state.bottle.level}`:`round ${(state.lifecycle?.round??state.bottle.level)+1}/3`} · {state.bottle.viruses} viruses</span><span>speed {gravityTicksForState(state.bottle)} ticks · {state.bottle.pills} pills</span>{#if state.lifecycle?.terminalResults[state.playerId??'']==='cleared'}<strong class="countdown">LEVEL CLEAR</strong>{:else if state.bottle.phase==='lost'&&!state.lifecycle?.finished}<strong class="result">ELIMINATED · WAITING</strong>{/if}{/if}<span class="tick">tick {state.tick}</span>{#if state.lastCommand}<small class="command-status">{state.lastCommand}</small>{/if}</section>
   {#if state.lifecycle?.finished}<div class="match-result" role="status" aria-live="polite"><strong>{state.lifecycle.playerIds.length===1?'GAME OVER':state.lifecycle.matchComplete?'MATCH COMPLETE':`ROUND ${state.lifecycle.round+1} COMPLETE`}</strong><button on:click={nextRound} disabled={state.lifecycle.readyPlayerIds.includes(state.playerId??'')}>{state.lifecycle.matchComplete?'PLAY AGAIN':'NEXT LEVEL'}</button><small>{state.lifecycle.readyPlayerIds.length}/{state.lifecycle.playerIds.length} ready</small></div>{/if}
@@ -135,7 +141,6 @@
     <button aria-label="Rotate clockwise" title="R" disabled={!controlsEnabled} on:pointerdown={()=>send({type:'input/rotate',payload:{direction:'clockwise'}})}>↻</button>
   </section>
   <div class="control-guide" aria-label="Control hints"><span>STICK / D-PAD · MOVE</span><span>A · CLOCKWISE</span><span>B · COUNTER</span></div>
-  <div class="portrait-warning">Rotate your phone to landscape to use the controller.</div>
 </main>{/if}</div>
 
 <style>
@@ -146,12 +151,21 @@
   .session{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:grid;text-align:center;gap:min(.2rem,.6dvh);color:var(--muted);text-transform:uppercase;font-size:clamp(.42rem,1.45dvh,.58rem);max-height:96dvh}.session :global(.bottle-shell){width:min(23vw,38dvh,150px)}.session strong{color:var(--text);font-size:clamp(.58rem,2dvh,.8rem)}.session .tick{color:var(--yellow);font-size:clamp(.58rem,2dvh,.8rem)}
   .session .countdown{color:var(--yellow)}.session .result{color:var(--pink)}.match-result{position:fixed;inset:0;z-index:5;background:rgba(8,9,13,.9);display:grid;place-content:center;gap:1rem}.match-result strong{font-size:clamp(2rem,7vw,5rem);color:var(--yellow)}.match-result button{font-size:1rem}
   .controller-scoreboard{position:absolute;z-index:6;top:max(.5rem,env(safe-area-inset-top));right:max(.55rem,env(safe-area-inset-right));display:grid;gap:min(.25rem,.7dvh);max-width:24vw;text-align:right;text-transform:uppercase;font-size:clamp(.45rem,1.6dvh,.65rem);color:var(--muted)}.controller-scoreboard span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.controller-scoreboard strong{color:var(--text)}.controller-scoreboard b,.controller-scoreboard small,.controller-scoreboard .you{color:var(--yellow)}.controller-scoreboard small{margin-left:.25rem}
+  .opponent-boards{position:absolute;z-index:4;left:max(.55rem,env(safe-area-inset-left));top:max(3rem,calc(env(safe-area-inset-top) + 2.5rem));display:flex;gap:.45rem;align-items:start}.opponent-boards article{display:grid;justify-items:center;gap:.15rem;width:min(8vw,62px);color:var(--muted);text-transform:uppercase;font-size:.42rem;text-align:center}.opponent-boards article.eliminated{opacity:.45;filter:saturate(.35)}.opponent-boards strong{width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}.opponent-boards :global(.bottle-shell){width:100%}.opponent-boards span{white-space:nowrap}
   .dpad{position:absolute;left:max(.55rem,4vw,env(safe-area-inset-left));bottom:max(.55rem,3dvh,env(safe-area-inset-bottom));width:min(34vw,68dvh,280px);height:min(58dvh,230px);display:grid;grid-template:repeat(2,1fr)/repeat(3,1fr);gap:min(.55rem,1.5dvh)}.dpad button,.rotations button{font-size:min(5vw,10dvh,3rem);background:#292c38;color:var(--text);border:1px solid #4a4d60;box-shadow:4px 4px 0 var(--ink);padding:0}.dpad button:active,.rotations button:active,.dpad .held{background:var(--cyan);color:var(--ink);transform:translate(2px,2px);box-shadow:2px 2px 0 var(--ink)}
   .up{grid-area:1/2}.left{grid-area:2/1}.down{grid-area:2/2}.right{grid-area:2/3}
   .rotations{position:absolute;right:max(.55rem,4vw,env(safe-area-inset-right));bottom:max(.55rem,3dvh,env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(2,min(14vw,28dvh,130px));gap:min(1rem,2.5dvh);height:min(35dvh,150px)}.rotations button:first-child{background:color-mix(in srgb,var(--pink),#292c38 45%)}.rotations button:last-child{background:color-mix(in srgb,var(--cyan),#292c38 45%)}
   .control-guide{position:absolute;left:50%;bottom:.6rem;transform:translateX(-50%);display:flex;gap:.6rem;color:#7f8291;font-size:.5rem;white-space:nowrap}.control-guide.compact{position:static;transform:none;justify-content:center;flex-wrap:wrap;margin-top:1.5rem;color:var(--muted);font-size:.65rem;white-space:normal}.control-guide.compact span{border:1px solid #3c3f50;padding:.45rem}
-  .portrait-warning{display:none}
-  @media(orientation:portrait){.session,.dpad,.rotations,.landscape-controller>.control-guide{display:none}.portrait-warning{position:absolute;inset:0;display:grid;place-items:center;padding:2rem;text-align:center;font-weight:bold;color:var(--yellow)}.landscape-controller:has(.match-result) .portrait-warning{display:none}}
+  @media(orientation:portrait){
+    .session{top:max(4.4rem,calc(env(safe-area-inset-top) + 3.8rem));transform:translateX(-50%);gap:.12rem;max-height:52dvh}
+    .session :global(.bottle-shell){width:min(43vw,20dvh,155px)}
+    .controller-scoreboard{top:max(3.2rem,calc(env(safe-area-inset-top) + 2.7rem));max-width:25vw;font-size:.45rem}
+    .opponent-boards{left:auto;right:max(.45rem,env(safe-area-inset-right));top:max(8rem,calc(env(safe-area-inset-top) + 7.5rem));display:grid;gap:.35rem}.opponent-boards article{width:min(15vw,54px)}
+    .dpad{left:max(.45rem,env(safe-area-inset-left));bottom:max(.65rem,env(safe-area-inset-bottom));width:min(52vw,220px);height:min(27dvh,220px);gap:.4rem}
+    .rotations{right:max(.45rem,env(safe-area-inset-right));bottom:max(.65rem,env(safe-area-inset-bottom));grid-template-columns:repeat(2,min(20vw,82px));height:min(16dvh,125px);gap:.5rem}
+    .dpad button,.rotations button{font-size:clamp(1.4rem,8vw,2.4rem)}
+    .landscape-controller>.control-guide{display:none}
+  }
   @media(max-height:430px){.landscape-controller>.control-guide{display:none}}
   @media(prefers-reduced-motion:reduce){.match-result{animation:none}}
 </style>

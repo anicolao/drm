@@ -3,6 +3,8 @@
   import { activeCells, HEIGHT, nextPillColors, rainCells, WIDTH, type BottleState, type Cell } from '$lib/game/pill-bottle';
 
   export let state: BottleState;
+  export let label = 'Pill bottle';
+  export let showPreview = true;
   let canvas: HTMLCanvasElement;
   let previewCanvas: HTMLCanvasElement;
   let lastFrame = '';
@@ -167,12 +169,12 @@
 </script>
 
 <div class="bottle-shell">
-  <div class="next-pill" aria-label={`Next pill: ${preview[0]} and ${preview[1]}`} aria-hidden={state.phase !== 'playing'}>
+  {#if showPreview}<div class="next-pill" aria-label={`Next pill: ${preview[0]} and ${preview[1]}`} aria-hidden={state.phase !== 'playing'}>
     {#if state.phase === 'playing'}
       <canvas bind:this={previewCanvas} class="preview-pill" width="40" height="20"></canvas>
     {/if}
-  </div>
-  <canvas bind:this={canvas} class="bottle" class:clear={transition==='clear'} class:lock={transition==='lock'} class:finish={transition==='finish'} class:rain={transition==='rain'} width="184" height="360" aria-label="Pill bottle" data-cell-count={WIDTH * HEIGHT} data-virus-count={state.viruses} data-next-colors={preview.join(',')} data-active-pill={state.active ? 'true' : 'false'} data-pending-rain-count={state.pendingRain?.length ?? 0} data-rain-rows={state.fallingRain?.map(piece => piece.row).join(',') ?? ''} data-garbage-count={state.board.filter(cell => cell?.id.startsWith('g')).length}></canvas>
+  </div>{/if}
+  <canvas bind:this={canvas} class="bottle" class:clear={transition==='clear'} class:lock={transition==='lock'} class:finish={transition==='finish'} class:rain={transition==='rain'} width="184" height="360" aria-label={label} data-cell-count={WIDTH * HEIGHT} data-virus-count={state.viruses} data-next-colors={preview.join(',')} data-active-pill={state.active ? 'true' : 'false'} data-pending-rain-count={state.pendingRain?.length ?? 0} data-rain-rows={state.fallingRain?.map(piece => piece.row).join(',') ?? ''} data-garbage-count={state.board.filter(cell => cell?.id.startsWith('g')).length}></canvas>
 </div>
 
 <style>
