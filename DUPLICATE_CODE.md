@@ -22,7 +22,31 @@ These properties belong to the framework. A new real-time game should not implem
 
 The Block Stack MVP reimplemented a second, simplified version of the multiplayer runtime already built for Color Cure. The two games correctly have separate deterministic engines and rules, but they should not have separate implementations of transport reliability, writer ownership, fixed-tick scheduling, replay observation, lifecycle plumbing, input-device handling, audio activation, or route scaffolding.
 
-This duplication is not merely cosmetic. The Tetris copies omit mature behavior from Color Cure: durable outboxes, checkpoints, sequence-gap handling, late-event rewind, elapsed-time cast ticks, takeover, reconnect recovery, rematches, opponent replay, and strict protocol parsing. Extracting shared code is therefore the fastest way to close many P0 items in `TETRIS_NEXT.md` without fixing the same infrastructure twice.
+This duplication is not merely cosmetic. At the start of this branch, the Tetris copies omitted mature behavior from Color Cure: durable outboxes, checkpoints, sequence-gap handling, late-event rewind, elapsed-time cast ticks, takeover, reconnect recovery, rematches, opponent replay, and strict protocol parsing. Extracting shared code is the fastest way to close those gaps without fixing the same infrastructure twice.
+
+## Implementation status on this branch
+
+Completed:
+
+- shared elapsed-time fixed-tick clock used by controllers and observers;
+- shared parameterized match lifecycle and immutable match-round configuration;
+- shared game-start coordinator and registered game definitions;
+- shared checkpointed replay observer used by both games;
+- shared defensive local persistence primitives;
+- durable Tetris outbox, retry, and refresh merge;
+- shared semantic input command type plus keyboard/gamepad mapping;
+- shared browser audio host for loops, cues, mute, activation, routing, and cleanup;
+- shared controller protocol envelope validation with ruleset payload adapters;
+- shared lag smoothing and progress interpretation on both casts;
+- common `/play` and `/cast` routes with common join/wait/activation flows;
+- deletion of `/tetris` and `/tetris-cast`.
+
+Still to consolidate:
+
+- extract the full controller session so lease, takeover, outbox, checkpoint, terminal, suspend/resume, and reconnect code has one implementation rather than two adapters containing orchestration;
+- extract readiness/rematch and cross-player interaction delivery into framework modules;
+- move remaining active-game controller/cast status, scoreboard, opponent, result, and control layouts into shared shells with board/stat slots;
+- parameterize common E2E journeys and centralize the Firebase Rules contract tests.
 
 ## What is already shared
 
@@ -35,7 +59,7 @@ Keep and build on these existing boundaries:
 - global application styles and common lobby components;
 - immutable command/progress concepts and the `/games/{gameId}` RTDB shape.
 
-The problem is that sharing stops just before the largest and most failure-prone runtime code. The goal is not merely to extract helpers from those copies. The goal is to remove the parallel game applications and make both rulesets clients of one framework.
+The original problem was that sharing stopped just before the largest and most failure-prone runtime code. This branch moves the common clock, observer, startup, storage, protocol, input, audio, lag, routes, and lobby experience into the framework. The goal remains to finish removing orchestration from the board-specific active-game components.
 
 ## Required framework boundary
 
