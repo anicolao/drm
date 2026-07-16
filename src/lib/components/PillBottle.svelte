@@ -5,7 +5,7 @@
   export let state: BottleState;
   let canvas: HTMLCanvasElement;
   let lastFrame = '';
-  let transition: 'clear' | 'lock' | 'finish' | '' = '';
+  let transition: 'clear' | 'lock' | 'finish' | 'rain' | '' = '';
   let observed = '';
   let transitionTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -87,12 +87,14 @@
 
   function showReplayTransition() {
     if (!canvas) return;
-    const next = `${state.viruses}:${state.pills}:${state.phase}`;
+    const garbage = state.board.filter((cell) => cell?.id.startsWith('g')).length;
+    const next = `${state.viruses}:${state.pills}:${state.phase}:${garbage}`;
     if (!observed) { observed = next; return; }
     if (next === observed) return;
-    const [viruses, pills, phase] = observed.split(':');
+    const [viruses, pills, phase, previousGarbage] = observed.split(':');
     observed = next;
-    transition = state.viruses < Number(viruses) ? 'clear'
+    transition = garbage > Number(previousGarbage) ? 'rain'
+      : state.viruses < Number(viruses) ? 'clear'
       : state.phase !== phase ? 'finish'
       : state.pills > Number(pills) ? 'lock' : '';
     if (!transition) return;
@@ -104,13 +106,14 @@
   $: state, draw(), showReplayTransition();
 </script>
 
-<canvas bind:this={canvas} class="bottle" class:clear={transition==='clear'} class:lock={transition==='lock'} class:finish={transition==='finish'} width="92" height="180" aria-label="Pill bottle" data-cell-count={WIDTH * HEIGHT} data-virus-count={state.viruses}></canvas>
+<canvas bind:this={canvas} class="bottle" class:clear={transition==='clear'} class:lock={transition==='lock'} class:finish={transition==='finish'} class:rain={transition==='rain'} width="92" height="180" aria-label="Pill bottle" data-cell-count={WIDTH * HEIGHT} data-virus-count={state.viruses}></canvas>
 
 <style>
   .bottle { display:block; width:min(27vw,180px); height:auto; margin:auto; image-rendering:pixelated;transform-origin:50% 100% }
-  .bottle.clear{animation:clear-flash .42s ease-out}.bottle.lock{animation:lock-bump .18s ease-out}.bottle.finish{animation:finish-glow .42s ease-out}
+  .bottle.clear{animation:clear-flash .42s ease-out}.bottle.lock{animation:lock-bump .18s ease-out}.bottle.finish{animation:finish-glow .42s ease-out}.bottle.rain{animation:rain-shake .42s ease-out}
   @keyframes clear-flash{35%{filter:brightness(2) drop-shadow(0 0 15px var(--yellow));transform:scale(1.025)}}
   @keyframes lock-bump{45%{transform:translateY(2px)}}
   @keyframes finish-glow{50%{filter:brightness(1.7) drop-shadow(0 0 18px var(--cyan))}}
-  @media(prefers-reduced-motion:reduce){.bottle.clear,.bottle.lock,.bottle.finish{animation:none}}
+  @keyframes rain-shake{20%,60%{transform:translateX(-3px);filter:drop-shadow(0 0 12px var(--pink))}40%,80%{transform:translateX(3px)}}
+  @media(prefers-reduced-motion:reduce){.bottle.clear,.bottle.lock,.bottle.finish,.bottle.rain{animation:none}}
 </style>

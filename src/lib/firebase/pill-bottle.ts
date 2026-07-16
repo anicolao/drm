@@ -5,6 +5,8 @@ import type { RoomPlayer } from './rooms';
 import {
   advanceTick,
   advanceToTick,
+  attackColors,
+  attackColumns,
   applyInput,
   createBottle,
   deserializeBottle,
@@ -16,8 +18,10 @@ import {
   PILL_BOTTLE_SETTINGS,
   type BottleState,
   type ControllerRecord,
+  type PillClearEvent,
   type PillInput,
-  type PillMatchLifecycle
+  type PillMatchLifecycle,
+  type PillRainInput
 } from '$lib/game/pill-bottle';
 export type { PillMatchLifecycle } from '$lib/game/pill-bottle';
 import {
@@ -28,6 +32,7 @@ import {
 } from '$lib/local/pill-bottle';
 import {
   parsePillControllerRecord,
+  parsePillAttackInteraction,
   parsePillRematchReady,
   parsePillStart,
   parsePillTerminal,
@@ -74,6 +79,7 @@ export interface ControllerState {
   error?: string;
   lifecycle?: PillMatchLifecycle;
   audioOutput?: 'cast' | 'controllers';
+  rainSignal?: number;
 }
 
 export interface PlayerProgress {
@@ -355,6 +361,32 @@ export function subscribePillBottleProgress(
   };
 }
 
+export function subscribePillBottleAttacks(gameId: string, receive: () => void, fail: (error: Error) => void) {
+  if (!realtimeDatabase) throw new Error('Firebase is unavailable.');
+  let destroyed = false;
+  let unsubscribe = () => {};
+  void (async () => {
+    try {
+      const interactions = ref(realtimeDatabase!, `games/${gameId}/interactions`);
+      const existing = await get(interactions);
+      const known = new Set<string>();
+      existing.forEach((child) => { known.add(child.key!); });
+      if (destroyed) return;
+      unsubscribe = onChildAdded(interactions, (child) => {
+        try {
+          parsePillAttackInteraction(child.val());
+          if (!known.delete(child.key!)) receive();
+        } catch (cause) {
+          fail(cause instanceof Error ? cause : new Error(String(cause)));
+        }
+      }, fail);
+    } catch (cause) {
+      fail(cause instanceof Error ? cause : new Error(String(cause)));
+    }
+  })();
+  return () => { destroyed = true; unsubscribe(); };
+}
+
 function installationId() {
   const existing = localStorage.getItem('drm-client-id');
   if (existing) return existing;
@@ -443,12 +475,16 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
   let bottle: BottleState | undefined;
   let lifecycle: PillMatchLifecycle | undefined;
   let audioOutput: 'cast' | 'controllers' | undefined;
+  let rainSignal = 0;
+  let participantIds: string[] = [];
+  let stopInteractions = () => {};
+  const appliedAttacks = new Set<string>();
   let outbox = loadControllerOutbox(gameId, playerId);
   let flushing = false;
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
   const publish = (error?: string) => receive({
-    playerId, tick, ready, bottle: bottle ? structuredClone(bottle) : undefined, lastCommand, error, lifecycle, audioOutput
+    playerId, tick, ready, bottle: bottle ? structuredClone(bottle) : undefined, lastCommand, error, lifecycle, audioOutput, rainSignal
   });
 
   const stopLifecycle = subscribePillBottleLifecycle(gameId, (next) => {
@@ -507,11 +543,29 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
     void flushOutbox();
   }
 
-  function makeRecord(input: PillInput | { type: 'progress/tick'; payload: { phase: BottleState['phase']; stateHash: string } }) {
+  function makeRecord(input: PillInput | PillRainInput | { type: 'progress/tick'; payload: { phase: BottleState['phase']; stateHash: string } }) {
     if (tick < lastProgressTick) throw new Error('A controller record cannot precede its latest progress tick.');
     const commandRef = push(ref(realtimeDatabase!, `games/${gameId}/players/${playerId}/records`));
     if (!commandRef.key) throw new Error('Could not allocate a controller record identifier.');
     return { commandId: commandRef.key, playerId, epochId, clientSeq: ++clientSeq, tick, ...input } as PendingPillControllerRecord;
+  }
+
+  function handleClearEvents(events: PillClearEvent[]) {
+    for (const event of events) {
+      const colors = attackColors(event);
+      if (colors.length === 0) continue;
+      const targets = participantIds.filter((candidate) => candidate !== playerId && !lifecycle?.terminalPlayerIds.includes(candidate));
+      if (targets.length === 0) {
+        rainSignal++;
+        continue;
+      }
+      const attackId = `${playerId}-${epochId}-${event.tick}-${event.chain}`;
+      const interactionRef = push(ref(realtimeDatabase!, `games/${gameId}/interactions`));
+      void set(interactionRef, {
+        type: 'attack/generated', attackId, sourcePlayerId: playerId, sourceTick: event.tick,
+        sourceChain: event.chain, targetPlayerIds: targets, colors, serverTime: serverTimestamp()
+      }).catch(() => {});
+    }
   }
 
   function publishProgress(force = false) {
@@ -548,7 +602,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
     const phaseBefore = bottle?.phase;
     while (accumulator >= 1000 / PILL_BOTTLE_RULES.tickRate) {
       if (!bottle || bottle.phase === 'lost' || (bottle.phase === 'countdown' && (lifecycle?.playerIds.length ?? 0) > 1)) { accumulator = 0; break; }
-      advanceTick(bottle);
+      handleClearEvents(advanceTick(bottle));
       tick = bottle.tick;
       accumulator -= 1000 / PILL_BOTTLE_RULES.tickRate;
     }
@@ -565,6 +619,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
     try {
       const start = parsePillStart(snapshot.val());
       audioOutput = start.audioOutput;
+      participantIds = Object.keys(start.players);
       if (!start.players[playerId]) throw new Error('Player is not part of this pill-bottle/3 game.');
       const historySnapshot = await get(ref(realtimeDatabase!, `games/${gameId}/players/${playerId}/records`));
       const byId = new Map<string, ControllerRecord>();
@@ -574,6 +629,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
       });
       for (const record of outbox) byId.set(record.commandId, record);
       const records = [...byId.values()].sort((left, right) => left.clientSeq - right.clientSeq);
+      for (const record of records) if (record.type === 'attack/rain') appliedAttacks.add(record.payload.attackId);
       records.forEach((record, index) => {
         if (record.clientSeq !== index + 1) throw new Error('Controller record history has a sequence gap.');
         if (index > 0 && record.tick < records[index - 1].tick) throw new Error('Controller record ticks moved backward.');
@@ -596,7 +652,36 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
         clientId: installationId(), startedFromTick: tick, startedFromCommandSeq: clientSeq,
         serverTime: serverTimestamp()
       });
+      const interactions = ref(realtimeDatabase!, `games/${gameId}/interactions`);
+      const existingInteractions = await get(interactions);
+      const existingInteractionKeys = new Set<string>();
+      existingInteractions.forEach((child) => { existingInteractionKeys.add(child.key!); });
       ready = true;
+      stopInteractions = onChildAdded(interactions, (child) => {
+        try {
+          const interaction = parsePillAttackInteraction(child.val());
+          if (!existingInteractionKeys.delete(child.key!)) rainSignal++;
+          if (!interaction.targetPlayerIds.includes(playerId) || appliedAttacks.has(interaction.attackId) || !bottle) {
+            publish();
+            return;
+          }
+          const input: PillRainInput = {
+            type: 'attack/rain', payload: {
+              attackId: interaction.attackId,
+              colors: interaction.colors,
+              columns: attackColumns(interaction.attackId, interaction.colors.length)
+            }
+          };
+          applyInput(bottle, input);
+          const record = makeRecord(input);
+          appliedAttacks.add(interaction.attackId);
+          emitRecord(record);
+          if (bottle.phase === 'lost') { publishProgress(true); void declareTerminal(); }
+          publish();
+        } catch (cause) {
+          publish(cause instanceof Error ? cause.message : String(cause));
+        }
+      }, (cause) => publish(cause.message));
       publishProgress(true);
       void declareTerminal();
       publish();
@@ -632,7 +717,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
   async function command(input: PillCommand) {
     if (!ready || !bottle || bottle.phase !== 'playing' || matchFinished) return;
     const phaseBefore = bottle.phase;
-    applyInput(bottle, input);
+    handleClearEvents(applyInput(bottle, input));
     const record = makeRecord(input);
     emitRecord(record);
     const phaseAfter = bottle.phase as BottleState['phase'];
@@ -654,6 +739,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
       destroyed = true;
       unsubscribe();
       stopLifecycle();
+      stopInteractions();
       cancelAnimationFrame(frame);
       if (retryTimer) clearTimeout(retryTimer);
       window.removeEventListener('online', online);

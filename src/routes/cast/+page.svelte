@@ -8,7 +8,7 @@
   import { gravityTicksForState } from '$lib/game/pill-bottle';
   import { firebaseConfigured } from '$lib/firebase/config';
   import { getRoom, subscribeRoom, subscribeRoomPlayers, type RoomPlayer } from '$lib/firebase/rooms';
-  import { subscribePillBottleProgress, type PillMatchLifecycle, type PlayerProgress } from '$lib/firebase/pill-bottle';
+  import { subscribePillBottleAttacks, subscribePillBottleProgress, type PillMatchLifecycle, type PlayerProgress } from '$lib/firebase/pill-bottle';
   import { LagIndicator } from '$lib/presentation/lag';
 
   type DisplayProgress=PlayerProgress&{displayLag?:number};
@@ -17,12 +17,12 @@
   let audioOutput:'cast'|'controllers'|undefined;
   const lagIndicator=new LagIndicator();
   let lifecycle:PillMatchLifecycle|undefined;
-  let stopRoom=()=>{};let stopPlayers=()=>{};let stopProgress=()=>{};
+  let stopRoom=()=>{};let stopPlayers=()=>{};let stopProgress=()=>{};let stopAttacks=()=>{};
   $: displays=progress.map(entry=>({...entry,name:players.find(player=>player.uid===entry.playerId)?.displayName??'Player'}));
   $: standings=[...displays].sort((a,b)=>(lifecycle?.scores[b.playerId]??0)-(lifecycle?.scores[a.playerId]??0)||a.name.localeCompare(b.name));
   $: audioState=displays[0]?.state;
 
-  onMount(()=>{void load();return()=>{stopRoom();stopPlayers();stopProgress();};});
+  onMount(()=>{void load();return()=>{stopRoom();stopPlayers();stopProgress();stopAttacks();};});
   async function load(){
     code=new URL(window.location.href).searchParams.get('code')??'';joinHref=new URL(`${base}/play?code=${code}`,window.location.origin).href;
     try{if(!code)throw new Error('A room code is required.');if(!firebaseConfigured)throw new Error('Firebase configuration is required.');const room=await getRoom(code);ruleset=room.ruleset;loaded=true;stopPlayers=subscribeRoomPlayers(room.id,next=>players=next,cause=>error=cause.message);if(room.activeGameId)watchGame(room.activeGameId);stopRoom=subscribeRoom(room.id,next=>{if(next.activeGameId)watchGame(next.activeGameId);},cause=>error=cause.message);}catch(cause){error=cause instanceof Error?cause.message:String(cause)}
@@ -33,7 +33,7 @@
       return{...entry,displayLag:lagIndicator.sample(entry.playerId,entry.lag,now)};
     });
   }
-  function watchGame(next:string){if(gameId===next)return;gameId=next;stopProgress();progress=[];lifecycle=undefined;audioOutput=undefined;lagIndicator.clear();stopProgress=subscribePillBottleProgress(next,nextProgress=>progress=smoothLag(nextProgress),cause=>error=cause.message,nextLifecycle=>lifecycle=nextLifecycle,start=>audioOutput=start.audioOutput);}
+  function watchGame(next:string){if(gameId===next)return;gameId=next;stopProgress();stopAttacks();progress=[];lifecycle=undefined;audioOutput=undefined;lagIndicator.clear();stopProgress=subscribePillBottleProgress(next,nextProgress=>progress=smoothLag(nextProgress),cause=>error=cause.message,nextLifecycle=>lifecycle=nextLifecycle,start=>audioOutput=start.audioOutput);stopAttacks=subscribePillBottleAttacks(next,()=>window.dispatchEvent(new Event('drm-rain')),cause=>error=cause.message);}
 </script>
 
 <GameAudio state={audioState} enabled={audioOutput==='cast'}/><div class="display"><header><Logo compact/><div class="room-heading"><span class="live-dot" class:active={Boolean(gameId)} aria-hidden="true"></span><span>{code ? `ROOM ${code}` : 'NO ROOM'}</span></div></header><main>{#if error}<section class="message"><h1>DISPLAY UNAVAILABLE</h1><p role="alert">{error}</p></section>{:else if !loaded}<p role="status">Loading room…</p>{:else if !gameId}<section class="message waiting"><div><p class="eyebrow">{ruleset === 'tetris' ? 'BLOCK STACK' : 'COLOR CURE'}</p><h1>WAITING FOR A GAME</h1><p>Scan to join as a controller, or enter room code <strong>{code}</strong>. Every board shown here is reconstructed from immutable controller commands.</p></div>{#if joinHref}<JoinQr href={joinHref} label="Scan to join" />{/if}</section>{:else if displays.length===0}<section class="message"><p class="eyebrow">COLOR CURE · GAME ACTIVE</p><h1>WAITING FOR PLAYERS</h1><p role="status">Controllers will appear after their first progress command.</p></section>{:else}<section class="arena" aria-label="Shared game display">{#if lifecycle&&lifecycle.playerIds.length>1}<aside class="scoreboard"><strong>ROUND {lifecycle.round+1}/3</strong>{#each standings as player}<span>{player.name} <b>{lifecycle.scores[player.playerId]??0}</b>{#if lifecycle.roundPoints[player.playerId]} <small>+{lifecycle.roundPoints[player.playerId]}</small>{/if}</span>{/each}</aside>{/if}{#if lifecycle?.finished}<div class="match-result" role="status" aria-live="polite"><h1>{lifecycle.playerIds.length===1?'GAME OVER':lifecycle.matchComplete?'MATCH COMPLETE':`ROUND ${lifecycle.round+1} COMPLETE`}</h1>{#if lifecycle.playerIds.length>1}<div class="final-scores">{#each standings as player}<p>{player.name} · {lifecycle.scores[player.playerId]??0} points</p>{/each}</div>{/if}<p>{lifecycle.readyPlayerIds.length}/{lifecycle.playerIds.length} ready for {lifecycle.matchComplete?'a new match':'the next level'}</p></div>{/if}{#each displays as player (player.playerId)}<article class:eliminated-player={lifecycle?.terminalPlayerIds.includes(player.playerId)}><div class="player-heading"><h2>{player.name}</h2>{#if player.displayLag!==undefined}<span class="connection behind">BEHIND · ~{player.displayLag}t</span>{/if}</div><PillBottle state={player.state}/><p>level {player.state.level} · {player.state.viruses} viruses</p><p>speed {gravityTicksForState(player.state)} ticks · display tick {player.tick}</p>{#if lifecycle?.terminalResults[player.playerId]==='cleared'}<strong class="countdown">LEVEL CLEAR · +{lifecycle.roundPoints[player.playerId]??0}</strong>{:else if lifecycle?.terminalPlayerIds.includes(player.playerId)}<strong class="eliminated">ELIMINATED</strong>{/if}{#if player.displayLag!==undefined}<p class="tick-detail">controller is significantly behind</p>{/if}{#if !player.hashMatches}<p class="sync-error" role="alert">Replay hash mismatch</p>{/if}</article>{/each}</section>{/if}</main></div>

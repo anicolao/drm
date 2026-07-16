@@ -62,8 +62,8 @@ row every 15 resolution ticks and stop on the first
 occupied cell or the bottle floor. One supported half supports its still-joined
 partner. The engine checks for the next chain only after all falling pieces have
 come to rest. A hidden controller pauses its tick and disconnected players do
-not automatically lose. Scoring and multiplayer attacks are deferred. Top-out
-publishes an immutable terminal declaration; the last surviving player wins.
+not automatically lose. Scoring and multiplayer rain attacks are replay-derived.
+Top-out publishes an immutable terminal declaration; the last surviving player wins.
 
 ## Design goals
 
@@ -627,7 +627,12 @@ publish immutable interaction facts:
 games/{gameId}/interactions/{pushId}
 ```
 
-Example shape, pending final attack rules:
+Clearing at least two viruses in one resolution step generates rain. The source
+uses up to four cleared-virus colors in board-index order and targets every
+opponent who has not reached a terminal result. A qualifying single-player clear
+produces the same rain presentation and sound locally without a network write.
+
+Interaction shape:
 
 ```json
 {
@@ -636,9 +641,8 @@ Example shape, pending final attack rules:
   "sourceTick": 2100,
   "sourceChain": 2,
   "attackId": "uid-a:epoch:17",
-  "payload": {
-    "colors": ["cyan", "yellow"]
-  },
+  "targetPlayerIds": ["uid-b"],
+  "colors": ["cyan", "yellow"],
   "serverTime": { ".sv": "timestamp" }
 }
 ```
@@ -646,36 +650,18 @@ Example shape, pending final attack rules:
 The source controller derives and publishes the interaction immediately after its
 local engine produces the qualifying result. It does not wait for host approval.
 
-Interactions are globally ordered by `(serverTime, pushId)`. The target
-controller consumes them in that order and assigns each one to a local target
-tick:
+Interactions are globally ordered by their Firebase push key, with server time
+retained for diagnostics. Each target
+controller deterministically shuffles the eight columns from `attackId`, applies
+one isolated garbage segment per color to distinct columns at its current local
+tick, and appends the resulting `attack/rain` record to its own authoritative
+journal. Observers replay the target's exact application order and tick without
+downloading a board. Duplicate interaction IDs are ignored. A selected column
+with no free cell tops out the target.
 
-```text
-applyTick = max(targetCurrentTick + configuredLeadTicks,
-                lastScheduledInteractionTick + 1)
-```
-
-The assigned target tick is recorded in a target receipt:
-
-```text
-games/{gameId}/players/{targetId}/interactionReceipts/{attackId}
-```
-
-```json
-{
-  "attackId": "uid-a:epoch:17",
-  "applyTick": 2025,
-  "serverTime": { ".sv": "timestamp" }
-}
-```
-
-The target bottle replay includes the interaction at `applyTick`. This preserves
-immediate local control while making attack arrival deterministic after Firebase
-has ordered it.
-
-The exact attack generation, targeting, cancellation, lead time, garbage
-placement, and simultaneous-result policy remain unresolved. They must be fixed
-before implementing interaction records.
+Rain never cancels or rewrites a source command. Simultaneous source attacks are
+serialized by Firebase interaction order; their effects remain immutable records
+in each target journal.
 
 ## Finish declarations
 

@@ -1,4 +1,5 @@
 export * from './engine.ts';
+export * from './attack.ts';
 export * from './lifecycle.ts';
 export * from './replay.ts';
 export * from './observer.ts';

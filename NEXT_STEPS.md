@@ -48,7 +48,7 @@ This intentionally avoids clock synchronization, continuous state snapshots, and
   - stick dead-zone and held-input repeat behavior are covered by unit tests.
 - Host mode that can be fixed by URL or switched explicitly in development.
 - Default-deny Firebase rules with validation for current room and event schemas; production rules have been deployed.
-- Automated checks currently covering 30 unit tests and three browser scenarios, plus production builds and screenshot clipping checks.
+- Automated checks currently covering 34 unit tests and three browser scenarios, plus production builds and screenshot clipping checks.
 
 ### Completed on the presentation branch
 
@@ -61,6 +61,7 @@ This intentionally avoids clock synchronization, continuous state snapshots, and
 - Lazily loaded QR generation so the feature does not add work to gameplay routes that do not use it.
 - A pinned Nix development shell providing Node 22 and Java 21 for application and Firebase Emulator tooling.
 - Gameplay music routed by immutable start metadata: Chill on even levels, Fever on odd levels, and the corresponding clear cue on completion. Shared-display games play from the cast; games without a shared display play from each controller.
+- Replayable rain attacks earned by clearing at least two viruses at once, sent to every remaining opponent through immutable interactions and applied through the target's own journal. The rain cue also plays for qualifying single-player clears.
 - Browser coverage and refreshed visual baselines for the new join and controller guidance.
 
 ### Known prototype limitations
@@ -74,7 +75,7 @@ This intentionally avoids clock synchronization, continuous state snapshots, and
 - Controller-sized displays show opponent scores but not compact opponent boards.
 - Mute controls and a detailed live gamepad diagnostics/binding view remain unimplemented.
 - Diagnostics, retention/expiry, fault-injection coverage, and four-device playtesting remain incomplete.
-- Multiplayer attacks and the Tetris ruleset are not implemented.
+- The Tetris ruleset is not implemented.
 
 ## Remaining implementation order
 
@@ -156,17 +157,19 @@ Acceptance criteria:
 - Four-device play remains responsive and understandable through disconnect and reconnect.
 - Production failures can be diagnosed without exposing private data or materialized game state.
 
-### 4. Multiplayer attacks
+### 4. Multiplayer attacks — complete on the feature branch
 
-Add attacks only after the base protocol and lifecycle are stable in real-device play.
+Rain attacks are implemented without changing controller authority or sending materialized state.
 
-Implementation:
+Implemented:
 
-- Define deterministic attack generation from Color Cure clear outcomes.
-- Represent attacks as immutable, replayable protocol events.
-- Define deterministic targeting for two to four players.
-- Define attack timing, ordering, cancellation, and simultaneous-clear behavior.
-- Add engine, protocol, observer, and lifecycle tests before enabling attacks in the UI.
+- A clear step earns rain when it removes at least two viruses, using up to four cleared-virus colors.
+- The source publishes one immutable interaction targeting every non-terminal opponent.
+- Interactions are ordered by Firebase and deduplicated by attack ID.
+- Each target chooses distinct deterministic columns from the attack ID, applies rain at its current authoritative tick, and appends `attack/rain` to its own journal.
+- Observers reconstruct garbage exclusively by replaying that target journal.
+- Single-player qualifying clears skip the network interaction but retain rain animation and audio feedback.
+- Engine, deterministic-column, protocol-validation, and replay tests cover the behavior.
 
 Acceptance criteria:
 
@@ -199,7 +202,7 @@ Acceptance criteria:
 - Observer timing remains local and lag-aware rather than synchronized to controller clocks.
 - Replay checkpoints remain local caches and must be reconstructible from immutable journals.
 - A Color Cure match is three rounds, and scoring remains based on opponents' remaining viruses at the clearing player's clear tick.
-- Multiplayer attacks remain deferred until room/session reliability and release-hardening work are complete.
+- Multiplayer rain attacks use immutable interactions plus target-owned journal records; they never carry board state.
 - Cast is a first-class host mode and must remain independently testable.
 
 ## Suggested pull-request sequence
@@ -208,7 +211,6 @@ Acceptance criteria:
 2. Presence, duplicate-controller ownership/takeover, leave/end-room flows, and rules deployment automation.
 3. Compact opponent views, live gamepad diagnostics, licensed audio/mute controls, and bundle targets.
 4. Expanded lifecycle/recovery browser coverage, fault injection, diagnostics, and four-device playtesting.
-5. Deterministic Color Cure attacks.
-6. Deterministic Tetris engine and garbage protocol.
+5. Deterministic Tetris engine and garbage protocol.
 
 Each pull request should preserve the client-authoritative replay model, include deterministic coverage for new protocol behavior, and avoid introducing networked materialized state.

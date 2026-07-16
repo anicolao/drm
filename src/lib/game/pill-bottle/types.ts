@@ -45,6 +45,18 @@ export type PillInput =
   | { type: 'input/soft-drop-end'; payload: Record<string, never> }
   | { type: 'input/hard-drop'; payload: Record<string, never> };
 
+export interface PillRainInput {
+  type: 'attack/rain';
+  payload: { attackId: string; colors: Color[]; columns: number[] };
+}
+
+export interface PillClearEvent {
+  type: 'clear';
+  tick: number;
+  chain: number;
+  virusColors: Color[];
+}
+
 export interface ReplayCommand {
   commandId: string;
   tick: number;
@@ -58,7 +70,7 @@ export type ControllerRecord = {
   epochId: string;
   clientSeq: number;
   tick: number;
-} & (PillInput | {
+} & (PillInput | PillRainInput | {
   type: 'progress/tick';
   payload: { phase: BottlePhase; stateHash: string };
 });
