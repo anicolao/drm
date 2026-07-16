@@ -51,7 +51,8 @@ export function serializeBottle(state: BottleState): SerializedBottleState {
     phase: state.phase,
     softDrop: state.softDrop,
     chain: state.chain,
-    resolving: state.resolving
+    resolving: state.resolving,
+    ...(state.resolutionLineColors?.length ? { resolutionLineColors: [...state.resolutionLineColors] } : {})
   };
 }
 
@@ -77,7 +78,7 @@ const isActive = (value: unknown): value is ActivePill => {
 export function parseSerializedBottle(value: unknown): SerializedBottleState {
   if (!value || typeof value !== 'object') throw new Error('Invalid serialized bottle state.');
   const state = value as Record<string, unknown>;
-  if (!hasOnlyKeys(state, ['rulesVersion', 'tick', 'level', 'pills', 'gravityCounter', 'countdownEndsAt', 'board', 'active', 'rng', 'nextId', 'viruses', 'phase', 'softDrop', 'chain', 'resolving'])
+  if (!hasOnlyKeys(state, ['rulesVersion', 'tick', 'level', 'pills', 'gravityCounter', 'countdownEndsAt', 'board', 'active', 'rng', 'nextId', 'viruses', 'phase', 'softDrop', 'chain', 'resolving', 'resolutionLineColors'])
     || state.rulesVersion !== PILL_BOTTLE_RULES_VERSION
     || !isInteger(state.tick)
     || !isInteger(state.level) || !isInteger(state.pills) || !isInteger(state.gravityCounter)
@@ -88,7 +89,9 @@ export function parseSerializedBottle(value: unknown): SerializedBottleState {
     || !isInteger(state.viruses) || (state.viruses as number) > 80
     || !['playing', 'countdown', 'lost'].includes(state.phase as string)
     || (state.phase === 'countdown') !== (state.countdownEndsAt !== undefined)
-    || typeof state.softDrop !== 'boolean' || !isInteger(state.chain) || typeof state.resolving !== 'boolean') {
+    || typeof state.softDrop !== 'boolean' || !isInteger(state.chain) || typeof state.resolving !== 'boolean'
+    || (state.resolutionLineColors !== undefined && (!Array.isArray(state.resolutionLineColors)
+      || !state.resolutionLineColors.every((color) => colors.includes(color))))) {
     throw new Error('Invalid serialized bottle state.');
   }
   return state as unknown as SerializedBottleState;

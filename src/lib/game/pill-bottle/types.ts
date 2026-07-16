@@ -36,6 +36,7 @@ export interface BottleState {
   softDrop: boolean;
   chain: number;
   resolving: boolean;
+  resolutionLineColors?: Color[];
 }
 
 export type PillInput =
@@ -54,7 +55,6 @@ export interface PillClearEvent {
   type: 'clear';
   tick: number;
   chain: number;
-  virusColors: Color[];
   lineColors: Color[];
 }
 
@@ -92,4 +92,5 @@ export interface SerializedBottleState {
   softDrop: boolean;
   chain: number;
   resolving: boolean;
+  resolutionLineColors?: Color[];
 }
