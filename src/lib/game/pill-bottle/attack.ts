@@ -1,11 +1,11 @@
 import { WIDTH, type Color, type PillClearEvent } from './types.ts';
 
-export const ATTACK_VIRUS_THRESHOLD = 2;
+export const ATTACK_LINE_THRESHOLD = 2;
 export const MAX_ATTACK_PIECES = 4;
 
 export function attackColors(event: PillClearEvent) {
-  return event.virusColors.length >= ATTACK_VIRUS_THRESHOLD
-    ? event.virusColors.slice(0, MAX_ATTACK_PIECES)
+  return event.lineColors.length >= ATTACK_LINE_THRESHOLD
+    ? event.lineColors.slice(0, MAX_ATTACK_PIECES)
     : [];
 }
 

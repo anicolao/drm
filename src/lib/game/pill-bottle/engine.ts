@@ -137,22 +137,33 @@ export function createBottle(seed: number, _seat = 0, level = 0): BottleState {
 
 function clearMatches(state: BottleState) {
   const cleared = new Set<number>();
+  const lineColors: Color[] = [];
   for (let row = 0; row < HEIGHT; row++) {
     for (let col = 0; col < WIDTH; col++) {
       const cell = state.board[index(row, col)];
       if (!cell) continue;
 
-      let run = [index(row, col)];
-      for (let nextCol = col + 1; nextCol < WIDTH && state.board[index(row, nextCol)]?.color === cell.color; nextCol++) {
-        run.push(index(row, nextCol));
+      if (col === 0 || state.board[index(row, col - 1)]?.color !== cell.color) {
+        const run = [index(row, col)];
+        for (let nextCol = col + 1; nextCol < WIDTH && state.board[index(row, nextCol)]?.color === cell.color; nextCol++) {
+          run.push(index(row, nextCol));
+        }
+        if (run.length >= 4) {
+          run.forEach((matched) => cleared.add(matched));
+          lineColors.push(cell.color);
+        }
       }
-      if (run.length >= 4) run.forEach((matched) => cleared.add(matched));
 
-      run = [index(row, col)];
-      for (let nextRow = row + 1; nextRow < HEIGHT && state.board[index(nextRow, col)]?.color === cell.color; nextRow++) {
-        run.push(index(nextRow, col));
+      if (row === 0 || state.board[index(row - 1, col)]?.color !== cell.color) {
+        const run = [index(row, col)];
+        for (let nextRow = row + 1; nextRow < HEIGHT && state.board[index(nextRow, col)]?.color === cell.color; nextRow++) {
+          run.push(index(nextRow, col));
+        }
+        if (run.length >= 4) {
+          run.forEach((matched) => cleared.add(matched));
+          lineColors.push(cell.color);
+        }
       }
-      if (run.length >= 4) run.forEach((matched) => cleared.add(matched));
     }
   }
 
@@ -171,7 +182,7 @@ function clearMatches(state: BottleState) {
     state.softDrop = false;
     state.resolving = false;
   }
-  return cleared.size > 0 ? virusColors : undefined;
+  return cleared.size > 0 ? { virusColors, lineColors } : undefined;
 }
 
 function dropFreedPills(state: BottleState) {
@@ -235,14 +246,14 @@ function lock(state: BottleState) {
   state.pills++;
   state.gravityCounter = 0;
   state.chain = 0;
-  const virusColors = clearMatches(state);
-  if (virusColors) {
+  const cleared = clearMatches(state);
+  if (cleared) {
     state.chain = 1;
     if (state.phase === 'playing') state.resolving = true;
   } else {
     spawn(state);
   }
-  return virusColors ? [{ type: 'clear', tick: state.tick, chain: 1, virusColors } satisfies PillClearEvent] : [];
+  return cleared ? [{ type: 'clear', tick: state.tick, chain: 1, ...cleared } satisfies PillClearEvent] : [];
 }
 
 function move(state: BottleState, rowDelta: number, colDelta: number) {
@@ -324,10 +335,10 @@ export function advanceTick(state: BottleState) {
   if (state.resolving) {
     if (state.tick % PILL_BOTTLE_RULES.resolutionGravityTicks !== 0) return [] as PillClearEvent[];
     if (dropFreedPills(state)) return [] as PillClearEvent[];
-    const virusColors = clearMatches(state);
-    if (virusColors) {
+    const cleared = clearMatches(state);
+    if (cleared) {
       state.chain++;
-      return [{ type: 'clear', tick: state.tick, chain: state.chain, virusColors } satisfies PillClearEvent];
+      return [{ type: 'clear', tick: state.tick, chain: state.chain, ...cleared } satisfies PillClearEvent];
     }
     state.resolving = false;
     spawn(state);

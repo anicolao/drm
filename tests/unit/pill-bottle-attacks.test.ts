@@ -1,25 +1,33 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { applyInput, attackColors, attackColumns, createBottle, HEIGHT, WIDTH, type BottleState } from '../../src/lib/game/pill-bottle/index.ts';
+import { applyInput, attackColors, attackColumns, createBottle, HEIGHT, WIDTH, type BottleState, type PillClearEvent } from '../../src/lib/game/pill-bottle/index.ts';
 
-test('clearing two viruses in one resolution step earns deterministic rain', () => {
+test('clearing two lines with one pill earns two pieces of rain regardless of viruses', () => {
   const state = createBottle(123, 0, 1);
   state.board = Array(WIDTH * HEIGHT).fill(null);
-  state.board[(HEIGHT - 1) * WIDTH] = { kind: 'virus', color: 'cyan', id: 'v0' };
-  state.board[(HEIGHT - 1) * WIDTH + 1] = { kind: 'virus', color: 'cyan', id: 'v1' };
-  state.viruses = 2;
-  state.active = { id: 10, row: 1, col: 2, orientation: 0, colors: ['cyan', 'cyan'] };
+  for (const row of [HEIGHT - 2, HEIGHT - 1]) for (const col of [0, 1, 2]) {
+    state.board[row * WIDTH + col] = { kind: 'pill', color: 'cyan', id: `old-${row}-${col}` };
+  }
+  state.board[8 * WIDTH + 7] = { kind: 'virus', color: 'pink', id: 'v0' };
+  state.viruses = 1;
+  state.active = { id: 10, row: 1, col: 3, orientation: 1, colors: ['cyan', 'cyan'] };
 
   const events = applyInput(state, { type: 'input/hard-drop', payload: {} });
-  assert.deepEqual(events, [{ type: 'clear', tick: 0, chain: 1, virusColors: ['cyan', 'cyan'] }]);
+  assert.deepEqual(events, [{ type: 'clear', tick: 0, chain: 1, virusColors: [], lineColors: ['cyan', 'cyan'] }]);
   assert.deepEqual(attackColors(events[0]), ['cyan', 'cyan']);
-  assert.equal(state.phase, 'countdown');
+  assert.equal(state.phase, 'playing');
 });
 
-test('one cleared virus does not attack and rain columns are stable and distinct', () => {
-  assert.deepEqual(attackColors({ type: 'clear', tick: 4, chain: 1, virusColors: ['pink'] }), []);
+test('one cleared line does not attack and rain columns are stable and distinct', () => {
+  assert.deepEqual(attackColors({ type: 'clear', tick: 4, chain: 1, virusColors: ['pink'], lineColors: ['pink'] }), []);
   assert.deepEqual(attackColumns('attack-1', 4), attackColumns('attack-1', 4));
   assert.equal(new Set(attackColumns('attack-1', 4)).size, 4);
+});
+
+test('three lines send three rain pieces and four or more cap at four', () => {
+  const event: PillClearEvent = { type: 'clear', tick: 4, chain: 1, virusColors: [], lineColors: ['cyan', 'pink', 'yellow'] };
+  assert.deepEqual(attackColors(event), ['cyan', 'pink', 'yellow']);
+  assert.deepEqual(attackColors({ ...event, lineColors: ['cyan', 'pink', 'yellow', 'cyan', 'pink'] }), ['cyan', 'pink', 'yellow', 'cyan']);
 });
 
 test('a replayed rain record places isolated garbage deterministically', () => {
