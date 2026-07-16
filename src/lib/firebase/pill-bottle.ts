@@ -3,6 +3,7 @@ import { get, onChildAdded, onDisconnect, onValue, push, ref, runTransaction, se
 import { auth, firestore, realtimeDatabase } from './config';
 import type { RoomPlayer } from './rooms';
 import { FixedTickClock } from '$lib/runtime/fixed-tick-clock';
+import { randomGameSeed, startRealtimeGame } from '$lib/runtime/start-game';
 import {
   advanceTick,
   advanceToTick,
@@ -46,33 +47,10 @@ import {
 
 export type PillCommand = PillInput;
 
-function gameSeed() {
-  return Number(import.meta.env.VITE_E2E_GAME_SEED) || crypto.getRandomValues(new Uint32Array(1))[0];
-}
+const gameSeed = randomGameSeed;
 
 export async function startPillBottleGame(roomId: string, members: RoomPlayer[], hostMode: 'player' | 'display') {
-  if (!auth?.currentUser || !firestore || !realtimeDatabase) throw new Error('Firebase is unavailable.');
-  if (members.length < 1 || members.length > 4) throw new Error('Color Cure requires between one and four room members.');
-
-  const hostUid = auth.currentUser.uid;
-  const participants = members.filter((member) => hostMode === 'player' || member.uid !== hostUid)
-    .sort((left, right) => left.uid.localeCompare(right.uid));
-  if (participants.length === 0) throw new Error('A TV game requires at least one joined controller.');
-
-  const gameId = crypto.randomUUID();
-  const seed = gameSeed();
-  const players = Object.fromEntries(participants.map((player, seat) => [player.uid, { seat }]));
-  const allowedMembers = Object.fromEntries(members.map((member) => [member.uid, true]));
-  await set(ref(realtimeDatabase, `games/${gameId}/start`), {
-    type: 'game/started', roomId, ruleset: 'pill-bottle', rulesVersion: PILL_BOTTLE_RULES_VERSION,
-    seed, tickRate: PILL_BOTTLE_RULES.tickRate, hostUid, members: allowedMembers, players,
-    audioOutput: hostMode === 'display' ? 'cast' : 'controllers',
-    settings: PILL_BOTTLE_SETTINGS, matchId: gameId, round: 0, serverTime: serverTimestamp()
-  });
-  await updateDoc(doc(firestore, 'rooms', roomId), {
-    status: 'active', activeGameId: gameId, startedAt: firestoreTimestamp()
-  });
-  return gameId;
+  return startRealtimeGame({ruleset:'pill-bottle',rulesVersion:PILL_BOTTLE_RULES_VERSION,tickRate:PILL_BOTTLE_RULES.tickRate,settings:PILL_BOTTLE_SETTINGS},roomId,members,hostMode);
 }
 
 export interface ControllerState {
