@@ -20,6 +20,14 @@ function random(state: BottleState) {
   return state.rng / 4294967296;
 }
 
+export function nextPillColors(state: Pick<BottleState, 'rng'>): [Color, Color] {
+  const first = nextXorshift32(state.rng);
+  const second = nextXorshift32(first);
+  return [first, second].map((value) =>
+    PILL_BOTTLE_RULES.colors[Math.floor(value / 4294967296 * PILL_BOTTLE_RULES.colors.length)]
+  ) as [Color, Color];
+}
+
 function pillCells(pill: ActivePill): [[number, number], [number, number]] {
   const positions: Record<Orientation, [[number, number], [number, number]]> = {
     0: [[0, 0], [0, 1]],
@@ -283,7 +291,12 @@ function applyRain(state: BottleState, input: PillRainInput) {
     if (column < 0 || column >= WIDTH) continue;
     const occupiedByActive = new Set(activeCells.filter(([, col]) => col === column).map(([row]) => row));
     let row = HEIGHT - 1;
-    while (row >= 0 && (state.board[index(row, column)] || occupiedByActive.has(row))) row--;
+    for (let candidate = 0; candidate < HEIGHT; candidate++) {
+      if (state.board[index(candidate, column)] || occupiedByActive.has(candidate)) {
+        row = candidate - 1;
+        break;
+      }
+    }
     if (row < 0) {
       state.phase = 'lost';
       state.active = null;
