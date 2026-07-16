@@ -1,5 +1,5 @@
 import { deserializeBottle, hashState, serializeBottle, type BottleState, type ControllerRecord } from '$lib/game/pill-bottle';
-import { parsePillControllerRecord, type PendingPillControllerRecord } from '$lib/protocol/pill-bottle';
+import { parsePillAttackInteraction, parsePillControllerRecord, type PendingPillControllerRecord, type PillAttackInteractionRecord } from '$lib/protocol/pill-bottle';
 
 export interface LocalControllerCheckpoint {
   commandId: string;
@@ -10,6 +10,8 @@ export interface LocalControllerCheckpoint {
 }
 
 const prefix = (gameId: string, playerId: string) => `drm-pill-bottle:${gameId}:${playerId}`;
+
+export type PendingPillAttackInteraction = Omit<PillAttackInteractionRecord, 'serverTime'> & { interactionId: string };
 
 export function loadControllerOutbox(gameId: string, playerId: string): PendingPillControllerRecord[] {
   try {
@@ -29,6 +31,26 @@ export function loadControllerOutbox(gameId: string, playerId: string): PendingP
 
 export function saveControllerOutbox(gameId: string, playerId: string, records: readonly PendingPillControllerRecord[]) {
   localStorage.setItem(`${prefix(gameId, playerId)}:outbox`, JSON.stringify(records));
+}
+
+export function loadAttackOutbox(gameId: string, playerId: string): PendingPillAttackInteraction[] {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(`${prefix(gameId, playerId)}:attacks`) ?? '[]');
+    if (!Array.isArray(value)) return [];
+    return value.map((pending) => {
+      if (!pending || typeof pending !== 'object' || typeof (pending as { interactionId?: unknown }).interactionId !== 'string') {
+        throw new Error('Invalid local attack outbox.');
+      }
+      const { interactionId, ...interaction } = pending as PendingPillAttackInteraction;
+      return { interactionId, ...parsePillAttackInteraction({ ...interaction, serverTime: 0 }) };
+    }).map(({ serverTime: _serverTime, ...pending }) => pending);
+  } catch {
+    return [];
+  }
+}
+
+export function saveAttackOutbox(gameId: string, playerId: string, interactions: readonly PendingPillAttackInteraction[]) {
+  localStorage.setItem(`${prefix(gameId, playerId)}:attacks`, JSON.stringify(interactions));
 }
 
 export function saveControllerCheckpoint(
