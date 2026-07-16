@@ -91,8 +91,8 @@ export function subscribeRoomPlayers(roomId: string, receive: (players: RoomPlay
     (snapshot) => receive(snapshot.docs.map((entry) => entry.data() as RoomPlayer)), fail);
 }
 
-export function subscribeRoom(roomId: string, receive: (room: { status: 'lobby' | 'active'; activeGameId?: string }) => void, fail: (error: Error) => void): Unsubscribe {
+export function subscribeRoom(roomId: string, receive: (room: { status: 'lobby' | 'active'; ruleset: 'tetris' | 'doctor'; activeGameId?: string }) => void, fail: (error: Error) => void): Unsubscribe {
   if (!firestore) throw new Error('Firebase is not configured.');
   return onSnapshot(doc(firestore, 'rooms', roomId),
-    (snapshot) => { if (snapshot.exists()) receive(snapshot.data() as { status: 'lobby' | 'active'; activeGameId?: string }); }, fail);
+    (snapshot) => { if (snapshot.exists()) receive(snapshot.data() as { status: 'lobby' | 'active'; ruleset: 'tetris' | 'doctor'; activeGameId?: string }); }, fail);
 }

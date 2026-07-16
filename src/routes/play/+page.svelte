@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { base } from '$app/paths';
   import Logo from '$lib/components/Logo.svelte';
   import PillBottle from '$lib/components/PillBottle.svelte';
   import GameAudio from '$lib/components/GameAudio.svelte';
@@ -53,8 +54,8 @@
     try{
       const room=await joinRoom(code,playerName);roomId=room.id;joined=true;needsName=false;
       playersUnsubscribe=subscribeRoomPlayers(room.id,next=>players=next,cause=>error=cause.message);
-      if(room.activeGameId)startController(room.activeGameId);
-      roomUnsubscribe=subscribeRoom(room.id,(next)=>{if(next.activeGameId)startController(next.activeGameId);},(cause)=>error=cause.message);
+      if(room.activeGameId){if(room.ruleset==='tetris'){window.location.assign(`${base}/tetris?code=${code}`);return}startController(room.activeGameId);}
+      roomUnsubscribe=subscribeRoom(room.id,(next)=>{if(next.activeGameId){if(next.ruleset==='tetris')window.location.assign(`${base}/tetris?code=${code}`);else startController(next.activeGameId);}},(cause)=>error=cause.message);
     }catch(cause){error=cause instanceof Error?cause.message:String(cause);}
     finally{joining=false;}
   }

@@ -18,7 +18,7 @@
 **Verifications:**
 - [x] Room code contains exactly four letters
 - [x] Exactly one named host membership exists
-- [x] Play and TV starts require the implemented Color Cure rules
+- [x] Block Stack can start locally while TV mode still requires a controller
 
 ---
 
