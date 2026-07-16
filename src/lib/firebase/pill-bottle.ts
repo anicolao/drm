@@ -2,6 +2,7 @@ import { doc, serverTimestamp as firestoreTimestamp, updateDoc } from 'firebase/
 import { get, onChildAdded, onDisconnect, onValue, push, ref, runTransaction, serverTimestamp, set, type Unsubscribe } from 'firebase/database';
 import { auth, firestore, realtimeDatabase } from './config';
 import type { RoomPlayer } from './rooms';
+import { FixedTickClock } from '$lib/runtime/fixed-tick-clock';
 import {
   advanceTick,
   advanceToTick,
@@ -268,8 +269,7 @@ export function subscribePillBottleProgress(
   if (!realtimeDatabase) throw new Error('Firebase is unavailable.');
   let destroyed = false;
   let frame = 0;
-  let lastTime: number | undefined;
-  let accumulator = 0;
+  const clock = new FixedTickClock(PILL_BOTTLE_RULES.tickRate);
   let matchFinished = false;
   let terminalPlayerIds = new Set<string>();
   let rematchStarting = false;
@@ -298,14 +298,10 @@ export function subscribePillBottleProgress(
 
   const loop = (now: number) => {
     if (destroyed) return;
-    if (lastTime === undefined) lastTime = now;
-    accumulator += Math.min(now - lastTime, 250);
-    lastTime = now;
-    while (accumulator >= 1000 / PILL_BOTTLE_RULES.tickRate) {
+    for (let ticks = clock.consume(now); ticks > 0; ticks--) {
       if (!matchFinished) for (const [playerId, observer] of observers) {
         if (!terminalPlayerIds.has(playerId)) observer.advance();
       }
-      accumulator -= 1000 / PILL_BOTTLE_RULES.tickRate;
     }
     publish();
     frame = requestAnimationFrame(loop);
@@ -448,8 +444,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
   let clientSeq = 0;
   let lastProgressTick = -1;
   let frame = 0;
-  let lastTime: number | undefined;
-  let accumulator = 0;
+  const clock = new FixedTickClock(PILL_BOTTLE_RULES.tickRate);
   let ready = false;
   let initializing = false;
   let destroyed = false;
@@ -488,7 +483,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
     playerFinished = next.terminalPlayerIds.includes(playerId);
     if (matchFinished) {
       cancelAnimationFrame(frame);
-      accumulator = 0;
+      clock.reset();
     }
     if (next.allReady && !rematchStarting) {
       rematchStarting = true;
@@ -625,15 +620,11 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
 
   function loop(now: number) {
     if (destroyed || !ready || suspended || matchFinished || playerFinished) return;
-    if (lastTime === undefined) lastTime = now;
-    accumulator += Math.min(now - lastTime, 250);
-    lastTime = now;
     const phaseBefore = bottle?.phase;
-    while (accumulator >= 1000 / PILL_BOTTLE_RULES.tickRate) {
-      if (!bottle || bottle.phase === 'lost' || (bottle.phase === 'countdown' && (lifecycle?.playerIds.length ?? 0) > 1)) { accumulator = 0; break; }
+    for (let ticks = clock.consume(now); ticks > 0; ticks--) {
+      if (!bottle || bottle.phase === 'lost' || (bottle.phase === 'countdown' && (lifecycle?.playerIds.length ?? 0) > 1)) { clock.reset(); break; }
       handleClearEvents(advanceTick(bottle));
       tick = bottle.tick;
-      accumulator -= 1000 / PILL_BOTTLE_RULES.tickRate;
     }
     if (bottle?.phase !== phaseBefore || (bottle?.phase === 'lost' && lastProgressTick !== tick)) publishProgress(true);
     else publishProgress();
@@ -759,14 +750,13 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
     publishProgress(true);
     suspended = true;
     cancelAnimationFrame(frame);
-    lastTime = undefined;
-    accumulator = 0;
+    clock.reset();
   }
 
   function resume() {
     if (!ready || !suspended || destroyed || matchFinished) return;
     suspended = false;
-    lastTime = undefined;
+    clock.reset();
     publishProgress(true);
     frame = requestAnimationFrame(loop);
   }

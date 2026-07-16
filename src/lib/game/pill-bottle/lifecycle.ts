@@ -1,21 +1,8 @@
 import { PILL_BOTTLE_RULES } from './rules.ts';
 import type { ControllerRecord } from './types.ts';
+import { deriveMatchLifecycle, type MatchLifecycle } from '../../runtime/lifecycle.ts';
 
-export interface PillMatchLifecycle {
-  playerIds: string[];
-  terminalPlayerIds: string[];
-  readyPlayerIds: string[];
-  finished: boolean;
-  winnerId?: string;
-  draw: boolean;
-  allReady: boolean;
-  terminalResults: Record<string, 'cleared' | 'lost'>;
-  terminalTicks: Record<string, number>;
-  round: number;
-  matchComplete: boolean;
-  roundPoints: Record<string, number>;
-  scores: Record<string, number>;
-}
+export type PillMatchLifecycle = MatchLifecycle<'cleared' | 'lost'>;
 
 export function authoritativeScoringTick(
   records: readonly Pick<ControllerRecord, 'tick'>[],
@@ -32,28 +19,5 @@ export function derivePillMatchLifecycle(
   readyPlayerIds: string[],
   round = 0
 ): PillMatchLifecycle {
-  const terminalResults = Object.fromEntries(terminals.filter(({ playerId }) => playerIds.includes(playerId))
-    .map(({ playerId, result }) => [playerId, result]));
-  const terminalTicks = Object.fromEntries(terminals.filter(({ playerId }) => playerIds.includes(playerId))
-    .map(({ playerId, tick }) => [playerId, tick]));
-  const terminalPlayers = new Set(Object.keys(terminalResults));
-  const ready = readyPlayerIds.filter((playerId) => playerIds.includes(playerId));
-  const finished = playerIds.length === 1 ? terminalPlayers.size === 1 : terminalPlayers.size >= playerIds.length - 1;
-  const survivors = playerIds.filter((playerId) => !terminalPlayers.has(playerId));
-  const winnerId = finished && survivors.length === 1 ? survivors[0] : undefined;
-  return {
-    playerIds,
-    terminalPlayerIds: [...terminalPlayers],
-    readyPlayerIds: ready,
-    finished,
-    winnerId,
-    draw: finished && playerIds.length > 1 && winnerId === undefined,
-    allReady: finished && playerIds.every((playerId) => ready.includes(playerId)),
-    terminalResults,
-    terminalTicks,
-    round,
-    matchComplete: finished && (playerIds.length === 1 || round + 1 >= PILL_BOTTLE_RULES.matchRounds),
-    roundPoints: Object.fromEntries(playerIds.map((playerId) => [playerId, 0])),
-    scores: Object.fromEntries(playerIds.map((playerId) => [playerId, 0]))
-  };
+  return deriveMatchLifecycle(playerIds, terminals, readyPlayerIds, round, PILL_BOTTLE_RULES.matchRounds);
 }
