@@ -20,6 +20,7 @@ export const PILL_BOTTLE_RULES = Object.freeze({
   softDropTicks: 2,
   lockDelayTicks: 30,
   resolutionGravityTicks: 15,
+  rainGravityTicks: 15,
   levelCountdownTicks: 180,
   matchRounds: 3,
   hardDrop: true,

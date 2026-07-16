@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { activeCells, HEIGHT, nextPillColors, WIDTH, type BottleState, type Cell } from '$lib/game/pill-bottle';
+  import { activeCells, HEIGHT, nextPillColors, rainCells, WIDTH, type BottleState, type Cell } from '$lib/game/pill-bottle';
 
   export let state: BottleState;
   let canvas: HTMLCanvasElement;
@@ -55,7 +55,7 @@
 
   function draw() {
     if (!canvas) return;
-    const frame = `${state.phase}|${state.board.map(cell => cell ? `${cell.id}:${cell.color}` : '').join(',')}|${state.active ? `${state.active.id}:${state.active.row}:${state.active.col}:${state.active.orientation}:${state.active.colors.join(':')}` : ''}`;
+    const frame = `${state.phase}|${state.board.map(cell => cell ? `${cell.id}:${cell.color}` : '').join(',')}|${state.active ? `${state.active.id}:${state.active.row}:${state.active.col}:${state.active.orientation}:${state.active.colors.join(':')}` : ''}|${state.fallingRain?.map(piece => `${piece.attackId}:${piece.item}:${piece.row}`).join(',') ?? ''}`;
     if (frame === lastFrame) return;
     lastFrame = frame;
     const context = canvas.getContext('2d');
@@ -83,6 +83,7 @@
       if (cell) cells.push({ ...cell, row: Math.floor(index / WIDTH), col: index % WIDTH });
     });
     for (const active of activeCells(state)) cells.push({ ...active.cell, row: active.row, col: active.col });
+    for (const rain of rainCells(state)) cells.push({ ...rain.cell, row: rain.row, col: rain.col });
     for (const cell of cells) cell.kind === 'virus' ? drawVirus(context, cell) : drawPill(context, cell, cells);
   }
 

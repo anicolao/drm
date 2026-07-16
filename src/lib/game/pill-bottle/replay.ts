@@ -1,5 +1,5 @@
 import { advanceTick, applyInput } from './engine.ts';
-import { PILL_BOTTLE_RULES_VERSION } from './rules.ts';
+import { PILL_BOTTLE_RULES, PILL_BOTTLE_RULES_VERSION } from './rules.ts';
 import { HEIGHT, WIDTH, type ActivePill, type BottleState, type Cell, type Color, type ReplayCommand, type SerializedBottleState } from './types.ts';
 
 export function advanceToTick(state: BottleState, targetTick: number, commands: readonly ReplayCommand[]) {
@@ -52,7 +52,12 @@ export function serializeBottle(state: BottleState): SerializedBottleState {
     softDrop: state.softDrop,
     chain: state.chain,
     resolving: state.resolving,
-    ...(state.resolutionLineColors?.length ? { resolutionLineColors: [...state.resolutionLineColors] } : {})
+    ...(state.resolutionLineColors?.length ? { resolutionLineColors: [...state.resolutionLineColors] } : {}),
+    ...(state.pendingRain?.length ? { pendingRain: state.pendingRain.map((rain) => ({
+      attackId: rain.attackId, colors: [...rain.colors], columns: [...rain.columns]
+    })) } : {}),
+    ...(state.fallingRain?.length ? { fallingRain: state.fallingRain.map((piece) => ({ ...piece })) } : {}),
+    ...(state.rainGravityCounter === undefined ? {} : { rainGravityCounter: state.rainGravityCounter })
   };
 }
 
@@ -63,7 +68,7 @@ const isCell = (value: unknown): value is Cell => {
   if (!value || typeof value !== 'object') return false;
   const cell = value as Record<string, unknown>;
   return hasOnlyKeys(cell, ['kind', 'color', 'id']) && (cell.kind === 'virus' || cell.kind === 'pill')
-    && colors.includes(cell.color as Color) && typeof cell.id === 'string' && cell.id.length > 0 && cell.id.length <= 32;
+    && colors.includes(cell.color as Color) && typeof cell.id === 'string' && cell.id.length > 0 && cell.id.length <= 160;
 };
 const isActive = (value: unknown): value is ActivePill => {
   if (!value || typeof value !== 'object') return false;
@@ -74,11 +79,29 @@ const isActive = (value: unknown): value is ActivePill => {
     && Array.isArray(active.colors) && active.colors.length === 2 && active.colors.every((color) => colors.includes(color))
     && (active.groundedAt === undefined || isInteger(active.groundedAt));
 };
+const isQueuedRain = (value: unknown) => {
+  if (!value || typeof value !== 'object') return false;
+  const rain = value as Record<string, unknown>;
+  return hasOnlyKeys(rain, ['attackId', 'colors', 'columns']) && typeof rain.attackId === 'string' && rain.attackId.length <= 128
+    && Array.isArray(rain.colors) && rain.colors.length >= 2 && rain.colors.length <= 4
+    && rain.colors.every((color) => colors.includes(color))
+    && Array.isArray(rain.columns) && rain.columns.length === rain.colors.length
+    && rain.columns.every((column) => isInteger(column) && (column as number) < WIDTH)
+    && new Set(rain.columns).size === rain.columns.length;
+};
+const isRainPiece = (value: unknown) => {
+  if (!value || typeof value !== 'object') return false;
+  const piece = value as Record<string, unknown>;
+  return hasOnlyKeys(piece, ['attackId', 'item', 'color', 'column', 'row'])
+    && typeof piece.attackId === 'string' && piece.attackId.length <= 128 && isInteger(piece.item) && (piece.item as number) < 4
+    && colors.includes(piece.color as Color) && isInteger(piece.column) && (piece.column as number) < WIDTH
+    && isInteger(piece.row) && (piece.row as number) < HEIGHT;
+};
 
 export function parseSerializedBottle(value: unknown): SerializedBottleState {
   if (!value || typeof value !== 'object') throw new Error('Invalid serialized bottle state.');
   const state = value as Record<string, unknown>;
-  if (!hasOnlyKeys(state, ['rulesVersion', 'tick', 'level', 'pills', 'gravityCounter', 'countdownEndsAt', 'board', 'active', 'rng', 'nextId', 'viruses', 'phase', 'softDrop', 'chain', 'resolving', 'resolutionLineColors'])
+  if (!hasOnlyKeys(state, ['rulesVersion', 'tick', 'level', 'pills', 'gravityCounter', 'countdownEndsAt', 'board', 'active', 'rng', 'nextId', 'viruses', 'phase', 'softDrop', 'chain', 'resolving', 'resolutionLineColors', 'pendingRain', 'fallingRain', 'rainGravityCounter'])
     || state.rulesVersion !== PILL_BOTTLE_RULES_VERSION
     || !isInteger(state.tick)
     || !isInteger(state.level) || !isInteger(state.pills) || !isInteger(state.gravityCounter)
@@ -91,7 +114,13 @@ export function parseSerializedBottle(value: unknown): SerializedBottleState {
     || (state.phase === 'countdown') !== (state.countdownEndsAt !== undefined)
     || typeof state.softDrop !== 'boolean' || !isInteger(state.chain) || typeof state.resolving !== 'boolean'
     || (state.resolutionLineColors !== undefined && (!Array.isArray(state.resolutionLineColors)
-      || !state.resolutionLineColors.every((color) => colors.includes(color))))) {
+      || !state.resolutionLineColors.every((color) => colors.includes(color))))
+    || (state.pendingRain !== undefined && (!Array.isArray(state.pendingRain) || !state.pendingRain.every(isQueuedRain)))
+    || (state.fallingRain !== undefined && (!Array.isArray(state.fallingRain) || state.fallingRain.length < 1
+      || state.fallingRain.length > 4 || !state.fallingRain.every(isRainPiece)))
+    || (state.rainGravityCounter !== undefined && (!isInteger(state.rainGravityCounter)
+      || (state.rainGravityCounter as number) >= PILL_BOTTLE_RULES.rainGravityTicks))
+    || (state.fallingRain === undefined) !== (state.rainGravityCounter === undefined)) {
     throw new Error('Invalid serialized bottle state.');
   }
   return state as unknown as SerializedBottleState;

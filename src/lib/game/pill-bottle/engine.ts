@@ -95,6 +95,9 @@ function populateLevel(state: BottleState) {
   state.chain = 0;
   state.resolving = false;
   delete state.resolutionLineColors;
+  delete state.pendingRain;
+  delete state.fallingRain;
+  delete state.rainGravityCounter;
   delete state.countdownEndsAt;
 
   let placed = 0;
@@ -202,6 +205,56 @@ function finishResolution(state: BottleState) {
     : [];
 }
 
+function startRainOrSpawn(state: BottleState) {
+  const next = state.pendingRain?.shift();
+  if (state.pendingRain?.length === 0) delete state.pendingRain;
+  if (!next) {
+    spawn(state);
+    return;
+  }
+  const pieces = next.colors.map((color, item) => ({
+    attackId: next.attackId,
+    item,
+    color,
+    column: next.columns[item],
+    row: 0
+  }));
+  if (pieces.some((piece) => state.board[index(0, piece.column)])) {
+    state.phase = 'lost';
+    state.active = null;
+    state.softDrop = false;
+    return;
+  }
+  state.fallingRain = pieces;
+  state.rainGravityCounter = 0;
+}
+
+function advanceRain(state: BottleState) {
+  const pieces = state.fallingRain;
+  if (!pieces) return;
+  state.rainGravityCounter = (state.rainGravityCounter ?? 0) + 1;
+  if (state.rainGravityCounter < PILL_BOTTLE_RULES.rainGravityTicks) return;
+  state.rainGravityCounter = 0;
+  const stillFalling = [] as typeof pieces;
+  for (const piece of pieces) {
+    const below = piece.row + 1;
+    if (below >= HEIGHT || state.board[index(below, piece.column)]) {
+      state.board[index(piece.row, piece.column)] = {
+        kind: 'pill', color: piece.color, id: `g${piece.attackId}-${piece.item}x`
+      };
+    } else {
+      stillFalling.push({ ...piece, row: below });
+    }
+  }
+  if (stillFalling.length > 0) {
+    state.fallingRain = stillFalling;
+    return;
+  }
+  delete state.fallingRain;
+  delete state.rainGravityCounter;
+  startRainOrSpawn(state);
+}
+
 function dropFreedPills(state: BottleState) {
   const halves = new Map<string, number[]>();
   state.board.forEach((cell, cellIndex) => {
@@ -269,7 +322,7 @@ function lock(state: BottleState) {
     state.chain = 1;
     if (state.phase === 'playing') state.resolving = true;
   } else {
-    spawn(state);
+    startRainOrSpawn(state);
   }
   return cleared && !state.resolving ? finishResolution(state) : [];
 }
@@ -285,28 +338,12 @@ function move(state: BottleState, rowDelta: number, colDelta: number) {
 
 function applyRain(state: BottleState, input: PillRainInput) {
   if (state.phase !== 'playing') return;
-  const activeCells = state.active ? pillCells(state.active) : [];
-  for (let item = 0; item < input.payload.colors.length; item++) {
-    const column = input.payload.columns[item];
-    if (column < 0 || column >= WIDTH) continue;
-    const occupiedByActive = new Set(activeCells.filter(([, col]) => col === column).map(([row]) => row));
-    let row = HEIGHT - 1;
-    for (let candidate = 0; candidate < HEIGHT; candidate++) {
-      if (state.board[index(candidate, column)] || occupiedByActive.has(candidate)) {
-        row = candidate - 1;
-        break;
-      }
-    }
-    if (row < 0) {
-      state.phase = 'lost';
-      state.active = null;
-      state.softDrop = false;
-      return;
-    }
-    state.board[index(row, column)] = {
-      kind: 'pill', color: input.payload.colors[item], id: `g${input.payload.attackId}-${item}x`
-    };
-  }
+  state.pendingRain = [...(state.pendingRain ?? []), {
+    attackId: input.payload.attackId,
+    colors: [...input.payload.colors],
+    columns: [...input.payload.columns]
+  }];
+  if (!state.active && !state.resolving && !state.fallingRain) startRainOrSpawn(state);
 }
 
 export function applyInput(state: BottleState, input: PillInput | PillRainInput) {
@@ -365,8 +402,13 @@ export function advanceTick(state: BottleState) {
       return state.resolving ? [] : finishResolution(state);
     }
     state.resolving = false;
-    spawn(state);
+    startRainOrSpawn(state);
     return finishResolution(state);
+  }
+
+  if (state.fallingRain) {
+    advanceRain(state);
+    return [] as PillClearEvent[];
   }
 
   if (!state.active) return [] as PillClearEvent[];
@@ -387,4 +429,12 @@ export function activeCells(state: BottleState) {
     col,
     cell: { kind: 'pill', color: state.active!.colors[half], id: `a${state.active!.id}${half}` } as Cell
   })) : [];
+}
+
+export function rainCells(state: BottleState) {
+  return (state.fallingRain ?? []).map((piece) => ({
+    row: piece.row,
+    col: piece.column,
+    cell: { kind: 'pill', color: piece.color, id: `g${piece.attackId}-${piece.item}x` } as Cell
+  }));
 }
