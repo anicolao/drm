@@ -1,4 +1,5 @@
 import { PILL_BOTTLE_RULES } from './rules.ts';
+import type { ControllerRecord } from './types.ts';
 
 export interface PillMatchLifecycle {
   playerIds: string[];
@@ -14,6 +15,15 @@ export interface PillMatchLifecycle {
   matchComplete: boolean;
   roundPoints: Record<string, number>;
   scores: Record<string, number>;
+}
+
+export function authoritativeScoringTick(
+  records: readonly Pick<ControllerRecord, 'tick'>[],
+  scoringTick: number,
+  terminalTick?: number
+) {
+  const ceiling = Math.min(scoringTick, terminalTick ?? scoringTick);
+  return records.reduce((latest, record) => record.tick <= ceiling ? Math.max(latest, record.tick) : latest, 0);
 }
 
 export function derivePillMatchLifecycle(

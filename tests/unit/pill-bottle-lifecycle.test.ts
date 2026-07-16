@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { derivePillMatchLifecycle } from '../../src/lib/game/pill-bottle.ts';
+import { authoritativeScoringTick, derivePillMatchLifecycle } from '../../src/lib/game/pill-bottle.ts';
 import { parsePillRematchReady, parsePillTerminal } from '../../src/lib/protocol/pill-bottle.ts';
 
 test('the last surviving multiplayer controller is the winner', () => {
@@ -43,4 +43,11 @@ test('terminal and rematch records reject materialized or unknown state', () => 
   assert.throws(() => parsePillTerminal({ ...terminal, state: {} }), /terminal declaration/);
   assert.equal(parsePillRematchReady({ playerId: 'one', serverTime: 1 }).playerId, 'one');
   assert.throws(() => parsePillRematchReady({ playerId: 'one', serverTime: 1, board: [] }), /rematch readiness/);
+});
+
+test('scoring never advances an opponent beyond an authoritative controller checkpoint', () => {
+  const records = [{ tick: 60 }, { tick: 80 }, { tick: 120 }];
+  assert.equal(authoritativeScoringTick(records, 100), 80);
+  assert.equal(authoritativeScoringTick(records, 100, 70), 60);
+  assert.equal(authoritativeScoringTick([], 100), 0);
 });

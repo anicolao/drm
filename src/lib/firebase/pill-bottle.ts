@@ -8,6 +8,7 @@ import {
   attackColors,
   attackColumns,
   applyInput,
+  authoritativeScoringTick,
   createBottle,
   deserializeBottle,
   derivePillMatchLifecycle,
@@ -414,11 +415,12 @@ function deriveRoundPoints(
     const scoringTick = lifecycle.terminalTicks[playerId];
     for (const opponentId of lifecycle.playerIds) {
       if (opponentId === playerId) continue;
-      const targetTick = Math.min(scoringTick, lifecycle.terminalTicks[opponentId] ?? scoringTick);
+      const records = histories.get(opponentId) ?? [];
+      const targetTick = authoritativeScoringTick(records, scoringTick, lifecycle.terminalTicks[opponentId]);
       const definition = start.players[opponentId];
       if (!definition) continue;
       const state = createBottle(start.seed, definition.seat, start.round);
-      for (const record of histories.get(opponentId) ?? []) {
+      for (const record of records) {
         if (record.tick > targetTick) break;
         applyRecord(state, record);
       }
