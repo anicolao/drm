@@ -9,6 +9,9 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow update: if request.auth != null && resource.data.hostUid == request.auth.uid
         && request.resource.data.diff(resource.data).changedKeys().hasOnly(['ruleset', 'status', 'activeGameId', 'startedAt'])
+        || request.auth != null && resource.data.status == 'active'
+        && exists(/databases/$(database)/documents/rooms/$(roomId)/players/$(request.auth.uid))
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['status', 'activeGameId', 'startedAt'])
         || request.auth != null && resource.data.status == 'lobby'
         && request.resource.data.diff(resource.data).changedKeys().hasOnly(['playerCount'])
         && request.resource.data.playerCount == resource.data.playerCount + 1
