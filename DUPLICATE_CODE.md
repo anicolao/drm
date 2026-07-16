@@ -40,13 +40,14 @@ Completed:
 - shared lag smoothing and progress interpretation on both casts;
 - common `/play` and `/cast` routes with common join/wait/activation flows;
 - deletion of `/tetris` and `/tetris-cast`.
+- shared `WriterLease` ownership, takeover, disconnect cleanup, and installation identity used by both controllers;
+- shared durable ordered outbox and retry implementation used for both controller journals and interactions;
+- shared readiness, successor-game reservation, and click-order-safe rematch transport used by both games;
+- shared cross-player interaction subscription and delivery primitives;
+- shared controller connection status, opponent list, result/readiness overlay, and cast player frame used by both games;
+- Tetris controller opponent replay, suspend/resume, takeover, and rematch parity.
 
-Still to consolidate:
-
-- extract the full controller session so lease, takeover, outbox, checkpoint, terminal, suspend/resume, and reconnect code has one implementation rather than two adapters containing orchestration;
-- extract readiness/rematch and cross-player interaction delivery into framework modules;
-- move remaining active-game controller/cast status, scoreboard, opponent, result, and control layouts into shared shells with board/stat slots;
-- parameterize common E2E journeys and centralize the Firebase Rules contract tests.
+The framework migration described by this audit is complete. Further work in this area is test-maintenance improvement rather than a runtime split: common E2E journeys can be parameterized further and Firebase Rules assertions can use more data-driven tables as new games are added.
 
 ## What is already shared
 
