@@ -1,10 +1,8 @@
-import {doc,serverTimestamp as firestoreTimestamp,updateDoc} from 'firebase/firestore';
 import {get,onChildAdded,onDisconnect,onValue,push,ref,runTransaction,serverTimestamp,set,type Unsubscribe} from 'firebase/database';
-import {auth,firestore,realtimeDatabase} from './config';import type{RoomPlayer}from'./rooms';
+import {auth,realtimeDatabase} from './config';
 import {advanceTetris,applyTetrisInput,createTetris,hashTetris,replayTetris,TETRIS_RULES,type TetrisInput,type TetrisRecord,type TetrisState}from'$lib/game/tetris';
 import type{PillMatchLifecycle}from'$lib/game/pill-bottle';
 import{FixedTickClock}from'$lib/runtime/fixed-tick-clock';
-import{startRealtimeGame}from'$lib/runtime/start-game';
 import{ReplayObserver}from'$lib/runtime/replay-observer';
 import{controllerStorageKey,loadStoredArray,saveStoredArray}from'$lib/runtime/local-store';
 import{deriveMatchLifecycle}from'$lib/runtime/lifecycle';
@@ -14,9 +12,6 @@ export interface TetrisControllerState{playerId?:string;tick:number;ready:boolea
 export interface TetrisProgress{playerId:string;tick:number;controllerTick?:number;lag?:number;state:TetrisState;hashMatches:boolean}
 function parseStart(value:any):TetrisStart{if(!value||value.rulesVersion!=='tetris/1'||value.ruleset!=='tetris'||!value.players)throw new Error('Invalid Tetris start record.');return value}
 function parseRecord(id:string,value:any):TetrisRecord{if(!value||value.playerId===undefined||!Number.isInteger(value.tick)||!Number.isInteger(value.clientSeq)||!['input/move','input/rotate','input/soft-drop-start','input/soft-drop-end','input/hard-drop','progress/tick'].includes(value.type))throw new Error('Invalid Tetris record.');return{commandId:id,...value}}
-export async function startTetrisGame(roomId:string,members:RoomPlayer[],hostMode:'player'|'display'){
- return startRealtimeGame({ruleset:'tetris',rulesVersion:'tetris/1',tickRate:TETRIS_RULES.tickRate,settings:{width:10,height:20,hiddenRows:2,matchRounds:1}},roomId,members,hostMode);
-}
 export function subscribeTetrisLifecycle(gameId:string,receive:(value:PillMatchLifecycle)=>void,fail:(e:Error)=>void){if(!realtimeDatabase)throw new Error('Firebase unavailable.');let ids:string[]=[],matchRounds=1,round=0;let terminals:Array<{playerId:string;result:'lost';tick:number}>=[];const publish=()=>{if(ids.length)receive(deriveMatchLifecycle(ids,terminals,[],round,matchRounds))};const stops:Unsubscribe[]=[];void get(ref(realtimeDatabase,`games/${gameId}/start`)).then(s=>{const start=parseStart(s.val());ids=Object.keys(start.players);matchRounds=start.settings.matchRounds;round=start.round;stops.push(onChildAdded(ref(realtimeDatabase!,`games/${gameId}/terminals`),snap=>{const v=snap.val();if(v?.result==='lost')terminals=[...terminals.filter(t=>t.playerId!==v.playerId),{playerId:v.playerId,result:'lost',tick:v.tick}];publish()},fail));publish()}).catch(e=>fail(e instanceof Error?e:new Error(String(e))));return()=>stops.forEach(stop=>stop())}
 export function createTetrisController(gameId:string,receive:(state:TetrisControllerState)=>void){if(!auth?.currentUser||!realtimeDatabase)throw new Error('Firebase unavailable.');const playerId=auth.currentUser.uid,epochId=crypto.randomUUID(),clock=new FixedTickClock(TETRIS_RULES.tickRate),storageKey=controllerStorageKey('tetris',gameId,playerId,'outbox');let state:TetrisState|undefined,tick=0,seq=0,ready=false,destroyed=false,frame=0,lastProgress=-1,lastCommand:string|undefined,audioOutput:'cast'|'controllers'|undefined,lifecycle:PillMatchLifecycle|undefined,flushing=false,retry:ReturnType<typeof setTimeout>|undefined;let outbox=loadStoredArray(localStorage,storageKey,value=>{if(!value||typeof value!=='object'||typeof(value as{commandId?:unknown}).commandId!=='string')throw new Error('Invalid Tetris outbox.');const{commandId,...record}=value as TetrisRecord;return parseRecord(commandId,record)});const publish=(error?:string)=>receive({playerId,tick,ready,state:state?structuredClone(state):undefined,lifecycle,audioOutput,error,lastCommand});const stopLife=subscribeTetrisLifecycle(gameId,next=>{lifecycle=next;if(next.finished)cancelAnimationFrame(frame);publish()},e=>publish(e.message));
  const saveOutbox=()=>saveStoredArray(localStorage,storageKey,outbox);
