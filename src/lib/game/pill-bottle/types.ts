@@ -20,6 +20,20 @@ export interface ActivePill {
   groundedAt?: number;
 }
 
+export interface RainPiece {
+  attackId: string;
+  item: number;
+  color: Color;
+  column: number;
+  row: number;
+}
+
+export interface QueuedRain {
+  attackId: string;
+  colors: Color[];
+  columns: number[];
+}
+
 export interface BottleState {
   rulesVersion: 'pill-bottle/3';
   tick: number;
@@ -37,6 +51,9 @@ export interface BottleState {
   chain: number;
   resolving: boolean;
   resolutionLineColors?: Color[];
+  pendingRain?: QueuedRain[];
+  fallingRain?: RainPiece[];
+  rainGravityCounter?: number;
 }
 
 export type PillInput =
@@ -93,4 +110,7 @@ export interface SerializedBottleState {
   chain: number;
   resolving: boolean;
   resolutionLineColors?: Color[];
+  pendingRain?: QueuedRain[];
+  fallingRain?: RainPiece[];
+  rainGravityCounter?: number;
 }
