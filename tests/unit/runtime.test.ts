@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { FixedTickClock } from '../../src/lib/runtime/fixed-tick-clock.ts';
 import { deriveMatchLifecycle } from '../../src/lib/runtime/lifecycle.ts';
+import { ReplayObserver, type ReplayAdapter } from '../../src/lib/runtime/replay-observer.ts';
 
 test('fixed tick clock follows elapsed time independently of render frequency', () => {
   const sixty = new FixedTickClock(60);
@@ -29,4 +30,26 @@ test('shared lifecycle parameterizes match length and survivor results', () => {
   const final = deriveMatchLifecycle(['a', 'b'], [{ playerId: 'a', result: 'lost', tick: 10 }], ['a', 'b'], 2, 3);
   assert.equal(final.matchComplete, true);
   assert.equal(final.allReady, true);
+});
+
+type FakeRecord={commandId:string;clientSeq:number;tick:number;type:'add'|'progress/tick';amount?:number;payload?:{phase:string;stateHash:string}};
+type FakeState={tick:number;value:number};
+const fakeAdapter:ReplayAdapter<FakeState,FakeRecord>={clone:(state)=>({...state}),tick:(state)=>state.tick,
+  advanceTo:(state,target)=>{state.tick=target},apply:(state,record)=>{state.value+=record.amount??0},
+  hash:(state)=>`${state.tick}:${state.value}`,phase:()=> 'playing',
+  progress:(record:FakeRecord)=>record.type==='progress/tick'?record.payload:undefined};
+
+test('shared observer queues sequence gaps and rewinds late records',()=>{
+  const observer=new ReplayObserver(fakeAdapter,{tick:0,value:0},10);
+  observer.receive({commandId:'b',clientSeq:2,tick:8,type:'add',amount:3});
+  assert.equal(observer.snapshot().state.value,0);
+  observer.receive({commandId:'a',clientSeq:1,tick:5,type:'add',amount:2});
+  assert.deepEqual(observer.snapshot().state,{tick:10,value:5});
+});
+
+test('shared observer rejects conflicting identities and verifies exact progress',()=>{
+  const observer=new ReplayObserver(fakeAdapter,{tick:0,value:0},5);
+  observer.receive({commandId:'a',clientSeq:1,tick:5,type:'progress/tick',payload:{phase:'playing',stateHash:'5:0'}});
+  assert.equal(observer.snapshot().hashMatches,true);
+  assert.throws(()=>observer.receive({commandId:'a',clientSeq:1,tick:5,type:'add',amount:1}),/Conflicting/);
 });
