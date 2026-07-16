@@ -1,8 +1,26 @@
 # Shared-Code Audit: Color Cure and Block Stack
 
-## Summary
+## Objective
 
-The Block Stack MVP reimplemented a second, simplified version of the multiplayer runtime already built for Color Cure. The two games should have separate deterministic engines and rules, but they should not have separate implementations of transport reliability, writer ownership, fixed-tick scheduling, replay observation, lifecycle plumbing, input-device handling, audio activation, or route scaffolding.
+DRM should have one common framework for real-time games, not a Color Cure application plus a parallel Block Stack application that happen to share Firebase. Color Cure and Block Stack should use the same session, match, controller, cast, transport, timing, replay, lag, input, audio, and presentation code. Their gameplay simulation, scoring policy, board rendering, terminology, and game-specific effects may vary through narrow adapters.
+
+There should not be separate controller or cast routes per game. `/play` should load the immutable start record, select the registered game adapter, and render the common controller experience. `/cast` should do the same for the common shared-display experience. `/tetris` and `/tetris-cast` are migration artifacts to delete.
+
+All supported real-time games have the same runtime shape:
+
+1. a controller owns a deterministic state and advances it from a fixed-rate clock driven by elapsed time sampled through `requestAnimationFrame`;
+2. the controller records immutable tick-tagged commands and periodic progress checkpoints;
+3. observers advance their own fixed-rate display clocks;
+4. records may be delayed, duplicated, reordered, or arrive behind the observer's display tick;
+5. observers use checkpoints plus rewind/replay to reconstruct the authoritative controller view;
+6. controller-versus-display progress yields lag and hash status through one common protocol;
+7. terminals, scores, rounds, readiness, and rematches advance through one parameterized match lifecycle.
+
+These properties belong to the framework. A new real-time game should not implement its own RAF loop, progress messages, lag calculation, replay observer, Firebase subscriptions, controller page, cast page, or rematch flow.
+
+## Current problem
+
+The Block Stack MVP reimplemented a second, simplified version of the multiplayer runtime already built for Color Cure. The two games correctly have separate deterministic engines and rules, but they should not have separate implementations of transport reliability, writer ownership, fixed-tick scheduling, replay observation, lifecycle plumbing, input-device handling, audio activation, or route scaffolding.
 
 This duplication is not merely cosmetic. The Tetris copies omit mature behavior from Color Cure: durable outboxes, checkpoints, sequence-gap handling, late-event rewind, elapsed-time cast ticks, takeover, reconnect recovery, rematches, opponent replay, and strict protocol parsing. Extracting shared code is therefore the fastest way to close many P0 items in `TETRIS_NEXT.md` without fixing the same infrastructure twice.
 
@@ -17,7 +35,39 @@ Keep and build on these existing boundaries:
 - global application styles and common lobby components;
 - immutable command/progress concepts and the `/games/{gameId}` RTDB shape.
 
-The problem is that sharing stops just before the largest and most failure-prone runtime code.
+The problem is that sharing stops just before the largest and most failure-prone runtime code. The goal is not merely to extract helpers from those copies. The goal is to remove the parallel game applications and make both rulesets clients of one framework.
+
+## Required framework boundary
+
+The framework owns the complete game experience:
+
+- one game registry keyed by immutable `ruleset` and `rulesVersion`;
+- one start-game coordinator and common start envelope;
+- one controller route and controller session implementation;
+- one cast route and multi-player display implementation;
+- one fixed-tick scheduler for controller and observer clocks;
+- one command/progress/terminal protocol envelope;
+- one durable journal, writer lease, outbox, checkpoint, and recovery path;
+- one checkpointed observer with late-record rewind/replay;
+- one definition and presentation of controller tick, display tick, lag, progress, and hash status;
+- one parameterized round/match lifecycle, including readiness and rematches;
+- one cross-player interaction delivery mechanism;
+- one semantic input layer across touch, keyboard, and gamepad;
+- one responsive controller layout and one responsive cast layout;
+- one audio host, connection/status UI, diagnostics model, and error experience;
+- one set of runtime contract, Firebase rules, and shared E2E tests.
+
+The game adapter supplies only behavior that genuinely differs:
+
+- deterministic state creation and tick advancement;
+- game command types and application;
+- local state serialization and hashing;
+- terminal-result detection;
+- round scoring and game-specific attack calculation/application;
+- board/preview rendering, per-player statistics, labels, and terminology;
+- selection of music and interpretation of game-specific replay events.
+
+Match length is framework configuration in the immutable start record, for example `match.rounds`, rather than bespoke lifecycle code. A scoring adapter calculates round points; the framework accumulates them, determines whether the configured number of rounds is complete, coordinates readiness, and presents standings consistently.
 
 ## High-priority shared extractions
 
@@ -38,7 +88,7 @@ Both functions:
 6. write an immutable RTDB start record;
 7. update the Firestore room to `active`.
 
-This should be one `startGame` coordinator receiving a ruleset adapter with `ruleset`, `rulesVersion`, `tickRate`, settings, and optional initial match metadata. Participant validation may remain adapter-supplied. The shared coordinator must own the two-database operation and consistent error handling.
+This should be one `startGame` coordinator receiving a registered game definition with `ruleset`, `rulesVersion`, `tickRate`, game settings, and parameterized match settings such as round count. Participant validation may remain adapter-supplied. The shared coordinator must own the two-database operation and consistent error handling.
 
 Benefit: future games cannot accidentally omit roster limits, audio routing, match IDs, room activation, or required start fields.
 
@@ -91,7 +141,7 @@ Extract a generic `ControllerJournal<State, Input, Phase>` or a composition of s
 
 Do not copy Color Cure's controller wholesale into another ruleset file. Move it, cover the generic runtime directly, then make both games consume it.
 
-### 4. Fixed-tick scheduler
+### 4. Fixed-tick scheduler, progress, and lag protocol
 
 Both Firebase files contain request-animation-frame loops with tick accumulators. The Color Cure version uses elapsed monotonic time; the original Tetris observer incremented once per display frame, which demonstrated the risk of duplication.
 
@@ -105,6 +155,18 @@ Extract a small scheduler that:
 - is testable with injected timestamps and no browser clock.
 
 The same scheduler should drive authoritative controllers and local cast display clocks. Game-over policy remains outside it.
+
+Progress and lag must be part of this same shared runtime contract. Every game publishes the same progress envelope containing player identity, writer epoch, sequence, controller tick, phase, and state hash. Every observer exposes the same display tick, latest controller tick, smoothed significant lag, and hash comparison. The framework should define:
+
+- progress publication cadence and the guarantee that later commands cannot target an earlier tick;
+- how a cast initializes and advances its local display clock;
+- how elapsed time is converted to ticks when RAF is throttled;
+- the sign and meaning of lag (`displayTick - controllerTick` or its explicitly selected inverse);
+- smoothing, update throttling, and the threshold before lag is shown;
+- behavior when a controller pauses, reconnects, or reports ahead of the observer;
+- hash comparison only at the exact reported tick.
+
+No game adapter should calculate lag, schedule progress, or define its own progress record shape.
 
 ### 5. Checkpointed observer and rewind/replay
 
@@ -155,13 +217,14 @@ Tetris currently imports `derivePillMatchLifecycle`, proving that this concern i
 - Firestore active-game update;
 - click-order-safe rematch startup.
 
-Move the neutral lifecycle model and survivor calculation to `src/lib/game/lifecycle.ts`, or a protocol/runtime package. Supply a ruleset policy for:
+Move the neutral lifecycle model and survivor calculation to the shared runtime. Match count is immutable framework configuration rather than a separate implementation per game. Supply a ruleset policy only for:
 
 - allowed terminal results (`lost` versus `cleared`/`lost`);
 - when a round ends;
 - score calculation;
-- number of rounds and match completion;
 - next-round settings/seed behavior.
+
+The framework accumulates returned round scores, advances the round index, compares it with the configured round count, coordinates readiness, links successor games, and presents match completion identically.
 
 Likewise, replace `requestPillBottleRematch` and `startPillBottleRematch` with generic readiness and successor-game functions parameterized by the start-record adapter.
 
@@ -207,7 +270,7 @@ Game-specific record validation should be injected. Attack payload storage can u
 - command-status feedback;
 - responsive positioning of board, D-pad, and rotation buttons.
 
-Create a shared controller route/component shell with slots or render components for the board, stats, opponents, and game-specific action buttons. More importantly, create one input-action layer that maps keyboard/touch/gamepad events to semantic actions:
+Replace the game-specific routes with one `/play` route backed by a shared controller component. It reads the room/start record, selects the game definition from the registry, creates the common controller session, and supplies adapter renderers for the board, stats, opponents, terminology, and genuinely game-specific action buttons. More importantly, create one input-action layer that maps keyboard/touch/gamepad events to semantic actions:
 
 - move left/right;
 - soft drop start/end;
@@ -216,13 +279,13 @@ Create a shared controller route/component shell with slots or render components
 
 The ruleset adapter maps semantic actions to its command type. Focus loss, `pointercancel`, visibility changes, gamepad disconnect, held-repeat timing, key-repeat suppression, and cleanup should be implemented once.
 
-The board components themselves should remain separate.
+The board components themselves should remain separate. Joining, waiting, connection state, ownership, recovery, match status, scoring layout, responsive controls, audio placement, and navigation must not vary merely because a different board renderer is mounted.
 
 ### 11. Cast route shell
 
 `src/routes/cast/+page.svelte` and `src/routes/tetris-cast/+page.svelte` repeat room lookup, roster subscription, progress/lifecycle subscription, player-name joining, board iteration, lost-player styling, score/stat display, errors, result overlay, and audio placement.
 
-Create one cast route that chooses a ruleset presentation adapter after parsing the immutable start record. Shared components should cover:
+Replace the game-specific routes with one `/cast` route that chooses a registered ruleset adapter after parsing the immutable start record. Shared components should cover:
 
 - loading/waiting/error shells;
 - room header and join invitation;
@@ -232,7 +295,7 @@ Create one cast route that chooses a ruleset presentation adapter after parsing 
 - scoreboard and result/rematch overlay;
 - audio-output mounting.
 
-The adapter supplies board rendering, per-player statistics, ruleset labels, score policy, and replay-derived effect signals. This would also eliminate the current redirect from `/cast` to `/tetris-cast`.
+The adapter supplies board rendering, per-player statistics, ruleset labels, scoring results, and replay-derived game-effect signals. The shared cast owns room loading, observers, clocks, progress/lag/hash status, player layout, standings, results, readiness, audio placement, and errors. Delete the redirect and `/tetris-cast` route after migration.
 
 ### 12. Opponent-board presentation
 
@@ -297,7 +360,7 @@ Sharing these would obscure rules or create a brittle universal engine:
 - board/state types and deterministic state-transition functions;
 - random setup: virus layout versus seven-bag pieces;
 - collision, rotation geometry, matching, line clearing, gravity, and lock rules;
-- score/attack calculation and round policy;
+- round-score and game-specific attack calculation;
 - terminal phase meanings beyond a shared envelope;
 - state serialization/hash implementation behind the adapter;
 - board, next/hold, bottle, virus, pill, tetromino, rain, and garbage rendering;
@@ -305,7 +368,7 @@ Sharing these would obscure rules or create a brittle universal engine:
 - selection of music tracks and interpretation of replay-derived cue events;
 - ruleset-specific protocol payloads and Firebase validation predicates.
 
-The desired abstraction is “shared deterministic multiplayer runtime with game adapters,” not “one engine with flags.”
+The desired abstraction is “one shared deterministic real-time game framework with game adapters,” not “one engine with flags” and not “two applications with shared utility functions.”
 
 ## Proposed module shape
 
@@ -313,6 +376,7 @@ One reasonable target is:
 
 ```text
 src/lib/runtime/
+  registry.ts           ruleset/version to adapter and renderers
   game-adapter.ts       engine/protocol boundary
   start-game.ts         immutable start + room activation
   fixed-tick-clock.ts   elapsed-time tick scheduling
@@ -339,6 +403,15 @@ src/lib/components/game/
 
 This is illustrative; cohesive smaller modules matter more than these exact filenames.
 
+At the route level, the target is only:
+
+```text
+src/routes/play/+page.svelte   common controller entry
+src/routes/cast/+page.svelte   common shared-display entry
+```
+
+Room configuration may offer different games, but once a game starts the routes discover behavior from the start record and registry. Adding another real-time game should require registering an adapter and renderers, not adding routes.
+
 ## Recommended migration order
 
 1. Write fake-adapter contract tests for clock, observer, sequence handling, outbox, and lease.
@@ -348,7 +421,7 @@ This is illustrative; cohesive smaller modules matter more than these exact file
 5. Extract writer lease, controller outbox/checkpoint, and terminal publication; migrate both controllers.
 6. Extract start-game, lifecycle/readiness/rematch, and interaction orchestration.
 7. Introduce semantic input handling and the shared audio host.
-8. Consolidate controller and cast shells after runtime behavior is shared and stable.
+8. Move both games onto the common `/play` controller and `/cast` display; delete `/tetris` and `/tetris-cast` after parity tests pass.
 9. Parameterize common E2E journeys and tighten cross-ruleset Firebase rules tests.
 10. Delete obsolete game-specific infrastructure only after replay fixtures and E2E screenshots prove parity.
 
@@ -357,6 +430,7 @@ This is illustrative; cohesive smaller modules matter more than these exact file
 - Preserve `pill-bottle/3` and `tetris/1` journal replay throughout extraction.
 - Prefer injected pure functions over ruleset conditionals inside the shared runtime.
 - Do not make the runtime know about pills, viruses, tetrominoes, rain, or garbage.
+- Do not permit ruleset adapters to own clocks, lag math, progress cadence, Firebase subscriptions, writer recovery, routes, or match orchestration.
 - Do not network checkpoints or state snapshots; shared checkpoints remain local caches.
 - Do not combine rules merely because their UI controls look alike.
 - Keep commits migration-sized and behavior-preserving; add features only after both adapters pass the shared contract suite.
