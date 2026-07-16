@@ -40,8 +40,9 @@ tick-tagged RTDB commands, deterministic replay/state hashes, three-round
 replay-derived scoring, next-level/rematch voting, and a shared canvas display
 reconstructed from commands. Clears of two or more match lines during one pill's full settling sequence generate immutable,
 replayable rain attacks against every remaining opponent. Controllers and the
-shared display show a replay-derived preview of the next pill. Rain lands above
-the highest occupied cell in each target column. Additional rulesets remain to
+shared display show a replay-derived preview of the next pill. Incoming rain is
+queued until the current pill finishes resolving, then falls from the top at one
+row per quarter second before the next pill spawns. Additional rulesets remain to
 be implemented.
 
 The player route accepts touch and keyboard controls plus standard browser
