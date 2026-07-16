@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { activeCells, HEIGHT, WIDTH, type BottleState, type Cell } from '$lib/game/pill-bottle';
+  import { activeCells, HEIGHT, nextPillColors, WIDTH, type BottleState, type Cell } from '$lib/game/pill-bottle';
 
   export let state: BottleState;
   let canvas: HTMLCanvasElement;
@@ -8,6 +8,7 @@
   let transition: 'clear' | 'lock' | 'finish' | 'rain' | '' = '';
   let observed = '';
   let transitionTimer: ReturnType<typeof setTimeout> | undefined;
+  $: preview = nextPillColors(state);
 
   const CELL = 10;
   const LEFT = 6;
@@ -106,10 +107,20 @@
   $: state, draw(), showReplayTransition();
 </script>
 
-<canvas bind:this={canvas} class="bottle" class:clear={transition==='clear'} class:lock={transition==='lock'} class:finish={transition==='finish'} class:rain={transition==='rain'} width="92" height="180" aria-label="Pill bottle" data-cell-count={WIDTH * HEIGHT} data-virus-count={state.viruses}></canvas>
+<div class="bottle-shell">
+  <div class="next-pill" aria-label={`Next pill: ${preview[0]} and ${preview[1]}`} aria-hidden={state.phase !== 'playing'}>
+    {#if state.phase === 'playing'}
+      <span class="preview-half left" style={`--preview-color:${palette[preview[0]]}`}></span><span class="preview-half right" style={`--preview-color:${palette[preview[1]]}`}></span>
+    {/if}
+  </div>
+  <canvas bind:this={canvas} class="bottle" class:clear={transition==='clear'} class:lock={transition==='lock'} class:finish={transition==='finish'} class:rain={transition==='rain'} width="92" height="180" aria-label="Pill bottle" data-cell-count={WIDTH * HEIGHT} data-virus-count={state.viruses} data-next-colors={preview.join(',')}></canvas>
+</div>
 
 <style>
-  .bottle { display:block; width:min(27vw,180px); height:auto; margin:auto; image-rendering:pixelated;transform-origin:50% 100% }
+  .bottle-shell{width:min(27vw,180px);margin:auto}.next-pill{height:clamp(18px,4vw,28px);display:flex;align-items:center;justify-content:center;margin-bottom:.15rem}
+  .preview-half{display:block;width:clamp(11px,2.4vw,18px);aspect-ratio:1;background:var(--preview-color);border:2px solid rgba(8,9,13,.8);box-shadow:inset 2px 2px rgba(255,255,255,.35),inset -2px -2px rgba(0,0,0,.28)}
+  .preview-half.left{border-radius:999px 0 0 999px;border-right-width:1px}.preview-half.right{border-radius:0 999px 999px 0;border-left-width:1px}
+  .bottle { display:block; width:100%; height:auto; image-rendering:pixelated;transform-origin:50% 100% }
   .bottle.clear{animation:clear-flash .42s ease-out}.bottle.lock{animation:lock-bump .18s ease-out}.bottle.finish{animation:finish-glow .42s ease-out}.bottle.rain{animation:rain-shake .42s ease-out}
   @keyframes clear-flash{35%{filter:brightness(2) drop-shadow(0 0 15px var(--yellow));transform:scale(1.025)}}
   @keyframes lock-bump{45%{transform:translateY(2px)}}

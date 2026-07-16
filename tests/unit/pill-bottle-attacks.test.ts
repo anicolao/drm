@@ -60,3 +60,24 @@ test('a replayed rain record places isolated garbage deterministically', () => {
   assert.deepEqual(garbage.map((cell) => cell!.color).sort(), ['cyan', 'pink', 'yellow']);
   assert.equal(garbage.length, 3);
 });
+
+test('rain lands above the highest occupied cell rather than in a lower gap', () => {
+  const state = createBottle(789, 0, 1);
+  state.board = Array(WIDTH * HEIGHT).fill(null);
+  state.active = null;
+  state.viruses = 1;
+  state.board[8 * WIDTH + 2] = { kind: 'virus', color: 'pink', id: 'v0' };
+  applyInput(state, { type: 'attack/rain', payload: { attackId: 'gap', colors: ['cyan', 'yellow'], columns: [2, 4] } });
+  assert.equal(state.board[7 * WIDTH + 2]?.id, 'ggap-0x');
+  assert.equal(state.board[(HEIGHT - 1) * WIDTH + 4]?.id, 'ggap-1x');
+});
+
+test('rain tops out when the highest occupied cell has no space above it', () => {
+  const state = createBottle(790, 0, 1);
+  state.board = Array(WIDTH * HEIGHT).fill(null);
+  state.active = null;
+  state.viruses = 1;
+  state.board[3] = { kind: 'virus', color: 'pink', id: 'v0' };
+  applyInput(state, { type: 'attack/rain', payload: { attackId: 'top', colors: ['cyan'], columns: [3] } });
+  assert.equal(state.phase, 'lost');
+});

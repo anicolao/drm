@@ -7,6 +7,7 @@ import {
   createBottle,
   deserializeBottle,
   hashState,
+  nextPillColors,
   PillBottleObserver,
   PILL_BOTTLE_SETTINGS,
   replayCommands,
@@ -33,6 +34,17 @@ test('pill-bottle/3 has a stable seeded layout and capsule fixture', () => {
 
 test('pill-bottle/3 deliberately gives every seat the same deterministic stream', () => {
   assert.equal(hashState(createBottle(123456789, 0)), hashState(createBottle(123456789, 3)));
+});
+
+test('next-pill preview matches the next spawn without advancing authoritative RNG', () => {
+  const state = createBottle(2468);
+  state.board = Array(state.board.length).fill(null);
+  state.viruses = 1;
+  const rng = state.rng;
+  const preview = nextPillColors(state);
+  assert.equal(state.rng, rng);
+  applyInput(state, { type: 'input/hard-drop', payload: {} });
+  assert.deepEqual(state.active?.colors, preview);
 });
 
 test('command replay matches live stepping and orders a shared tick by client sequence', () => {
