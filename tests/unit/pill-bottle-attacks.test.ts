@@ -109,7 +109,7 @@ test('queued and falling rain survive local checkpoint serialization', () => {
   assert.doesNotThrow(() => deserializeBottle(serializeBottle(state)));
 });
 
-test('landed rain does not resolve matches before the next pill', () => {
+test('landed rain resolves matches but never generates a rain attack', () => {
   const state = createBottle(792, 0, 1);
   state.board = Array(WIDTH * HEIGHT).fill(null);
   state.viruses = 1;
@@ -119,9 +119,10 @@ test('landed rain does not resolve matches before the next pill', () => {
   state.active = { id: 50, row: 1, col: 6, orientation: 0, colors: ['pink', 'yellow'] };
   applyInput(state, { type: 'attack/rain', payload: { attackId: 'no-clear', colors: ['cyan', 'pink'], columns: [3, 5] } });
   applyInput(state, { type: 'input/hard-drop', payload: {} });
-  while (state.fallingRain) advanceTick(state);
-  assert.deepEqual([0, 1, 2, 3].map((column) => state.board[(HEIGHT - 1) * WIDTH + column]?.color),
-    ['cyan', 'cyan', 'cyan', 'cyan']);
+  const events: PillClearEvent[] = [];
+  while (state.fallingRain || state.resolving) events.push(...advanceTick(state));
+  assert.deepEqual([0, 1, 2, 3].map((column) => state.board[(HEIGHT - 1) * WIDTH + column]),
+    [null, null, null, null]);
   assert.ok(state.active);
-  assert.equal(state.resolving, false);
+  assert.deepEqual(events, []);
 });

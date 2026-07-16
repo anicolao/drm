@@ -114,7 +114,7 @@
       <span class="preview-half left" style={`--preview-color:${palette[preview[0]]}`}></span><span class="preview-half right" style={`--preview-color:${palette[preview[1]]}`}></span>
     {/if}
   </div>
-  <canvas bind:this={canvas} class="bottle" class:clear={transition==='clear'} class:lock={transition==='lock'} class:finish={transition==='finish'} class:rain={transition==='rain'} width="92" height="180" aria-label="Pill bottle" data-cell-count={WIDTH * HEIGHT} data-virus-count={state.viruses} data-next-colors={preview.join(',')}></canvas>
+  <canvas bind:this={canvas} class="bottle" class:clear={transition==='clear'} class:lock={transition==='lock'} class:finish={transition==='finish'} class:rain={transition==='rain'} width="92" height="180" aria-label="Pill bottle" data-cell-count={WIDTH * HEIGHT} data-virus-count={state.viruses} data-next-colors={preview.join(',')} data-active-pill={state.active ? 'true' : 'false'} data-pending-rain-count={state.pendingRain?.length ?? 0} data-rain-rows={state.fallingRain?.map(piece => piece.row).join(',') ?? ''} data-garbage-count={state.board.filter(cell => cell?.id.startsWith('g')).length}></canvas>
 </div>
 
 <style>
