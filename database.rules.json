@@ -96,6 +96,13 @@
                 "$other": { ".validate": false }
               }
             },
+            "writer": {
+              ".write": "auth != null && auth.uid == $playerId && root.child('games/'+$gameId+'/start/players/'+$playerId).exists()",
+              ".validate": "newData.hasChildren(['epochId','clientId']) && newData.child('epochId').isString() && newData.child('epochId').val().length <= 128 && newData.child('clientId').isString() && newData.child('clientId').val().length <= 128",
+              "epochId": { ".validate": true },
+              "clientId": { ".validate": true },
+              "$other": { ".validate": false }
+            },
             "progress": {
               ".write": "auth != null && auth.uid == $playerId && root.child('games/'+$gameId+'/start/players/'+$playerId).exists() && root.child('games/'+$gameId+'/players/'+$playerId+'/epochs/'+newData.child('epochId').val()).exists()",
               ".validate": "newData.hasChildren(['epochId','tick','lastClientSeq','stateHash','phase','serverTime']) && newData.child('epochId').isString() && newData.child('epochId').val().length <= 128 && newData.child('tick').isNumber() && newData.child('tick').val() % 1 == 0 && newData.child('tick').val() >= 0 && newData.child('tick').val() <= 1000000000 && newData.child('lastClientSeq').isNumber() && newData.child('lastClientSeq').val() % 1 == 0 && newData.child('lastClientSeq').val() >= 0 && newData.child('stateHash').isString() && newData.child('stateHash').val().matches(/^pb[23]-[0-9a-f]{8}$/) && (newData.child('phase').val() == 'playing' || newData.child('phase').val() == 'countdown' || newData.child('phase').val() == 'won' || newData.child('phase').val() == 'lost') && newData.child('serverTime').isNumber()",

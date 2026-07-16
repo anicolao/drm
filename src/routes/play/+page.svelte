@@ -109,7 +109,7 @@
 
 <div class="controller-shell"><nav><Logo compact/><span>{code||'NO ROOM'}</span></nav>
 {#if needsName}<main class="join"><form class="card" on:submit|preventDefault={saveAndJoin}><p class="eyebrow">Joining room {code}</p><h1>WHAT SHOULD PLAYERS CALL YOU?</h1><label>Player name<input aria-label="Player name" maxlength="24" autocomplete="nickname" bind:value={playerName}/></label><button disabled={joining}>{joining?'Joining…':'Join room'}</button></form>{#if error}<p role="alert">{error}</p>{/if}</main>
-{:else if error}<main class="join"><p class="eyebrow">Controller error</p><h1>{error}</h1></main>
+{:else if error}<main class="join"><p class="eyebrow">Controller error</p><h1>{error}</h1>{#if state.ownershipConflict}<button on:click={()=>controller?.takeOver()}>Take over on this device</button>{/if}</main>
 {:else if !joined}<main class="join"><p class="eyebrow">Joining room…</p></main>
 {:else if !activeGameId}<main class="join"><p class="eyebrow">Joined room {code}</p><h1>WAITING FOR HOST</h1><p role="status">You are in. Keep this screen open; controls appear when the host starts Color Cure.</p><div class="control-guide compact"><span>← → MOVE</span><span>↓ SOFT DROP</span><span>↑ HARD DROP</span><span>A / R ↻</span><span>B / T ↺</span></div></main>
 {:else}<main class="landscape-controller" aria-label="Pill Bottle controller"><GameAudio state={state.bottle} enabled={state.audioOutput==='controllers'} rainSignal={state.rainSignal??0}/>
