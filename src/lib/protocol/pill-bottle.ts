@@ -9,6 +9,7 @@ import {
   type PillRainInput,
   type ReplayCommand
 } from '../game/pill-bottle.ts';
+import{hasOnlyKeys,isInteger,isObject,isServerTime,isString}from'./game.ts';
 
 export interface PillStartRecord {
   type: 'game/started';
@@ -81,13 +82,6 @@ export interface PillAttackInteractionRecord {
   colors: Array<'cyan' | 'pink' | 'yellow'>;
   serverTime: number;
 }
-
-const isObject = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-const hasOnlyKeys = (value: Record<string, unknown>, keys: readonly string[]) => Object.keys(value).every((key) => keys.includes(key));
-const isInteger = (value: unknown, minimum = 0, maximum = 1_000_000_000) =>
-  Number.isInteger(value) && (value as number) >= minimum && (value as number) <= maximum;
-const isString = (value: unknown, maximum = 128) => typeof value === 'string' && value.length > 0 && value.length <= maximum;
-const isServerTime = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value >= 0;
 
 function parseInput(type: unknown, payload: unknown): PillInput {
   const value = isObject(payload) ? payload : {};

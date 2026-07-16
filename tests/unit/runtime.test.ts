@@ -5,6 +5,7 @@ import { deriveMatchLifecycle } from '../../src/lib/runtime/lifecycle.ts';
 import { ReplayObserver, type ReplayAdapter } from '../../src/lib/runtime/replay-observer.ts';
 import { controllerStorageKey,loadStoredArray,loadStoredValue,saveStoredArray,saveStoredValue } from '../../src/lib/runtime/local-store.ts';
 import { commandForGamepadAction,commandForKey } from '../../src/lib/runtime/core-input.ts';
+import { parseTetrisRecord } from '../../src/lib/protocol/tetris.ts';
 
 test('fixed tick clock follows elapsed time independently of render frequency', () => {
   const sixty = new FixedTickClock(60);
@@ -68,4 +69,11 @@ test('shared semantic input maps keyboard and gamepad identically for every game
   assert.deepEqual(commandForGamepadAction('move-left'),commandForKey({key:'ArrowLeft',repeat:false}));
   assert.deepEqual(commandForGamepadAction('rotate-clockwise'),commandForKey({key:'r',repeat:false}));
   assert.equal(commandForKey({key:'ArrowUp',repeat:true}),undefined);
+});
+
+test('shared controller envelope rejects malformed Tetris records',()=>{
+  const record=parseTetrisRecord('id',{type:'input/move',playerId:'p',epochId:'e',clientSeq:1,tick:2,payload:{dx:-1},serverTime:3});
+  assert.equal(record.type,'input/move');
+  assert.throws(()=>parseTetrisRecord('id',{type:'input/move',playerId:'p',epochId:'e',clientSeq:1,tick:2,payload:{dx:0},serverTime:3}),/payload/);
+  assert.throws(()=>parseTetrisRecord('id',{type:'progress/tick',playerId:'p',epochId:'e',clientSeq:1,tick:2,payload:{phase:'playing',stateHash:'bad'},serverTime:3}),/payload/);
 });
