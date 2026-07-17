@@ -1,5 +1,8 @@
 # drm
 
+[![CI](https://github.com/anicolao/drm/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/anicolao/drm/actions/workflows/ci.yml)
+[![Deploy to GitHub Pages](https://github.com/anicolao/drm/actions/workflows/deploy.yml/badge.svg?branch=main)](https://github.com/anicolao/drm/actions/workflows/deploy.yml)
+
 `drm` is a multiplayer falling-block game for a room full of people. A game can
 use either Tetris-style rules or Dr. Mario-style rules and can be played in two
 ways:
