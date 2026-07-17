@@ -11,18 +11,18 @@
   import type { TetrisInput } from '$lib/game/tetris';
   import { HeldActionRepeater } from '$lib/input/held-repeat';
   import { StandardGamepadControls,type GamepadControlAction } from '$lib/input/gamepad';
-  import { commandForGamepadAction,commandForKey } from '$lib/runtime/core-input';
+  import { commandForGamepadAction,commandForKey,HeldInputGate } from '$lib/runtime/core-input';
   let code='',name='',needsName=false,error='',gameId='',online=true,gamepadName='';
   let controller:ReturnType<typeof createTetrisController>|undefined,state:TetrisControllerState={tick:0,ready:false},stopRoom=()=>{},gamepadFrame=0;
-  const gamepad=new StandardGamepadControls(),repeat=new HeldActionRepeater<-1|1>(dx=>send({type:'input/move',payload:{dx}}));
+  const gamepad=new StandardGamepadControls(),repeat=new HeldActionRepeater<-1|1>(dx=>send({type:'input/move',payload:{dx}})),hardDropKeys=new HeldInputGate<string>();
   $: enabled=Boolean(state.ready&&state.state?.phase==='playing'&&!state.lifecycle?.finished);
   onMount(()=>{online=navigator.onLine;void init();gamepadFrame=requestAnimationFrame(poll);
-    const kd=(e:KeyboardEvent)=>{const command=commandForKey(e);if(command){e.preventDefault();send(command)}};
-    const ku=(e:KeyboardEvent)=>{if(e.key==='ArrowDown')send({type:'input/soft-drop-end',payload:{}})};
+    const kd=(e:KeyboardEvent)=>{if(e.key==='ArrowUp'&&!hardDropKeys.press(e.key)){e.preventDefault();return}const command=commandForKey(e);if(command){e.preventDefault();send(command)}};
+    const ku=(e:KeyboardEvent)=>{if(e.key==='ArrowUp')hardDropKeys.release(e.key);if(e.key==='ArrowDown')send({type:'input/soft-drop-end',payload:{}})};
     const network=()=>online=navigator.onLine;
-    const visibility=()=>document.hidden?controller?.suspend():controller?.resume();
-    window.addEventListener('keydown',kd);window.addEventListener('keyup',ku);window.addEventListener('online',network);window.addEventListener('offline',network);document.addEventListener('visibilitychange',visibility);
-    return()=>{cancelAnimationFrame(gamepadFrame);stopRoom();controller?.destroy();window.removeEventListener('keydown',kd);window.removeEventListener('keyup',ku);window.removeEventListener('online',network);window.removeEventListener('offline',network);document.removeEventListener('visibilitychange',visibility)}
+    const release=()=>hardDropKeys.reset(),visibility=()=>{if(document.hidden){release();controller?.suspend()}else controller?.resume()};
+    window.addEventListener('blur',release);window.addEventListener('keydown',kd);window.addEventListener('keyup',ku);window.addEventListener('online',network);window.addEventListener('offline',network);document.addEventListener('visibilitychange',visibility);
+    return()=>{cancelAnimationFrame(gamepadFrame);stopRoom();controller?.destroy();window.removeEventListener('blur',release);window.removeEventListener('keydown',kd);window.removeEventListener('keyup',ku);window.removeEventListener('online',network);window.removeEventListener('offline',network);document.removeEventListener('visibilitychange',visibility)}
   });
   async function init(){code=new URL(location.href).searchParams.get('code')?.toUpperCase()??'';if(!firebaseConfigured){error='Firebase configuration is required.';return}name=localStorage.getItem('drm-player-name')??'';if(!name){needsName=true;return}await join()}
   async function join(){try{const room=await joinRoom(code,name);if(room.activeGameId)start(room.activeGameId);stopRoom=subscribeRoom(room.id,next=>{if(next.activeGameId)start(next.activeGameId)},e=>error=e.message)}catch(e){error=e instanceof Error?e.message:String(e)}}

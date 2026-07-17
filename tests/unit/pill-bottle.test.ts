@@ -15,6 +15,15 @@ function activeBoard(orientation: 0|1|2|3 = 0): BottleState {
 const pill = (id: string): Cell => ({ kind: 'pill', color: 'cyan', id });
 const virus = (id: string): Cell => ({ kind: 'virus', color: 'pink', id });
 
+test('a newly spawned pill requires a fresh soft-drop press',()=>{
+  const state=activeBoard();
+  applyInput(state,{type:'input/soft-drop-start',payload:{}});
+  assert.equal(state.softDrop,true);
+  applyInput(state,{type:'input/hard-drop',payload:{}});
+  assert.ok(state.active);
+  assert.equal(state.softDrop,false);
+});
+
 test('a supported half keeps its surviving joined partner from falling', () => {
   const state = settlingBoard([[5,2,pill('p10')],[5,3,pill('p11')],[6,2,virus('v0')]]);
   advanceTick(state);

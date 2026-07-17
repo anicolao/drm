@@ -7,6 +7,13 @@ export type RealtimeGameInput =
   | {type:'input/soft-drop-end';payload:Record<string,never>}
   | {type:'input/hard-drop';payload:Record<string,never>};
 
+export class HeldInputGate<Key=string>{
+  private held=new Set<Key>();
+  press(key:Key){if(this.held.has(key))return false;this.held.add(key);return true}
+  release(key:Key){this.held.delete(key)}
+  reset(){this.held.clear()}
+}
+
 export function commandForGamepadAction(action:GamepadControlAction):RealtimeGameInput{
   if(action==='move-left')return{type:'input/move',payload:{dx:-1}};
   if(action==='move-right')return{type:'input/move',payload:{dx:1}};
