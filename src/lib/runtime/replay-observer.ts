@@ -12,6 +12,7 @@ export interface ReplayAdapter<State, Record extends ReplayRecord> {
   apply(state: State, record: Record): void;
   hash(state: State): string;
   phase(state: State): string;
+  terminal?(state: State): boolean;
   progress(record: Record): { stateHash: string; phase: string } | undefined;
 }
 
@@ -77,7 +78,15 @@ export class ReplayObserver<State, Record extends ReplayRecord> {
       if (record.tick < this.checkpoint.tick) throw new Error('Controller record tick precedes its checkpoint.');
       const corrected = this.adapter.clone(this.checkpoint.state);
       this.adapter.advanceTo(corrected, record.tick);
-      if (this.adapter.tick(corrected) !== record.tick) throw new Error('Controller record extends beyond a terminal game state.');
+      if (this.adapter.tick(corrected) !== record.tick) {
+        if (!this.adapter.terminal?.(corrected)) throw new Error('Controller record could not reach its declared tick.');
+        const progress = this.adapter.progress(record);
+        if (progress) { this.reportedStateHash = progress.stateHash; this.hashMatches = false; }
+        this.checkpoint = {clientSeq:record.clientSeq,tick:this.adapter.tick(corrected),state:this.adapter.clone(corrected)};
+        this.pending.delete(record.clientSeq);
+        this.state = corrected;
+        continue;
+      }
       const progress = this.adapter.progress(record);
       if (progress) {
         this.reportedStateHash = progress.stateHash;

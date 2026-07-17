@@ -26,7 +26,7 @@ export function advanceToTick(state: BottleState, targetTick: number, commands: 
     if (state.tick === targetTick) break;
     const previousTick = state.tick;
     advanceTick(state);
-    if (state.tick === previousTick) throw new Error('Target tick extends beyond a terminal bottle state.');
+    if (state.tick === previousTick) break;
   }
   return state;
 }

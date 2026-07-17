@@ -80,10 +80,12 @@ test('serialized state is local-cache data with strict version validation', () =
   assert.throws(() => deserializeBottle({ ...serialized, rulesVersion: 'pill-bottle/2' }), /Invalid serialized bottle state/);
 });
 
-test('replay rejects a progress tick beyond a terminal state instead of hanging', () => {
+test('replay clamps a target tick beyond an absorbing terminal state', () => {
   const terminal = createBottle(42, 0);
   terminal.phase = 'lost';
-  assert.throws(() => advanceToTick(terminal, 1, []), /beyond a terminal bottle state/);
+  advanceToTick(terminal, 1, []);
+  assert.equal(terminal.tick, 0);
+  assert.equal(terminal.phase, 'lost');
 });
 
 test('runtime protocol validation accepts only the frozen start definition', () => {

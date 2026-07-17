@@ -58,6 +58,23 @@ test('shared observer rejects conflicting identities and verifies exact progress
   assert.throws(()=>observer.receive({commandId:'a',clientSeq:1,tick:5,type:'add',amount:1}),/Conflicting/);
 });
 
+test('shared observer consumes stale journal tails after an absorbing terminal state',()=>{
+  type TerminalState={tick:number;value:number;lost:boolean};
+  const adapter:ReplayAdapter<TerminalState,FakeRecord>={
+    clone:state=>({...state}),tick:state=>state.tick,
+    advanceTo:(state,target)=>{if(!state.lost)state.tick=target},
+    apply:(state,record)=>{state.value+=record.amount??0;state.lost=true},
+    hash:state=>`${state.tick}:${state.value}`,phase:state=>state.lost?'lost':'playing',terminal:state=>state.lost,
+    progress:record=>record.type==='progress/tick'?record.payload:undefined
+  };
+  const observer=new ReplayObserver(adapter,{tick:0,value:0,lost:false},10);
+  observer.receive({commandId:'terminal',clientSeq:1,tick:5,type:'add',amount:1});
+  observer.receive({commandId:'stale-progress',clientSeq:2,tick:8,type:'progress/tick',payload:{phase:'playing',stateHash:'8:0'}});
+  const snapshot=observer.snapshot();
+  assert.deepEqual(snapshot.state,{tick:5,value:1,lost:true});
+  assert.equal(snapshot.hashMatches,false);
+});
+
 test('shared local storage safely versions controller data',()=>{
   const values=new Map<string,string>(),storage={getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value)},removeItem:(key:string)=>{values.delete(key)}};
   const key=controllerStorageKey('tetris','g','p','outbox');saveStoredArray(storage,key,[{id:'a'}]);

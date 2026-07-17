@@ -10,7 +10,7 @@ function advanceTo(state:BottleState,targetTick:number){while(state.tick<targetT
 export class PillBottleObserver extends ReplayObserver<BottleState,ControllerRecord>{
   constructor(initialState:BottleState,displayTick=0){super({
     clone:(state)=>deserializeBottle(serializeBottle(state)),tick:(state)=>state.tick,advanceTo,
-    apply:(state,record)=>{if(record.type!=='progress/tick')applyInput(state,record)},hash:hashState,phase:(state)=>state.phase,
+    apply:(state,record)=>{if(record.type!=='progress/tick')applyInput(state,record)},hash:hashState,phase:(state)=>state.phase,terminal:(state)=>state.phase==='lost',
     progress:(record)=>record.type==='progress/tick'?record.payload:undefined
   },initialState,displayTick)}
 }
