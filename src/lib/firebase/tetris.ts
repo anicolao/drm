@@ -33,7 +33,7 @@ export function subscribeTetrisProgress(gameId:string,receive:(p:TetrisProgress[
  const clock=new FixedTickClock(TETRIS_RULES.tickRate),histories=new Map<string,TetrisRecord[]>(),observers=new Map<string,ReplayObserver<TetrisState,TetrisRecord>>(),stops:Unsubscribe[]=[];
  const adapter={clone:(state:TetrisState)=>structuredClone(state),tick:(state:TetrisState)=>state.tick,
   advanceTo:(state:TetrisState,target:number)=>{while(state.tick<target&&state.phase==='playing')advanceTetris(state)},
-  apply:(state:TetrisState,record:TetrisRecord)=>{if(record.type!=='progress/tick')applyTetrisInput(state,record)},hash:hashTetris,phase:(state:TetrisState)=>state.phase,
+  apply:(state:TetrisState,record:TetrisRecord)=>{if(record.type!=='progress/tick')applyTetrisInput(state,record)},hash:hashTetris,phase:(state:TetrisState)=>state.phase,terminal:(state:TetrisState)=>state.phase==='lost',
   progress:(record:TetrisRecord)=>record.type==='progress/tick'?record.payload:undefined};
  const publish=()=>receive([...observers].map(([playerId,observer])=>{const snapshot=observer.snapshot();return{playerId,tick:snapshot.displayTick,controllerTick:snapshot.controllerTick,lag:snapshot.lag,state:snapshot.state,hashMatches:snapshot.hashMatches}}));
  void get(ref(realtimeDatabase,`games/${gameId}/start`)).then(async snap=>{start=parseStart(snap.val());let initialDisplayTick=0;
