@@ -13,5 +13,5 @@ export default defineConfig({
     url: 'http://localhost:5176', reuseExistingServer: false, timeout: 120000,
     env: { VITE_FIREBASE_API_KEY:'e2e-api-key',VITE_FIREBASE_AUTH_DOMAIN:'drm-e2e.firebaseapp.com',VITE_FIREBASE_DATABASE_URL:'http://127.0.0.1:9000?ns=drm-e2e',VITE_FIREBASE_PROJECT_ID:'drm-e2e',VITE_FIREBASE_APP_ID:'1:123:web:e2e',VITE_USE_FIREBASE_EMULATORS:'true',VITE_E2E_ROOM_CODE:'TEST',VITE_E2E_GAME_SEED:'123456789',COMMIT_HASH:'e2e-test-commit' }
   },
-  timeout: 60000, expect: { timeout: 2000, toHaveScreenshot: { maxDiffPixels: 100, animations: 'disabled' } }
+  timeout: 60000, expect: { timeout: 2000, toHaveScreenshot: { maxDiffPixels: 0, animations: 'disabled' } }
 });
