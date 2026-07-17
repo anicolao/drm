@@ -30,14 +30,23 @@ test('US-005: Block Stack starts a deterministic playable controller',async({bro
   await expect(board.locator('.filled')).not.toHaveCount(0);
   const spawnRow=await board.getAttribute('data-active-row');
   await expect.poll(()=>board.getAttribute('data-active-row'),{timeout:3000}).not.toBe(spawnRow);
-  await page.keyboard.press('r');await page.keyboard.press('ArrowLeft');await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('r');await page.keyboard.press('ArrowLeft');
+  const beforeDrop=await board.getAttribute('data-active-id');
+  await page.keyboard.down('ArrowUp');
+  await expect.poll(()=>board.getAttribute('data-active-id')).not.toBe(beforeDrop);
+  const afterHeldDrop=await board.getAttribute('data-active-id');
+  await page.waitForTimeout(350);
+  expect(await board.getAttribute('data-active-id')).toBe(afterHeldDrop);
+  await page.keyboard.up('ArrowUp');await page.keyboard.press('ArrowUp');
+  await expect.poll(()=>board.getAttribute('data-active-id')).not.toBe(afterHeldDrop);
   await expect(page.getByText(/input\/hard-drop · tick/)).toBeVisible({timeout:10000});
   await page.locator('.command-status').evaluate((element:HTMLElement)=>{element.style.visibility='hidden'});
   await tester.step('tetris-playing',{description:'Block Stack runs from a seeded immutable command journal with a compact in-viewport opponent board',networkStatus:'skip',verifications:[
     {spec:'The 10 by 20 play matrix is visible and gravity moves its active piece',check:async()=>{await expect(board.locator('i')).toHaveCount(200);await expect(board.locator('.filled')).not.toHaveCount(0)}},
     {spec:'The compact opponent board is fully contained by the controller viewport',check:async()=>{const box=await opponent.boundingBox();expect(box).not.toBeNull();expect(box!.x).toBeGreaterThanOrEqual(0);expect(box!.y).toBeGreaterThanOrEqual(0);expect(box!.x+box!.width).toBeLessThanOrEqual(393);expect(box!.y+box!.height).toBeLessThanOrEqual(852)}},
     {spec:'Next queue and ghost placement are rendered locally',check:async()=>{await expect(page.getByLabel(/Next pieces/)).toBeVisible();await expect(board.locator('.ghost')).toHaveCount(4)}},
-    {spec:'Movement, hard drop, and both SRS rotations are available',check:async()=>{await expect(page.getByRole('button',{name:'Move left'})).toBeEnabled();await expect(page.getByRole('button',{name:'Hard drop'})).toBeEnabled();await expect(page.getByRole('button',{name:'Rotate clockwise'})).toBeEnabled();await expect(page.getByRole('button',{name:'Rotate counterclockwise'})).toBeEnabled()}},
+    {spec:'Holding hard drop affects only one piece and a fresh press drops the next',check:async()=>{expect(await board.getAttribute('data-active-id')).not.toBe(afterHeldDrop);await expect(page.getByRole('button',{name:'Hard drop'})).toBeEnabled()}},
+    {spec:'Movement and both SRS rotations are available',check:async()=>{await expect(page.getByRole('button',{name:'Move left'})).toBeEnabled();await expect(page.getByRole('button',{name:'Rotate clockwise'})).toBeEnabled();await expect(page.getByRole('button',{name:'Rotate counterclockwise'})).toBeEnabled()}},
     {spec:'Score and line count start from deterministic state',check:async()=>{await expect(board).toHaveAttribute('data-lines','0');await expect(board).toHaveAttribute('data-score',/\d+/)}}
   ]});
   tester.generateDocs();await opponentContext.close();

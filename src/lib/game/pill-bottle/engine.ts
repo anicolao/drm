@@ -57,6 +57,7 @@ function hasMatch(board: Array<Cell | null>) {
 }
 
 function spawn(state: BottleState) {
+  state.softDrop = false;
   const pill: ActivePill = {
     id: state.nextId++,
     row: PILL_BOTTLE_RULES.spawn.row,

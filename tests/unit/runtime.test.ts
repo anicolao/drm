@@ -4,7 +4,7 @@ import { FixedTickClock } from '../../src/lib/runtime/fixed-tick-clock.ts';
 import { deriveMatchLifecycle } from '../../src/lib/runtime/lifecycle.ts';
 import { ReplayObserver, type ReplayAdapter } from '../../src/lib/runtime/replay-observer.ts';
 import { controllerStorageKey,loadStoredArray,loadStoredValue,saveStoredArray,saveStoredValue } from '../../src/lib/runtime/local-store.ts';
-import { commandForGamepadAction,commandForKey } from '../../src/lib/runtime/core-input.ts';
+import { commandForGamepadAction,commandForKey,HeldInputGate } from '../../src/lib/runtime/core-input.ts';
 import { parseTetrisRecord } from '../../src/lib/protocol/tetris.ts';
 import { DurableOutbox } from '../../src/lib/runtime/durable-outbox.ts';
 
@@ -87,6 +87,16 @@ test('shared semantic input maps keyboard and gamepad identically for every game
   assert.deepEqual(commandForGamepadAction('move-left'),commandForKey({key:'ArrowLeft',repeat:false}));
   assert.deepEqual(commandForGamepadAction('rotate-clockwise'),commandForKey({key:'r',repeat:false}));
   assert.equal(commandForKey({key:'ArrowUp',repeat:true}),undefined);
+});
+
+test('held input gate requires a release before another one-shot action',()=>{
+  const gate=new HeldInputGate<string>();
+  assert.equal(gate.press('hard-drop'),true);
+  assert.equal(gate.press('hard-drop'),false);
+  gate.release('hard-drop');
+  assert.equal(gate.press('hard-drop'),true);
+  gate.reset();
+  assert.equal(gate.press('hard-drop'),true);
 });
 
 test('shared controller envelope rejects malformed Tetris records',()=>{

@@ -13,13 +13,14 @@
   import OpponentList from './OpponentList.svelte';
   import { StandardGamepadControls, type GamepadControlAction } from '$lib/input/gamepad';
   import { HeldActionRepeater } from '$lib/input/held-repeat';
-  import { commandForGamepadAction,commandForKey } from '$lib/runtime/core-input';
+  import { commandForGamepadAction,commandForKey,HeldInputGate } from '$lib/runtime/core-input';
 
   let code=''; let joined=false; let joining=false; let needsName=false; let playerName=''; let error='';
   let roomId=''; let activeGameId=''; let controller: ReturnType<typeof createPillBottleController> | undefined;
   let roomUnsubscribe=()=>{}; let playersUnsubscribe=()=>{}; let players:RoomPlayer[]=[]; let state: ControllerState={tick:0,ready:false}; let downHeld=false;
   let gamepadFrame=0; let gamepadConnected=false; let gamepadName=''; let online=true; const gamepadControls=new StandardGamepadControls(); const dropSources=new Set<'pointer'|'keyboard'|'gamepad'>();
   const touchMoveRepeater=new HeldActionRepeater<-1|1>((dx)=>send({type:'input/move',payload:{dx}}));
+  const hardDropKeys=new HeldInputGate<string>();
   $: controlsEnabled=Boolean(state.ready&&state.bottle?.phase==='playing'&&!state.lifecycle?.finished);
   $: standings=(state.lifecycle?.playerIds??[]).map((playerId,index)=>({
     playerId,
@@ -80,7 +81,7 @@
   }
   function endDown(source:'pointer'|'keyboard'|'gamepad'){if(!dropSources.delete(source))return;downHeld=dropSources.size>0;if(!downHeld)send({type:'input/soft-drop-end',payload:{}});}
   function releaseAllDown(){if(dropSources.size===0)return;dropSources.clear();downHeld=false;send({type:'input/soft-drop-end',payload:{}});}
-  function releaseAllControls(){touchMoveRepeater.stop();releaseAllDown();}
+  function releaseAllControls(){touchMoveRepeater.stop();releaseAllDown();hardDropKeys.reset();}
   function pressMove(event:PointerEvent,dx:-1|1){
     touchMoveRepeater.start(dx);
     try{(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);}catch{/* Pointer capture is optional. */}
@@ -106,10 +107,11 @@
   function keyDown(event:KeyboardEvent){
     if(typingTarget(event.target)||!controlsEnabled)return;
     if(event.key==='ArrowDown'){event.preventDefault();if(!event.repeat)beginDown('keyboard');return;}
+    if(event.key==='ArrowUp'&&!hardDropKeys.press(event.key)){event.preventDefault();return;}
     const command=commandForKey(event) as PillCommand|undefined;
     if(command){event.preventDefault();send(command);}
   }
-  function keyUp(event:KeyboardEvent){if(event.key==='ArrowDown'){event.preventDefault();endDown('keyboard');}}
+  function keyUp(event:KeyboardEvent){if(event.key==='ArrowUp')hardDropKeys.release(event.key);if(event.key==='ArrowDown'){event.preventDefault();endDown('keyboard');}}
   async function nextRound(){try{await controller?.requestRematch();}catch(cause){error=cause instanceof Error?cause.message:String(cause);}}
 </script>
 

@@ -21,7 +21,7 @@
 </script>
 <div class:compact class="tetris-shell">
   {#if !compact}<div class="next" aria-label={`Next pieces: ${state.next.slice(0,3).join(', ')}`}>{#each state.next.slice(0,3) as piece}<span class="next-piece" aria-label={`${piece} piece`} style={`--piece:${colors[piece]}`}>{#each previewCells(piece) as occupied}<i class:occupied></i>{/each}</span>{/each}</div>{/if}
-  <div class="matrix" role="img" aria-label={label} data-lines={state.lines} data-score={state.score} data-level={state.level} data-phase={state.phase} data-active-row={state.active?.row}>
+  <div class="matrix" role="img" aria-label={label} data-lines={state.lines} data-score={state.score} data-level={state.level} data-phase={state.phase} data-active-row={state.active?.row} data-active-id={state.active?.id}>
     {#each cells as cell}<i class:filled={Boolean(cell&&!cell.ghost)} class:ghost={cell?.ghost} style={cell?`--piece:${colors[cell.kind]}`:''}></i>{/each}
   </div>
 </div>

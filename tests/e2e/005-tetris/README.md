@@ -8,7 +8,8 @@
 - [x] The 10 by 20 play matrix is visible and gravity moves its active piece
 - [x] The compact opponent board is fully contained by the controller viewport
 - [x] Next queue and ghost placement are rendered locally
-- [x] Movement, hard drop, and both SRS rotations are available
+- [x] Holding hard drop affects only one piece and a fresh press drops the next
+- [x] Movement and both SRS rotations are available
 - [x] Score and line count start from deterministic state
 
 ---
