@@ -6,6 +6,7 @@ export type GamepadControlAction =
   | 'soft-drop-end'
   | 'rotate-clockwise'
   | 'rotate-counterclockwise';
+export type MenuGamepadAction='level-up'|'level-down'|'activate';
 
 export interface GamepadLike {
   connected: boolean;
@@ -80,4 +81,29 @@ export class StandardGamepadControls {
     this.nextRepeat.clear();
     return wasSoftDropping ? ['soft-drop-end'] as GamepadControlAction[] : [];
   }
+}
+
+export class MenuGamepadControls{
+  private previous:boolean[]=[];
+  private vertical=0;
+  private nextRepeat=0;
+  private initialized=false;
+
+  sample(gamepads:readonly(GamepadLike|null)[],now:number){
+    const connected=gamepads.filter((gamepad):gamepad is GamepadLike=>Boolean(gamepad?.connected));
+    const buttonCount=Math.max(16,...connected.map(gamepad=>gamepad.buttons.length));
+    const current=Array.from({length:buttonCount},(_,button)=>connected.some(gamepad=>Boolean(gamepad.buttons[button]?.pressed||gamepad.buttons[button]?.value>0.5)));
+    const vertical=pressed(gamepads,BUTTON.up)?-1:pressed(gamepads,BUTTON.down)?1:0;
+    if(!this.initialized){this.previous=current;this.vertical=vertical;this.nextRepeat=vertical?now+INITIAL_REPEAT_DELAY_MS:0;this.initialized=true;return[] as MenuGamepadAction[]}
+    const actions:MenuGamepadAction[]=[];
+    if(vertical===0){this.nextRepeat=0}
+    else if(vertical!==this.vertical){actions.push(vertical<0?'level-up':'level-down');this.nextRepeat=now+INITIAL_REPEAT_DELAY_MS}
+    else if(now>=this.nextRepeat){actions.push(vertical<0?'level-up':'level-down');this.nextRepeat=now+REPEAT_INTERVAL_MS}
+    const directions=new Set<number>([BUTTON.up,BUTTON.down,BUTTON.left,BUTTON.right]);
+    if(current.some((down,index)=>down&&!this.previous[index]&&!directions.has(index)))actions.push('activate');
+    this.previous=current;this.vertical=vertical;
+    return actions;
+  }
+
+  reset(){this.previous=[];this.vertical=0;this.nextRepeat=0;this.initialized=false}
 }
