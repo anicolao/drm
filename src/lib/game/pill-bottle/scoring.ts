@@ -6,7 +6,7 @@ import type { BottleState, ControllerRecord } from './types.ts';
 export interface PillScoringStart {
   seed: number;
   round: number;
-  players: Record<string, { seat: number }>;
+  players: Record<string, { seat: number; level: number }>;
 }
 
 function applyRecord(state: BottleState, record: ControllerRecord) {
@@ -24,7 +24,7 @@ function virusesAt(
   const definition = start.players[playerId];
   if (!definition) return 0;
   const targetTick = authoritativeScoringTick(records, scoringTick, terminalTick);
-  const state = createBottle(start.seed, definition.seat, start.round);
+  const state = createBottle(start.seed, definition.seat, definition.level);
   for (const record of records) {
     if (record.tick > targetTick) break;
     applyRecord(state, record);

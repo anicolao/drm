@@ -21,7 +21,7 @@ export interface PillStartRecord {
   hostUid: string;
   audioOutput: 'cast' | 'controllers';
   members: Record<string, true>;
-  players: Record<string, { seat: number }>;
+  players: Record<string, { seat: number; level: number }>;
   settings: PillBottleSettings;
   matchId: string;
   round: number;
@@ -69,6 +69,7 @@ export interface PillTerminalRecord {
 
 export interface PillRematchReadyRecord {
   playerId: string;
+  level: number;
   serverTime: number;
 }
 
@@ -120,7 +121,7 @@ export function parsePillStart(value: unknown): PillStartRecord {
   if (memberEntries.length < 1 || memberEntries.length > 4 || !memberEntries.every(([uid, included]) => isString(uid) && included === true)
     || members[value.hostUid as string] !== true
     || playerEntries.length < 1 || playerEntries.length > 4
-    || !playerEntries.every(([uid, player]) => isString(uid) && isObject(player) && hasOnlyKeys(player, ['seat']) && isInteger(player.seat, 0, 3) && members[uid] === true)
+    || !playerEntries.every(([uid, player]) => isString(uid) && isObject(player) && hasOnlyKeys(player, ['seat','level']) && isInteger(player.seat, 0, 3) && isInteger(player.level,0,20) && members[uid] === true)
     || new Set(seats).size !== seats.length
     || !hasOnlyKeys(settings, ['initialVirusCount', 'initialGravityTicks', 'hardDrop', 'matchRounds'])
     || settings.initialVirusCount !== PILL_BOTTLE_SETTINGS.initialVirusCount
@@ -236,8 +237,8 @@ export function parsePillTerminal(value: unknown): PillTerminalRecord {
 }
 
 export function parsePillRematchReady(value: unknown): PillRematchReadyRecord {
-  if (!isObject(value) || !hasOnlyKeys(value, ['playerId', 'serverTime'])
-    || !isString(value.playerId) || !isServerTime(value.serverTime)) throw new Error('Invalid pill rematch readiness.');
+  if (!isObject(value) || !hasOnlyKeys(value, ['playerId', 'level', 'serverTime'])
+    || !isString(value.playerId) || !isInteger(value.level,0,20) || !isServerTime(value.serverTime)) throw new Error('Invalid pill rematch readiness.');
   return value as unknown as PillRematchReadyRecord;
 }
 

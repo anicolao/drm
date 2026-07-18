@@ -40,7 +40,7 @@ test('US-005: Block Stack starts a deterministic playable controller',async({bro
   await page.keyboard.up('ArrowUp');
   await page.waitForFunction(() => {
     const tick = Number(document.querySelector('.tick')?.textContent?.match(/\d+/)?.[0]);
-    return tick % 50 >= 10 && tick % 50 <= 20;
+    return tick % 48 >= 2 && tick % 48 <= 5;
   }, undefined, { polling: 'raf' });
   await page.keyboard.press('ArrowUp');
   await expect.poll(()=>board.getAttribute('data-active-id')).not.toBe(afterHeldDrop);
@@ -66,7 +66,7 @@ test('US-005: Block Stack starts a deterministic playable controller',async({bro
     (window as typeof window&{__e2ePad?:typeof pad}).__e2ePad=pad;
   });
   await page.clock.resume();
-  await page.waitForFunction(()=>{const tick=Number(document.querySelector('.tick')?.textContent?.match(/\d+/)?.[0]);return tick%50>=10&&tick%50<=20},undefined,{polling:'raf'});
+  await page.waitForFunction(()=>{const tick=Number(document.querySelector('.tick')?.textContent?.match(/\d+/)?.[0]);return tick%48>=2&&tick%48<=5},undefined,{polling:'raf'});
   await page.evaluate(()=>{const pad=(window as typeof window&{__e2ePad:{buttons:Array<{pressed:boolean;value:number}>}}).__e2ePad;pad.buttons[0]={pressed:true,value:1}});
   await expect.poll(()=>page.locator('.command-status').textContent()).toMatch(/input\/rotate · tick/);
   await page.evaluate(()=>{const pad=(window as typeof window&{__e2ePad:{buttons:Array<{pressed:boolean;value:number}>}}).__e2ePad;pad.buttons[0]={pressed:false,value:0}});

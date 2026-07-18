@@ -31,7 +31,7 @@ export async function startRealtimeGame<Settings extends object>(
     type: 'game/started', roomId, ruleset: definition.ruleset, rulesVersion: definition.rulesVersion,
     seed: randomGameSeed(), tickRate: definition.tickRate, hostUid,
     members: Object.fromEntries(members.map((member) => [member.uid, true])),
-    players: Object.fromEntries(participants.map((player, seat) => [player.uid, { seat }])),
+    players: Object.fromEntries(participants.map((player, seat) => [player.uid, { seat, level: player.level??0 }])),
     audioOutput: hostMode === 'display' ? 'cast' : 'controllers', settings: definition.settings,
     matchId: gameId, round: 0, serverTime: serverTimestamp()
   });

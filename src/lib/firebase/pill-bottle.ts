@@ -164,8 +164,8 @@ export function subscribePillBottleLifecycle(
   };
 }
 
-export async function requestPillBottleRematch(gameId: string) {
-  return requestRematchReady(gameId);
+export async function requestPillBottleRematch(gameId: string,level:number) {
+  return requestRematchReady(gameId,level);
 }
 
 export async function startPillBottleRematch(gameId: string) {
@@ -250,7 +250,7 @@ export function subscribePillBottleProgress(
 
       if (destroyed) return;
       for (const [playerId, definition] of Object.entries(start.players)) {
-        const observer = new PillBottleObserver(createBottle(start.seed, definition.seat, start.round), initialDisplayTick);
+        const observer = new PillBottleObserver(createBottle(start.seed, definition.seat, definition.level), initialDisplayTick);
         observers.set(playerId, observer);
         for (const record of histories.get(playerId) ?? []) observer.receive(record);
         listeners.push(onChildAdded(ref(realtimeDatabase!, `games/${gameId}/players/${playerId}/records`), (snapshot) => {
@@ -510,7 +510,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
       const checkpoint = loadControllerCheckpoint(gameId, playerId);
       const checkpointRecord = checkpoint && records.find((record) => record.commandId === checkpoint.commandId
         && record.clientSeq === checkpoint.clientSeq && record.tick === checkpoint.tick);
-      bottle = checkpointRecord ? deserializeBottle(checkpoint!.state) : createBottle(start.seed, start.players[playerId].seat, start.round);
+      bottle = checkpointRecord ? deserializeBottle(checkpoint!.state) : createBottle(start.seed, start.players[playerId].seat, start.players[playerId].level);
       for (const record of records) {
         if (checkpointRecord && record.clientSeq <= checkpointRecord.clientSeq) continue;
         applyRecord(bottle, record);
@@ -608,7 +608,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
 
   return {
     command,
-    requestRematch: () => requestPillBottleRematch(gameId),
+    requestRematch: (level:number) => requestPillBottleRematch(gameId,level),
     async takeOver() {
       if (await lease.takeOver()) { ownershipConflict=false;ready=true;suspended=false;clock.reset();frame=requestAnimationFrame(loop);publish(); }
     },
