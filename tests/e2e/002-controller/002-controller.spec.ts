@@ -46,6 +46,15 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '15');
   await expect(returningPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '10');
   await expect(playerPage.getByLabel('Sam opponent bottle')).toBeVisible({ timeout: 10000 });
+  await page.getByRole('button', { name: 'Audio settings' }).click();
+  await expect(page.getByRole('region', { name: 'Audio settings' })).toBeVisible();
+  await page.getByLabel('Music volume').fill('25');
+  await page.getByLabel('Effects volume').fill('75');
+  await page.getByRole('button', { name: 'Mute music' }).click();
+  await expect(page.getByRole('button', { name: 'Unmute music' })).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('drm-audio-settings') ?? '{}'))).toEqual({ musicMuted: true, effectsMuted: false, musicVolume: 25, effectsVolume: 75 });
+  await page.getByRole('button', { name: 'Unmute music' }).click();
+  await page.getByRole('button', { name: 'Audio settings' }).click();
   const muteAudio = page.getByRole('button', { name: 'Mute game audio' });
   await expect(muteAudio).toBeVisible();
   await muteAudio.click();

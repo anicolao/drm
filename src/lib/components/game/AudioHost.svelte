@@ -1,21 +1,168 @@
-<script lang="ts">
-  import{browser}from'$app/environment';import{onDestroy,onMount}from'svelte';
-  export let enabled=false;export let loopUrl:string|undefined=undefined;export let loopKey='';export let cueUrl:string|undefined=undefined;export let cueSignal=0;
-  let loop:HTMLAudioElement|undefined,cue:HTMLAudioElement|undefined,muted=false,needsActivation=false,playingKey='',observedCue=0;
-  function stop(audio:HTMLAudioElement|undefined){if(!audio)return;audio.pause();audio.currentTime=0}
-  async function play(audio:HTMLAudioElement){try{await audio.play();needsActivation=false;return true}catch{needsActivation=true;return false}}
-  function update(){
-    if(!browser||!enabled||muted){stop(loop);stop(cue);loop=cue=undefined;playingKey='';needsActivation=false;observedCue=cueSignal;return}
-    if(loopUrl&&playingKey!==loopKey){stop(loop);loop=new Audio(loopUrl);loop.loop=true;loop.preload='auto';loop.volume=.42;playingKey=loopKey;void play(loop)}
-    else if(!loopUrl){stop(loop);loop=undefined;playingKey=''}
-    if(cueUrl&&cueSignal>observedCue){stop(cue);cue=new Audio(cueUrl);cue.preload='auto';cue.volume=.62;void play(cue)}
-    observedCue=cueSignal;
-  }
-  async function activate(){if(loop)await play(loop);if(cue)await play(cue)}
-  function toggle(){muted=!muted;localStorage.setItem('drm-audio-muted',String(muted));update()}
-  $: enabled,loopUrl,loopKey,cueUrl,cueSignal,update();
-  onMount(()=>{muted=localStorage.getItem('drm-audio-muted')==='true';update();const unlock=()=>{if(needsActivation)void activate()};window.addEventListener('pointerdown',unlock,true);window.addEventListener('keydown',unlock,true);return()=>{window.removeEventListener('pointerdown',unlock,true);window.removeEventListener('keydown',unlock,true)}});onDestroy(()=>{stop(loop);stop(cue)});
+<script context="module" lang="ts">
+  let activeMusic: { owner: symbol; audio: HTMLAudioElement } | undefined;
 </script>
-{#if enabled}<button class="mute" aria-label={muted?'Unmute game audio':'Mute game audio'} aria-pressed={muted} on:click={toggle}>♫ {muted?'SOUND OFF':'SOUND ON'}</button>{/if}
-{#if enabled&&needsActivation&&!muted}<button class="start" aria-label="Enable game audio" on:click={activate}>♪ TAP FOR SOUND</button>{/if}
-<style>.mute,.start{position:fixed;z-index:20;top:max(.55rem,env(safe-area-inset-top));left:50%;transform:translateX(-50%);background:#08090ddd;border:1px solid #4a4d60;color:var(--text);font-size:.55rem;padding:.42rem .55rem;box-shadow:2px 2px 0 var(--ink);white-space:nowrap}.start{top:max(2.8rem,calc(env(safe-area-inset-top) + 2.25rem));background:var(--yellow);color:var(--ink);font-size:.65rem}.mute:hover,.start:hover{transform:translateX(-50%)}</style>
+
+<script lang="ts">
+  import { browser } from '$app/environment';
+  import { onDestroy, onMount } from 'svelte';
+
+  export let enabled = false;
+  export let loopUrl: string | undefined = undefined;
+  export let loopKey = '';
+  export let cueUrl: string | undefined = undefined;
+  export let cueSignal = 0;
+
+  const owner = Symbol('audio-host');
+  let loop: HTMLAudioElement | undefined;
+  let cue: HTMLAudioElement | undefined;
+  let masterMuted = false;
+  let musicMuted = false;
+  let effectsMuted = false;
+  let musicVolume = 42;
+  let effectsVolume = 62;
+  let needsActivation = false;
+  let settingsOpen = false;
+  let playingKey = '';
+  let observedCue = 0;
+  let mounted = false;
+
+  function stop(audio: HTMLAudioElement | undefined) {
+    if (!audio) return;
+    audio.pause();
+    audio.currentTime = 0;
+  }
+
+  function releaseMusic() {
+    stop(loop);
+    if (activeMusic?.owner === owner) activeMusic = undefined;
+    loop = undefined;
+    playingKey = '';
+  }
+
+  async function play(audio: HTMLAudioElement) {
+    try {
+      await audio.play();
+      needsActivation = false;
+      return true;
+    } catch {
+      needsActivation = true;
+      return false;
+    }
+  }
+
+  function claimMusic(audio: HTMLAudioElement) {
+    if (activeMusic && activeMusic.owner !== owner) stop(activeMusic.audio);
+    activeMusic = { owner, audio };
+  }
+
+  function saveSettings() {
+    localStorage.setItem('drm-audio-muted', String(masterMuted));
+    localStorage.setItem('drm-audio-settings', JSON.stringify({ musicMuted, effectsMuted, musicVolume, effectsVolume }));
+  }
+
+  function update() {
+    if (!browser || !mounted) return;
+    if (!enabled || masterMuted) {
+      releaseMusic();
+      stop(cue);
+      cue = undefined;
+      needsActivation = false;
+      observedCue = cueSignal;
+      return;
+    }
+
+    if (!musicMuted && loopUrl) {
+      if (playingKey !== loopKey || !loop) {
+        releaseMusic();
+        loop = new Audio(loopUrl);
+        loop.loop = true;
+        loop.preload = 'auto';
+        loop.volume = musicVolume / 100;
+        playingKey = loopKey;
+        claimMusic(loop);
+        void play(loop);
+      } else {
+        loop.volume = musicVolume / 100;
+      }
+    } else {
+      releaseMusic();
+    }
+
+    if (!effectsMuted && cueUrl && cueSignal > observedCue) {
+      stop(cue);
+      cue = new Audio(cueUrl);
+      cue.preload = 'auto';
+      cue.volume = effectsVolume / 100;
+      void play(cue);
+    }
+    observedCue = cueSignal;
+  }
+
+  async function activate() {
+    if (loop) {
+      claimMusic(loop);
+      await play(loop);
+    }
+    if (cue) await play(cue);
+  }
+
+  function toggleMaster() {
+    masterMuted = !masterMuted;
+    saveSettings();
+    update();
+  }
+
+  function changeSettings() {
+    saveSettings();
+    update();
+  }
+
+  $: enabled, loopUrl, loopKey, cueUrl, cueSignal, musicMuted, effectsMuted, musicVolume, effectsVolume, update();
+
+  onMount(() => {
+    masterMuted = localStorage.getItem('drm-audio-muted') === 'true';
+    try {
+      const saved = JSON.parse(localStorage.getItem('drm-audio-settings') ?? '{}');
+      musicMuted = saved.musicMuted === true;
+      effectsMuted = saved.effectsMuted === true;
+      if (Number.isFinite(saved.musicVolume)) musicVolume = Math.max(0, Math.min(100, saved.musicVolume));
+      if (Number.isFinite(saved.effectsVolume)) effectsVolume = Math.max(0, Math.min(100, saved.effectsVolume));
+    } catch {
+      // Ignore obsolete or damaged local preferences.
+    }
+    mounted = true;
+    update();
+    const unlock = () => { if (needsActivation) void activate(); };
+    window.addEventListener('pointerdown', unlock, true);
+    window.addEventListener('keydown', unlock, true);
+    return () => {
+      window.removeEventListener('pointerdown', unlock, true);
+      window.removeEventListener('keydown', unlock, true);
+    };
+  });
+
+  onDestroy(() => {
+    releaseMusic();
+    stop(cue);
+  });
+</script>
+
+{#if enabled}
+  <div class="audio-controls">
+    <button class="mute" aria-label={masterMuted ? 'Unmute game audio' : 'Mute game audio'} aria-pressed={masterMuted} on:click={toggleMaster}>♫ {masterMuted ? 'SOUND OFF' : 'SOUND ON'}</button>
+    <button class="settings-toggle" aria-label="Audio settings" aria-expanded={settingsOpen} on:click={() => settingsOpen = !settingsOpen}>MIX</button>
+    {#if settingsOpen}
+      <section class="mixer" aria-label="Audio settings">
+        <div><strong>MUSIC</strong><button aria-label={musicMuted ? 'Unmute music' : 'Mute music'} aria-pressed={musicMuted} on:click={() => { musicMuted = !musicMuted; changeSettings(); }}>{musicMuted ? 'OFF' : 'ON'}</button></div>
+        <label>Music volume <input aria-label="Music volume" type="range" min="0" max="100" bind:value={musicVolume} on:input={changeSettings}></label>
+        <div><strong>EFFECTS</strong><button aria-label={effectsMuted ? 'Unmute effects' : 'Mute effects'} aria-pressed={effectsMuted} on:click={() => { effectsMuted = !effectsMuted; changeSettings(); }}>{effectsMuted ? 'OFF' : 'ON'}</button></div>
+        <label>Effects volume <input aria-label="Effects volume" type="range" min="0" max="100" bind:value={effectsVolume} on:input={changeSettings}></label>
+      </section>
+    {/if}
+  </div>
+{/if}
+{#if enabled && needsActivation && !masterMuted}<button class="start" aria-label="Enable game audio" on:click={activate}>♪ TAP FOR SOUND</button>{/if}
+
+<style>
+  .audio-controls{position:fixed;z-index:20;top:max(.55rem,env(safe-area-inset-top));left:50%;transform:translateX(-50%);display:flex;gap:.25rem;align-items:start}.mute,.settings-toggle,.start{background:#08090ddd;border:1px solid #4a4d60;color:var(--text);font-size:.55rem;padding:.42rem .55rem;box-shadow:2px 2px 0 var(--ink);white-space:nowrap}.settings-toggle{color:var(--cyan)}.start{position:fixed;z-index:20;top:max(2.8rem,calc(env(safe-area-inset-top) + 2.25rem));left:50%;transform:translateX(-50%);background:var(--yellow);color:var(--ink);font-size:.65rem}.start:hover{transform:translateX(-50%)}.mixer{position:absolute;top:2.2rem;left:50%;transform:translateX(-50%);width:min(88vw,17rem);display:grid;gap:.55rem;padding:.7rem;background:#0d0f16f2;border:1px solid #4a4d60;box-shadow:4px 4px 0 var(--ink)}.mixer div{display:flex;align-items:center;justify-content:space-between;color:var(--yellow);font-size:.6rem}.mixer button{padding:.25rem .4rem;font-size:.5rem}.mixer label{gap:.25rem;font-size:.52rem}.mixer input{width:100%;accent-color:var(--cyan)}
+</style>
