@@ -37,13 +37,19 @@ test('US-005: Block Stack starts a deterministic playable controller',async({bro
   const afterHeldDrop=await board.getAttribute('data-active-id');
   await page.waitForTimeout(350);
   expect(await board.getAttribute('data-active-id')).toBe(afterHeldDrop);
-  await page.keyboard.up('ArrowUp');await page.keyboard.press('ArrowUp');
+  await page.keyboard.up('ArrowUp');
+  await page.waitForFunction(() => {
+    const tick = Number(document.querySelector('.tick')?.textContent?.match(/\d+/)?.[0]);
+    return tick % 50 >= 10 && tick % 50 <= 20;
+  }, undefined, { polling: 'raf' });
+  await page.keyboard.press('ArrowUp');
   await expect.poll(()=>board.getAttribute('data-active-id')).not.toBe(afterHeldDrop);
+  await expect(board).toHaveAttribute('data-active-row','1');
+  await opponentPage.clock.pauseAt(Date.now());
+  await page.clock.pauseAt(Date.now());
   await expect(page.getByText(/input\/hard-drop · tick/)).toBeVisible({timeout:10000});
   await page.locator('.command-status').evaluate((element:HTMLElement)=>{element.style.visibility='hidden'});
   await page.locator('.tick').evaluate((element:HTMLElement)=>{element.style.visibility='hidden'});
-  await opponentPage.clock.pauseAt(Date.now());
-  await page.clock.pauseAt(Date.now());
   await tester.step('tetris-playing',{description:'Block Stack runs from a seeded immutable command journal with a compact in-viewport opponent board',networkStatus:'skip',verifications:[
     {spec:'The 10 by 20 play matrix is visible and gravity moves its active piece',check:async()=>{await expect(board.locator('i')).toHaveCount(200);await expect(board.locator('.filled')).not.toHaveCount(0)}},
     {spec:'The compact opponent board is fully contained by the controller viewport',check:async()=>{const box=await opponent.boundingBox();expect(box).not.toBeNull();expect(box!.x).toBeGreaterThanOrEqual(0);expect(box!.y).toBeGreaterThanOrEqual(0);expect(box!.x+box!.width).toBeLessThanOrEqual(393);expect(box!.y+box!.height).toBeLessThanOrEqual(852)}},
