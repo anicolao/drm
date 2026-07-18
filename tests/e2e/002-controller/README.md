@@ -6,7 +6,7 @@
 
 **Verifications:**
 - [x] Direct invitation URL joined the requested room
-- [x] No nonfunctional controls are displayed
+- [x] The player can choose a starting level with pointer controls
 - [x] UI waits for the host start record
 - [x] Waiting screen teaches keyboard and gamepad controls
 
@@ -41,8 +41,8 @@
 ![Both ready controllers enter the next round regardless of click order](./screenshots/003-both-ready.png)
 
 **Verifications:**
-- [x] The first ready controller enters the successor game
-- [x] The second ready controller enters the same successor game
+- [x] Each controller enters at its independently selected next level
+- [x] Gamepad A activates the default between-round action
 - [x] The survivor scores the viruses left by the player who topped out
 - [x] Neither controller reports a permission failure
 
@@ -53,7 +53,7 @@
 ![Reversing ready order starts the final round without a permission race](./screenshots/004-reverse-ready-order.png)
 
 **Verifications:**
-- [x] Both controllers reach round three
+- [x] Both controllers reach round three at independent levels
 - [x] Survivor points accumulate across rounds
 - [x] The reversed ready order produces no permission failure
 

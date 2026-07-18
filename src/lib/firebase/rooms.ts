@@ -30,7 +30,7 @@ export async function createRoom(code: string, displayName: string) {
     transaction.set(roomRef, { code, hostUid: user.uid, ruleset: 'tetris', status: 'lobby', playerCount: 1, createdAt: serverTimestamp() });
     transaction.set(codeRef, { roomId, hostUid: user.uid });
     transaction.set(doc(firestore!, 'rooms', roomId, 'players', user.uid), {
-      uid: user.uid, displayName: name, role: 'host', joinedAt: serverTimestamp()
+      uid: user.uid, displayName: name, role: 'host', level: 0, joinedAt: serverTimestamp()
     });
   });
   return roomId;
@@ -60,7 +60,13 @@ export async function updateRoomRuleset(code: string, ruleset: 'tetris' | 'docto
   await updateDoc(await roomRefForCode(code), { ruleset });
 }
 
-export interface RoomPlayer { uid: string; displayName: string; role: 'host' | 'player' }
+export interface RoomPlayer { uid: string; displayName: string; role: 'host' | 'player'; level?: number }
+
+export async function updatePlayerLevel(roomId:string,level:number){
+  if(!auth?.currentUser||!firestore)throw new Error('Firebase is not configured.');
+  if(!Number.isInteger(level)||level<0||level>20)throw new Error('Level must be between 0 and 20.');
+  await updateDoc(doc(firestore,'rooms',roomId,'players',auth.currentUser.uid),{level});
+}
 
 export async function joinRoom(code: string, displayName: string) {
   if (!firestore) throw new Error('Firebase is not configured.');
@@ -79,7 +85,8 @@ export async function joinRoom(code: string, displayName: string) {
       transaction.update(roomRef, { playerCount: (roomData.playerCount ?? 0) + 1 });
     }
     transaction.set(playerRef, {
-      uid: user.uid, displayName: name, role: user.uid === roomData.hostUid ? 'host' : 'player', joinedAt: serverTimestamp()
+      uid: user.uid, displayName: name, role: user.uid === roomData.hostUid ? 'host' : 'player', joinedAt: serverTimestamp(),
+      level:currentPlayer.exists()&&Number.isInteger(currentPlayer.data().level)?currentPlayer.data().level:0
     }, { merge: true });
   });
   return room;

@@ -5,12 +5,13 @@
   import PillBottle from '$lib/components/PillBottle.svelte';
   import GameAudio from '$lib/components/GameAudio.svelte';
   import { gravityTicksForState } from '$lib/game/pill-bottle';
-  import { firebaseConfigured } from '$lib/firebase/config';
-  import { joinRoom, subscribeRoom, subscribeRoomPlayers, type RoomPlayer } from '$lib/firebase/rooms';
+  import { auth, firebaseConfigured } from '$lib/firebase/config';
+  import { joinRoom, subscribeRoom, subscribeRoomPlayers, updatePlayerLevel, type RoomPlayer } from '$lib/firebase/rooms';
   import { createPillBottleController, type PillCommand, type ControllerState, type PlayerProgress } from '$lib/firebase/pill-bottle';
   import ControllerStatus from './ControllerStatus.svelte';
   import MatchResult from './MatchResult.svelte';
   import OpponentList from './OpponentList.svelte';
+  import LevelPicker from './LevelPicker.svelte';
   import { gamepadLayoutMode,StandardGamepadControls, type GamepadControlAction } from '$lib/input/gamepad';
   import { HeldActionRepeater } from '$lib/input/held-repeat';
   import { commandForGamepadAction,commandForKey,HeldInputGate } from '$lib/runtime/core-input';
@@ -19,6 +20,7 @@
   let roomId=''; let activeGameId=''; let controller: ReturnType<typeof createPillBottleController> | undefined;
   let roomUnsubscribe=()=>{}; let playersUnsubscribe=()=>{}; let players:RoomPlayer[]=[]; let state: ControllerState={tick:0,ready:false}; let downHeld=false;
   let gamepadFrame=0; let gamepadConnected=false; let gamepadName=''; let gamepadActive=false; let online=true; const gamepadControls=new StandardGamepadControls(); const dropSources=new Set<'pointer'|'keyboard'|'gamepad'>();
+  let selectedLevel=0;
   const touchMoveRepeater=new HeldActionRepeater<-1|1>((dx)=>send({type:'input/move',payload:{dx}}));
   const hardDropKeys=new HeldInputGate<string>();
   $: controlsEnabled=Boolean(state.ready&&state.bottle?.phase==='playing'&&!state.lifecycle?.finished);
@@ -57,7 +59,7 @@
     joining=true;error='';
     try{
       const room=await joinRoom(code,playerName);roomId=room.id;joined=true;needsName=false;
-      playersUnsubscribe=subscribeRoomPlayers(room.id,next=>players=next,cause=>error=cause.message);
+      playersUnsubscribe=subscribeRoomPlayers(room.id,next=>{players=next;selectedLevel=next.find(player=>player.uid===auth?.currentUser?.uid)?.level??selectedLevel},cause=>error=cause.message);
       if(room.activeGameId){if(room.ruleset==='tetris'){window.location.assign(`${base}/play?code=${code}`);return}startController(room.activeGameId);}
       roomUnsubscribe=subscribeRoom(room.id,(next)=>{if(next.activeGameId){if(next.ruleset==='tetris')window.location.assign(`${base}/play?code=${code}`);else startController(next.activeGameId);}},(cause)=>error=cause.message);
     }catch(cause){error=cause instanceof Error?cause.message:String(cause);}
@@ -69,7 +71,7 @@
   }
   function startController(gameId:string){
     if(controller&&activeGameId===gameId)return;controller?.destroy();activeGameId=gameId;state={tick:0,ready:false};error='';
-    controller=createPillBottleController(gameId,(next)=>{state=next;if(next.error)error=next.error;});
+    controller=createPillBottleController(gameId,(next)=>{const justFinished=!state.lifecycle?.finished&&next.lifecycle?.finished;if(justFinished&&next.bottle)selectedLevel=next.lifecycle?.matchComplete?next.bottle.level:Math.min(20,next.bottle.level+1);state=next;if(next.error)error=next.error;});
   }
   function send(input:PillCommand){
     if(!controlsEnabled)return;
@@ -103,32 +105,35 @@
     const actions=gamepadControls.sample(gamepads,now);
     gamepadActive=gamepadLayoutMode(gamepadActive,connected,actions);
     if(controlsEnabled)for(const action of actions)gamepadAction(action);
+    else if(state.lifecycle?.finished){if(actions.includes('rotate-clockwise'))void nextRound();endDown('gamepad');}
     else{gamepadControls.reset();endDown('gamepad');}
     gamepadFrame=requestAnimationFrame(pollGamepads);
   }
   function typingTarget(target:EventTarget|null){return target instanceof HTMLElement&&(target.matches('input,textarea,select')||target.isContentEditable);}
   function keyDown(event:KeyboardEvent){
-    if(typingTarget(event.target)||!controlsEnabled)return;
+    if(typingTarget(event.target))return;
+    if(!controlsEnabled)return;
     if(event.key==='ArrowDown'){event.preventDefault();if(!event.repeat)beginDown('keyboard');return;}
     if(event.key==='ArrowUp'&&!hardDropKeys.press(event.key)){event.preventDefault();return;}
     const command=commandForKey(event) as PillCommand|undefined;
     if(command){event.preventDefault();send(command);}
   }
   function keyUp(event:KeyboardEvent){if(event.key==='ArrowUp')hardDropKeys.release(event.key);if(event.key==='ArrowDown'){event.preventDefault();endDown('keyboard');}}
-  async function nextRound(){try{await controller?.requestRematch();}catch(cause){error=cause instanceof Error?cause.message:String(cause);}}
+  async function chooseLevel(level:number){selectedLevel=level;if(roomId)try{await updatePlayerLevel(roomId,level)}catch(cause){error=cause instanceof Error?cause.message:String(cause)}}
+  async function nextRound(){try{await controller?.requestRematch(selectedLevel);}catch(cause){error=cause instanceof Error?cause.message:String(cause);}}
 </script>
 
 <div class="controller-shell"><nav><Logo compact/><span>{code||'NO ROOM'}</span></nav>
 {#if needsName}<main class="join"><form class="card" on:submit|preventDefault={saveAndJoin}><p class="eyebrow">Joining room {code}</p><h1>WHAT SHOULD PLAYERS CALL YOU?</h1><label>Player name<input aria-label="Player name" maxlength="24" autocomplete="nickname" bind:value={playerName}/></label><button disabled={joining}>{joining?'Joining…':'Join room'}</button></form>{#if error}<p role="alert">{error}</p>{/if}</main>
 {:else if error}<main class="join"><p class="eyebrow">Controller error</p><h1>{error}</h1>{#if state.ownershipConflict}<button on:click={()=>controller?.takeOver()}>Take over on this device</button>{/if}</main>
 {:else if !joined}<main class="join"><p class="eyebrow">Joining room…</p></main>
-{:else if !activeGameId}<main class="join"><p class="eyebrow">Joined room {code}</p><h1>WAITING FOR HOST</h1><p role="status">You are in. Keep this screen open; controls appear when the host starts Color Cure.</p><div class="control-guide compact"><span>← → MOVE</span><span>↓ SOFT DROP</span><span>↑ HARD DROP</span><span>A / R ↻</span><span>B / T ↺</span></div></main>
+{:else if !activeGameId}<main class="join"><p class="eyebrow">Joined room {code}</p><h1>WAITING FOR HOST</h1><p role="status">You are in. Choose your level while the host gets the game ready.</p><LevelPicker level={selectedLevel} change={chooseLevel}/><div class="control-guide compact"><span>← → MOVE</span><span>↓ SOFT DROP</span><span>↑ HARD DROP</span><span>A / R ↻</span><span>B / T ↺</span></div></main>
 {:else}<main class="landscape-controller" class:gamepad-mode={gamepadActive} aria-label="Pill Bottle controller"><GameAudio state={state.bottle} enabled={state.audioOutput==='controllers'} rainSignal={state.rainSignal??0}/>
   {#if state.lifecycle&&state.lifecycle.playerIds.length>1}<aside class="controller-scoreboard" aria-label="Scores"><strong>ROUND {state.lifecycle.round+1}/3</strong>{#each standings as player}<span class:you={player.playerId===state.playerId}>{player.name} <b>{player.score}</b>{#if player.roundPoints>0}<small>+{player.roundPoints}</small>{/if}</span>{/each}</aside>{/if}
   <OpponentList opponents={opponentDisplays} label="Opponent boards" let:opponent><strong>{(opponent as PlayerProgress&{name:string}).name}</strong><PillBottle state={(opponent as PlayerProgress).state} label={`${(opponent as PlayerProgress&{name:string}).name} opponent bottle`} showPreview={false}/><span>{(opponent as PlayerProgress).state.viruses} viruses</span></OpponentList>
   <ControllerStatus {online} ready={state.ready} gamepadName={gamepadConnected?gamepadName:''} room={code}/>
   <section class="session"><strong>{playerName}</strong><span>room {code}</span>{#if state.bottle}<PillBottle state={state.bottle}/><span>{state.lifecycle?.playerIds.length===1?`level ${state.bottle.level}`:`round ${(state.lifecycle?.round??state.bottle.level)+1}/3`} · {state.bottle.viruses} viruses</span><span>speed {gravityTicksForState(state.bottle)} ticks · {state.bottle.pills} pills</span>{#if state.lifecycle?.terminalResults[state.playerId??'']==='cleared'}<strong class="countdown">LEVEL CLEAR</strong>{:else if state.bottle.phase==='lost'&&!state.lifecycle?.finished}<strong class="result">ELIMINATED · WAITING</strong>{/if}{/if}<span class="tick">tick {state.tick}</span>{#if state.lastCommand}<small class="command-status">{state.lastCommand}</small>{/if}</section>
-  {#if state.lifecycle?.finished}<MatchResult title={state.lifecycle.playerIds.length===1?'GAME OVER':state.lifecycle.matchComplete?'MATCH COMPLETE':`ROUND ${state.lifecycle.round+1} COMPLETE`} action={state.lifecycle.matchComplete?'PLAY AGAIN':'NEXT LEVEL'} ready={state.lifecycle.readyPlayerIds.length} total={state.lifecycle.playerIds.length} disabled={state.lifecycle.readyPlayerIds.includes(state.playerId??'')} activate={nextRound}/>{/if}
+  {#if state.lifecycle?.finished}<MatchResult title={state.lifecycle.playerIds.length===1?'GAME OVER':state.lifecycle.matchComplete?'MATCH COMPLETE':`ROUND ${state.lifecycle.round+1} COMPLETE`} action={state.lifecycle.matchComplete?'PLAY AGAIN':'NEXT LEVEL'} ready={state.lifecycle.readyPlayerIds.length} total={state.lifecycle.playerIds.length} disabled={state.lifecycle.readyPlayerIds.includes(state.playerId??'')} level={selectedLevel} changeLevel={(level)=>selectedLevel=level} activate={nextRound}/>{/if}
   {#if !gamepadActive}<section class="dpad" aria-label="Movement controls">
     <button class="up" aria-label="Hard drop" title="Arrow Up" disabled={!controlsEnabled} on:pointerdown={()=>send({type:'input/hard-drop',payload:{}})}>↑</button>
     <button class="left" aria-label="Move left" title="Arrow Left" disabled={!controlsEnabled} on:pointerdown={(event)=>pressMove(event,-1)} on:pointerup={()=>touchMoveRepeater.stop()} on:pointercancel={()=>touchMoveRepeater.stop()} on:lostpointercapture={()=>touchMoveRepeater.stop()}>←</button>

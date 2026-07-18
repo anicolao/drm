@@ -41,8 +41,8 @@ test('terminal and rematch records reject materialized or unknown state', () => 
   assert.equal(parsePillTerminal(terminal).result, 'lost');
   assert.equal(parsePillTerminal({ ...terminal, result: 'cleared' }).result, 'cleared');
   assert.throws(() => parsePillTerminal({ ...terminal, state: {} }), /terminal declaration/);
-  assert.equal(parsePillRematchReady({ playerId: 'one', serverTime: 1 }).playerId, 'one');
-  assert.throws(() => parsePillRematchReady({ playerId: 'one', serverTime: 1, board: [] }), /rematch readiness/);
+  assert.equal(parsePillRematchReady({ playerId: 'one', level:3, serverTime: 1 }).level,3);
+  assert.throws(() => parsePillRematchReady({ playerId: 'one', level:3, serverTime: 1, board: [] }), /rematch readiness/);
 });
 
 test('scoring never advances an opponent beyond an authoritative controller checkpoint', () => {
@@ -53,7 +53,7 @@ test('scoring never advances an opponent beyond an authoritative controller chec
 });
 
 test('a sole survivor scores viruses left by opponents who topped out', () => {
-  const start = { seed: 123, round: 0, players: { one: { seat: 0 }, two: { seat: 1 }, three: { seat: 2 } } };
+  const start = { seed: 123, round: 0, players: { one: { seat: 0,level:0 }, two: { seat: 1,level:0 }, three: { seat: 2,level:0 } } };
   const twoPlayer = derivePillMatchLifecycle(['one', 'two'], [{ playerId: 'one', result: 'lost', tick: 20 }], []);
   assert.deepEqual(derivePillRoundPoints(start, twoPlayer, new Map()), { one: 0, two: 5 });
 
@@ -65,7 +65,7 @@ test('a sole survivor scores viruses left by opponents who topped out', () => {
 });
 
 test('survivor fallback does not replace clear scoring or award a draw', () => {
-  const start = { seed: 123, round: 0, players: { one: { seat: 0 }, two: { seat: 1 } } };
+  const start = { seed: 123, round: 0, players: { one: { seat: 0,level:0 }, two: { seat: 1,level:0 } } };
   const cleared = derivePillMatchLifecycle(['one', 'two'], [{ playerId: 'one', result: 'cleared', tick: 20 }], []);
   assert.deepEqual(derivePillRoundPoints(start, cleared, new Map()), { one: 5, two: 0 });
 

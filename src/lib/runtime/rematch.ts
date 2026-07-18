@@ -6,14 +6,15 @@ import { randomGameSeed } from './start-game';
 export interface RematchStart {
   type: 'game/started'; roomId: string; ruleset: string; rulesVersion: string; seed: number;
   tickRate: number; hostUid: string; audioOutput: 'cast'|'controllers'; members: Record<string,true>;
-  players: Record<string,{seat:number}>; settings: object; matchId: string;
+  players: Record<string,{seat:number;level:number}>; settings: object; matchId: string;
   round: number; previousGameId?: string;
 }
 
-export async function requestRematchReady(gameId:string) {
+export async function requestRematchReady(gameId:string,level:number) {
   if (!auth?.currentUser || !realtimeDatabase) throw new Error('Firebase is unavailable.');
   const playerId=auth.currentUser.uid,readyRef=ref(realtimeDatabase,`games/${gameId}/rematch/ready/${playerId}`);
-  if (!(await get(readyRef)).exists()) await set(readyRef,{playerId,serverTime:serverTimestamp()});
+  if(!Number.isInteger(level)||level<0||level>20)throw new Error('Level must be between 0 and 20.');
+  if (!(await get(readyRef)).exists()) await set(readyRef,{playerId,level,serverTime:serverTimestamp()});
 }
 
 export async function startRematch<Start extends RematchStart>(
@@ -25,8 +26,8 @@ export async function startRematch<Start extends RematchStart>(
   if (!snapshot.exists()) throw new Error('The previous game no longer exists.');
   const start=parse(snapshot.val());
   if (!start.players[auth.currentUser.uid]) return;
-  const readiness=await get(ref(realtimeDatabase,`games/${gameId}/rematch/ready`)),ready=new Set<string>();
-  readiness.forEach(child=>{const value=child.val();if(value?.playerId===child.key)ready.add(value.playerId)});
+  const readiness=await get(ref(realtimeDatabase,`games/${gameId}/rematch/ready`)),ready=new Map<string,number>();
+  readiness.forEach(child=>{const value=child.val();if(value?.playerId===child.key&&Number.isInteger(value.level))ready.set(value.playerId,value.level)});
   if (!Object.keys(start.players).every(id=>ready.has(id))) return;
   const proposed=crypto.randomUUID(),reservation=ref(realtimeDatabase,`games/${gameId}/rematch/nextGameId`);
   const claim=await runTransaction(reservation,current=>current===null?proposed:undefined,{applyLocally:false});
@@ -35,7 +36,8 @@ export async function startRematch<Start extends RematchStart>(
   const policy=nextRound(start),nextStart=ref(realtimeDatabase,`games/${nextGameId}/start`);
   try {
     await set(nextStart,{type:'game/started',roomId:start.roomId,ruleset:start.ruleset,rulesVersion:start.rulesVersion,
-      seed:randomGameSeed(),tickRate:start.tickRate,hostUid:start.hostUid,members:start.members,players:start.players,
+      seed:randomGameSeed(),tickRate:start.tickRate,hostUid:start.hostUid,members:start.members,
+      players:Object.fromEntries(Object.entries(start.players).map(([id,player])=>[id,{...player,level:ready.get(id)!}])),
       settings:policy.settings??start.settings,audioOutput:start.audioOutput,
       matchId:policy.advance?start.matchId:nextGameId,round:policy.advance?start.round+1:0,
       previousGameId:gameId,serverTime:serverTimestamp()});
