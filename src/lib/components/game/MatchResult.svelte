@@ -8,7 +8,7 @@
 </script>
 <div class="match-result" role="status" aria-live="polite">
   <h1>{title}</h1><slot/>
-  {#if interactive}<LevelPicker {level} disabled={disabled} change={changeLevel}/>{/if}
+  {#if interactive}<LevelPicker {level} disabled={disabled} change={changeLevel} {activate}/>{/if}
   {#if interactive}<button on:click={activate} {disabled}>{action}</button>{/if}
   {#if total>0}<small>{ready}/{total} ready</small>{/if}
 </div>

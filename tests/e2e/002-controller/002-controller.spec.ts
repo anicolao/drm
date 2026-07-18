@@ -116,15 +116,19 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await expect(playerPage.getByRole('button', { name: 'NEXT LEVEL' })).toBeVisible({ timeout: 10000 });
   await expect(returningPage.getByRole('button', { name: 'NEXT LEVEL' })).toBeVisible({ timeout: 10000 });
   await playerPage.evaluate(()=>{const pad={id:'E2E gamepad',connected:true,buttons:Array.from({length:16},()=>({pressed:false})),axes:[0,0]};(window as typeof window&{e2ePad?:typeof pad}).e2ePad=pad;Object.defineProperty(navigator,'getGamepads',{configurable:true,value:()=>[pad]})});
-  await playerPage.evaluate(()=>{(window as typeof window&{e2ePad:{buttons:Array<{pressed:boolean}>}}).e2ePad.buttons[0].pressed=true});
+  await playerPage.evaluate(()=>{(window as typeof window&{e2ePad:{buttons:Array<{pressed:boolean}>}}).e2ePad.buttons[12].pressed=true});
+  await expect(playerPage.getByLabel('Starting level')).toContainText('4');
+  await playerPage.evaluate(()=>{const pad=(window as typeof window&{e2ePad:{buttons:Array<{pressed:boolean}>}}).e2ePad;pad.buttons[12].pressed=false;pad.buttons[13].pressed=true});
+  await expect(playerPage.getByLabel('Starting level')).toContainText('3');
+  await playerPage.evaluate(()=>{const pad=(window as typeof window&{e2ePad:{buttons:Array<{pressed:boolean}>}}).e2ePad;pad.buttons[13].pressed=false;pad.buttons[5].pressed=true});
   await expect(playerPage.getByRole('button', { name: 'NEXT LEVEL' })).toBeDisabled({timeout:10000});
-  await playerPage.evaluate(()=>{(window as typeof window&{e2ePad:{buttons:Array<{pressed:boolean}>}}).e2ePad.buttons[0].pressed=false});
+  await playerPage.evaluate(()=>{(window as typeof window&{e2ePad:{buttons:Array<{pressed:boolean}>}}).e2ePad.buttons[5].pressed=false});
   await returningPage.getByRole('button', { name: 'NEXT LEVEL' }).click();
   await expect(playerPage.getByRole('button', { name: 'NEXT LEVEL' })).not.toBeVisible({ timeout: 10000 });
   await expect(returningPage.getByRole('button', { name: 'NEXT LEVEL' })).not.toBeVisible({ timeout: 10000 });
   await tester.step('both-ready', { description: 'Both ready controllers enter the next round regardless of click order', networkStatus: 'skip', verifications: [
     { spec: 'Each controller enters at its independently selected next level', check: async () => {await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '20');await expect(returningPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '15')} },
-    { spec: 'Gamepad A activates the default between-round action', check: async () => await expect(playerPage.getByRole('button', { name: 'NEXT LEVEL' })).not.toBeVisible() },
+    { spec: 'D-pad changes level and any non-directional gamepad button activates the default action', check: async () => await expect(playerPage.getByRole('button', { name: 'NEXT LEVEL' })).not.toBeVisible() },
     { spec: 'The survivor scores the viruses left by the player who topped out', check: async () => await expect(playerPage.getByLabel('Scores')).toContainText('Sam 15') },
     { spec: 'Neither controller reports a permission failure', check: async () => { await expect(playerPage.getByText(/permission/i)).not.toBeVisible(); await expect(returningPage.getByText(/permission/i)).not.toBeVisible(); } }
   ]});

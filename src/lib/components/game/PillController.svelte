@@ -105,7 +105,6 @@
     const actions=gamepadControls.sample(gamepads,now);
     gamepadActive=gamepadLayoutMode(gamepadActive,connected,actions);
     if(controlsEnabled)for(const action of actions)gamepadAction(action);
-    else if(state.lifecycle?.finished){if(actions.includes('rotate-clockwise'))void nextRound();endDown('gamepad');}
     else{gamepadControls.reset();endDown('gamepad');}
     gamepadFrame=requestAnimationFrame(pollGamepads);
   }

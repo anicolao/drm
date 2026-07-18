@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { gamepadLayoutMode, StandardGamepadControls, type GamepadLike } from '../../src/lib/input/gamepad.ts';
+import { gamepadLayoutMode, MenuGamepadControls, StandardGamepadControls, type GamepadLike } from '../../src/lib/input/gamepad.ts';
 
 function pad(pressedButtons: number[] = [], axes = [0, 0]): GamepadLike {
   return {
@@ -53,4 +53,22 @@ test('gamepad layout activates only after input and resets on disconnect', () =>
   assert.equal(gamepadLayoutMode(false, true, ['rotate-clockwise']), true);
   assert.equal(gamepadLayoutMode(true, true, []), true);
   assert.equal(gamepadLayoutMode(true, false, []), false);
+});
+
+test('menu controls reserve vertical directions for levels and accept every other button',()=>{
+  const controls=new MenuGamepadControls();
+  assert.deepEqual(controls.sample([pad()],0),[]);
+  assert.deepEqual(controls.sample([pad([5])],16),['activate']);
+  assert.deepEqual(controls.sample([pad()],32),[]);
+  assert.deepEqual(controls.sample([pad([12])],48),['level-up']);
+  assert.deepEqual(controls.sample([pad()],64),[]);
+  assert.deepEqual(controls.sample([pad([],[0,.9])],80),['level-down']);
+});
+
+test('menu controls prime held inputs and repeat levels without repeating activation',()=>{
+  const controls=new MenuGamepadControls();
+  assert.deepEqual(controls.sample([pad([1,12])],0),[]);
+  assert.deepEqual(controls.sample([pad([1,12])],100),[]);
+  assert.deepEqual(controls.sample([pad([1,12])],220),['level-up']);
+  assert.deepEqual(controls.sample([pad([1,12])],310),['level-up']);
 });

@@ -42,7 +42,7 @@
 
 **Verifications:**
 - [x] Each controller enters at its independently selected next level
-- [x] Gamepad A activates the default between-round action
+- [x] D-pad changes level and any non-directional gamepad button activates the default action
 - [x] The survivor scores the viruses left by the player who topped out
 - [x] Neither controller reports a permission failure
 

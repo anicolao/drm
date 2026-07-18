@@ -31,7 +31,7 @@
   function start(id:string){if(id===gameId)return;gameId=id;error='';controller?.destroy();controller=createTetrisController(id,next=>{state=next;if(next.error)error=next.error})}
   function send(input:TetrisInput){if(enabled)controller?.command(input)}
   function gamepadInput(action:GamepadControlAction){gamepadActive=true;send(commandForGamepadAction(action))}
-  function poll(now:number){const pads=typeof navigator.getGamepads==='function'?Array.from(navigator.getGamepads()):[],active=pads.find(p=>p?.connected),actions=gamepad.sample(pads,now);gamepadName=active?.id??'';gamepadActive=gamepadLayoutMode(gamepadActive,Boolean(active),actions);if(enabled)for(const action of actions)gamepadInput(action);else if(state.lifecycle?.finished){if(actions.includes('rotate-clockwise'))void nextRound()}else gamepad.reset();gamepadFrame=requestAnimationFrame(poll)}
+  function poll(now:number){const pads=typeof navigator.getGamepads==='function'?Array.from(navigator.getGamepads()):[],active=pads.find(p=>p?.connected),actions=gamepad.sample(pads,now);gamepadName=active?.id??'';gamepadActive=gamepadLayoutMode(gamepadActive,Boolean(active),actions);if(enabled)for(const action of actions)gamepadInput(action);else gamepad.reset();gamepadFrame=requestAnimationFrame(poll)}
   function touch(input:TetrisInput){gamepadActive=false;send(input)}
   async function chooseLevel(level:number){selectedLevel=level;if(roomId)await updatePlayerLevel(roomId,level).catch(e=>error=e instanceof Error?e.message:String(e))}
   async function nextRound(){if(gameId)await requestTetrisRematch(gameId,selectedLevel).catch(e=>error=e instanceof Error?e.message:String(e))}

@@ -1,14 +1,18 @@
 <script lang="ts">
+  import {onMount} from 'svelte';
+  import {MenuGamepadControls} from '$lib/input/gamepad';
   export let level=0;
   export let disabled=false;
   export let change:(level:number)=>void=()=>{};
+  export let activate:(()=>void)|undefined=undefined;
   const clamp=(value:number)=>Math.max(0,Math.min(20,value));
-  function select(value:number){const next=clamp(value);level=next;change(next)}
+  function select(value:number){const next=clamp(value);if(next===level)return;level=next;change(next)}
   function keydown(event:KeyboardEvent){
     if(disabled)return;
     if(event.key!=='ArrowUp'&&event.key!=='ArrowDown')return;
     event.preventDefault();select(level+(event.key==='ArrowUp'?1:-1));
   }
+  onMount(()=>{const controls=new MenuGamepadControls();let frame=0;const poll=(now:number)=>{const pads=typeof navigator.getGamepads==='function'?Array.from(navigator.getGamepads()):[];for(const action of controls.sample(pads,now))if(!disabled){if(action==='level-up')select(level+1);else if(action==='level-down')select(level-1);else activate?.()}frame=requestAnimationFrame(poll)};frame=requestAnimationFrame(poll);return()=>cancelAnimationFrame(frame)});
 </script>
 <svelte:window on:keydown={keydown}/>
 <div class="level-picker" aria-label="Starting level" role="group">
