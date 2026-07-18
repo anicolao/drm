@@ -10,6 +10,8 @@ These original chiptune loops are provisional alternatives to the existing gamep
 - **Granite Promenade Clear** — 132 BPM, 4 bars. A compact major-bright cadence derived from the Promenade's original interval vocabulary.
 - **Snowbound Sabre** — 176 BPM, 20 bars. An original motor-rhythm piece influenced by the angular drive and brilliant orchestration associated with Russian modernism.
 - **Snowbound Sabre Clear** — 176 BPM, 4 bars. A fast ascending answer built from Snowbound Sabre's original motif and pulse palette.
+- **Prismatic Descent** — 144 BPM, 20 bars. A crystalline pulse melody, descending arpeggios, and steady race rhythm composed for the proposed Quarry Match game.
+- **Prismatic Descent Clear** — 144 BPM, 4 bars. An upbeat completion cadence derived from Prismatic Descent's harmony, lead voice, and arpeggio shape.
 
 The Russian-classical influence is stylistic only. The scores do not quote or adapt an existing composition, including the traditional Tetris themes.
 

@@ -66,6 +66,19 @@ const tracks = [
     progression: [0, 3, 8, 12],
     melody: [12, 16, 19, 24, 16, 20, 23, 28, 19, 23, 24, 31, 24, 28, 31, 36],
     arp: [0, 12, 7, 15, 19, 24, 19, 12], leadDuty: 0.125, swing: 0, energy: 1.12, seed: 131, fanfare: true
+  },
+  {
+    slug: 'prismatic-descent', title: 'Prismatic Descent', bpm: 144, bars: 20, root: 43,
+    progression: [0, 5, 10, 7, 0, 3, 8, 7, 0, 5, 3, 10, 8, 5, 7, 0, 3, 10, 7, 0],
+    melody: [12, null, 19, 17, 15, 12, 10, null, 12, 15, 17, 22, 19, 17, 15, null,
+      24, 22, 19, 17, 15, 19, 20, 17, 15, 12, 10, 12, 15, 17, 19, null],
+    arp: [0, 7, 12, 19, 15, 12, 7, 3], leadDuty: 0.25, swing: 0.035, energy: 0.88, seed: 149
+  },
+  {
+    slug: 'prismatic-descent-clear', title: 'Prismatic Descent Clear', bpm: 144, bars: 4, root: 43,
+    progression: [0, 5, 10, 12],
+    melody: [12, 15, 19, 22, 17, 19, 22, 24, 19, 22, 27, 31, 24, 27, 31, 36],
+    arp: [0, 7, 12, 15, 19, 24, 19, 12], leadDuty: 0.25, swing: 0, energy: 1.04, seed: 151, fanfare: true
   }
 ];
 
