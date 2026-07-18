@@ -20,6 +20,7 @@ export function generateQuarry(seed:number,level:number){
     }
   }
   if(columns.some(column=>column.length!==QUARRY_HEIGHT))throw new Error('Quarry generator did not fill the board.');
+  if(!solveQuarry(columns))throw new Error('Quarry generator produced an unsolvable board.');
   return columns;
 }
 
@@ -41,8 +42,5 @@ export function applyQuarryInput(state:QuarryState,input:QuarryInput,seed?:numbe
 export function hashQuarry(state:QuarryState){const text=JSON.stringify(state);let hash=2166136261;for(let i=0;i<text.length;i++){hash^=text.charCodeAt(i);hash=Math.imul(hash,16777619)}return`q1-${(hash>>>0).toString(16).padStart(8,'0')}`}
 export function replayQuarry(initial:QuarryState,targetTick:number,records:readonly QuarryRecord[],seed:number){const state=structuredClone(initial);for(const record of [...records].sort((a,b)=>a.tick-b.tick||a.clientSeq-b.clientSeq)){while(state.tick<record.tick&&state.phase==='playing')advanceQuarry(state);if(record.type!=='progress/tick')applyQuarryInput(state,record,seed)}while(state.tick<targetTick&&state.phase==='playing')advanceQuarry(state);return state}
 
-export function solveQuarry(columns:QuarryColor[][]){
-  const memo=new Map<string,boolean>();
-  const solve=(stacks:QuarryColor[][],group:QuarryColor|null,count:0|1|2):boolean=>{const key=JSON.stringify([stacks,group,count]);if(memo.has(key))return memo.get(key)!;if(stacks.every(s=>!s.length))return count===0;for(let col=0;col<stacks.length;col++){const color=stacks[col][0];if(!color||(group&&color!==group))continue;const next=stacks.map(s=>[...s]);next[col].shift();const nextCount=(count===2?0:count+1)as 0|1|2;if(solve(next,nextCount===0?null:color,nextCount)){memo.set(key,true);return true}}memo.set(key,false);return false};
-  return solve(columns.map(column=>[...column]),null,0);
-}
+export function solveQuarryPlan(columns:QuarryColor[][]){const dead=new Set<string>();const solve=(stacks:QuarryColor[][],group:QuarryColor|null,count:0|1|2):number[]|null=>{const key=JSON.stringify([stacks,group,count]);if(dead.has(key))return null;if(stacks.every(s=>!s.length))return count===0?[]:null;for(let col=0;col<stacks.length;col++){const color=stacks[col][0];if(!color||(group&&color!==group))continue;const next=stacks.map(s=>[...s]);next[col].shift();const nextCount=(count===2?0:count+1)as 0|1|2,tail=solve(next,nextCount===0?null:color,nextCount);if(tail)return[col,...tail]}dead.add(key);return null};return solve(columns.map(column=>[...column]),null,0)}
+export function solveQuarry(columns:QuarryColor[][]){return solveQuarryPlan(columns)!==null}
