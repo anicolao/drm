@@ -58,5 +58,27 @@ test('US-005: Block Stack starts a deterministic playable controller',async({bro
     {spec:'Movement and both SRS rotations are available',check:async()=>{await expect(page.getByRole('button',{name:'Move left'})).toBeEnabled();await expect(page.getByRole('button',{name:'Rotate clockwise'})).toBeEnabled();await expect(page.getByRole('button',{name:'Rotate counterclockwise'})).toBeEnabled()}},
     {spec:'Score and line count start from deterministic state',check:async()=>{await expect(board).toHaveAttribute('data-lines','0');await expect(board).toHaveAttribute('data-score',/\d+/)}}
   ]});
+  const touchBoardBox=await board.boundingBox();
+  await page.evaluate(()=>{
+    const buttons=Array.from({length:16},()=>({pressed:false,value:0}));
+    const pad={connected:true,id:'E2E Bluetooth Controller',buttons,axes:[0,0]};
+    Object.defineProperty(navigator,'getGamepads',{configurable:true,value:()=>[pad]});
+    (window as typeof window&{__e2ePad?:typeof pad}).__e2ePad=pad;
+  });
+  await page.clock.resume();
+  await page.waitForFunction(()=>{const tick=Number(document.querySelector('.tick')?.textContent?.match(/\d+/)?.[0]);return tick%50>=10&&tick%50<=20},undefined,{polling:'raf'});
+  await page.evaluate(()=>{const pad=(window as typeof window&{__e2ePad:{buttons:Array<{pressed:boolean;value:number}>}}).__e2ePad;pad.buttons[0]={pressed:true,value:1}});
+  await expect.poll(()=>page.locator('.command-status').textContent()).toMatch(/input\/rotate · tick/);
+  await page.evaluate(()=>{const pad=(window as typeof window&{__e2ePad:{buttons:Array<{pressed:boolean;value:number}>}}).__e2ePad;pad.buttons[0]={pressed:false,value:0}});
+  await expect(page.getByRole('button',{name:'SHOW TOUCH CONTROLS'})).toBeVisible();
+  await page.clock.pauseAt(Date.now());
+  await tester.step('gamepad-board-mode',{description:'Using a gamepad hides phone controls and gives the board more space',networkStatus:'skip',verifications:[
+    {spec:'A real gamepad action switches the controller to gamepad mode',check:async()=>await expect(page.getByText('GAMEPAD READY')).toBeVisible()},
+    {spec:'Touch movement and rotation controls are hidden',check:async()=>{await expect(page.getByRole('button',{name:'Move left'})).not.toBeVisible();await expect(page.getByRole('button',{name:'Rotate clockwise'})).not.toBeVisible()}},
+    {spec:'The local board grows while the compact opponent remains visible',check:async()=>{const gamepadBoardBox=await board.boundingBox();expect(gamepadBoardBox!.width).toBeGreaterThan(touchBoardBox!.width);await expect(opponent).toBeVisible()}},
+    {spec:'The player can explicitly restore touch controls',check:async()=>await expect(page.getByRole('button',{name:'SHOW TOUCH CONTROLS'})).toBeVisible()}
+  ]});
+  await page.getByRole('button',{name:'SHOW TOUCH CONTROLS'}).click();
+  await expect(page.getByRole('button',{name:'Move left'})).toBeVisible();
   tester.generateDocs();await opponentContext.close();
 });

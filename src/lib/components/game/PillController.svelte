@@ -11,14 +11,14 @@
   import ControllerStatus from './ControllerStatus.svelte';
   import MatchResult from './MatchResult.svelte';
   import OpponentList from './OpponentList.svelte';
-  import { StandardGamepadControls, type GamepadControlAction } from '$lib/input/gamepad';
+  import { gamepadLayoutMode,StandardGamepadControls, type GamepadControlAction } from '$lib/input/gamepad';
   import { HeldActionRepeater } from '$lib/input/held-repeat';
   import { commandForGamepadAction,commandForKey,HeldInputGate } from '$lib/runtime/core-input';
 
   let code=''; let joined=false; let joining=false; let needsName=false; let playerName=''; let error='';
   let roomId=''; let activeGameId=''; let controller: ReturnType<typeof createPillBottleController> | undefined;
   let roomUnsubscribe=()=>{}; let playersUnsubscribe=()=>{}; let players:RoomPlayer[]=[]; let state: ControllerState={tick:0,ready:false}; let downHeld=false;
-  let gamepadFrame=0; let gamepadConnected=false; let gamepadName=''; let online=true; const gamepadControls=new StandardGamepadControls(); const dropSources=new Set<'pointer'|'keyboard'|'gamepad'>();
+  let gamepadFrame=0; let gamepadConnected=false; let gamepadName=''; let gamepadActive=false; let online=true; const gamepadControls=new StandardGamepadControls(); const dropSources=new Set<'pointer'|'keyboard'|'gamepad'>();
   const touchMoveRepeater=new HeldActionRepeater<-1|1>((dx)=>send({type:'input/move',payload:{dx}}));
   const hardDropKeys=new HeldInputGate<string>();
   $: controlsEnabled=Boolean(state.ready&&state.bottle?.phase==='playing'&&!state.lifecycle?.finished);
@@ -83,10 +83,12 @@
   function releaseAllDown(){if(dropSources.size===0)return;dropSources.clear();downHeld=false;send({type:'input/soft-drop-end',payload:{}});}
   function releaseAllControls(){touchMoveRepeater.stop();releaseAllDown();hardDropKeys.reset();}
   function pressMove(event:PointerEvent,dx:-1|1){
+    gamepadActive=false;
     touchMoveRepeater.start(dx);
     try{(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);}catch{/* Pointer capture is optional. */}
   }
   function pressDown(event:PointerEvent){
+    gamepadActive=false;
     beginDown('pointer');
     try{(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);}catch{/* Pointer capture is optional for synthetic and unsupported pointers. */}
   }
@@ -99,6 +101,7 @@
     const active=gamepads.find(gamepad=>Boolean(gamepad?.connected));const connected=Boolean(active);
     if(connected!==gamepadConnected){gamepadConnected=connected;gamepadName=active?.id??'';}
     const actions=gamepadControls.sample(gamepads,now);
+    gamepadActive=gamepadLayoutMode(gamepadActive,connected,actions);
     if(controlsEnabled)for(const action of actions)gamepadAction(action);
     else{gamepadControls.reset();endDown('gamepad');}
     gamepadFrame=requestAnimationFrame(pollGamepads);
@@ -120,23 +123,23 @@
 {:else if error}<main class="join"><p class="eyebrow">Controller error</p><h1>{error}</h1>{#if state.ownershipConflict}<button on:click={()=>controller?.takeOver()}>Take over on this device</button>{/if}</main>
 {:else if !joined}<main class="join"><p class="eyebrow">Joining room…</p></main>
 {:else if !activeGameId}<main class="join"><p class="eyebrow">Joined room {code}</p><h1>WAITING FOR HOST</h1><p role="status">You are in. Keep this screen open; controls appear when the host starts Color Cure.</p><div class="control-guide compact"><span>← → MOVE</span><span>↓ SOFT DROP</span><span>↑ HARD DROP</span><span>A / R ↻</span><span>B / T ↺</span></div></main>
-{:else}<main class="landscape-controller" aria-label="Pill Bottle controller"><GameAudio state={state.bottle} enabled={state.audioOutput==='controllers'} rainSignal={state.rainSignal??0}/>
+{:else}<main class="landscape-controller" class:gamepad-mode={gamepadActive} aria-label="Pill Bottle controller"><GameAudio state={state.bottle} enabled={state.audioOutput==='controllers'} rainSignal={state.rainSignal??0}/>
   {#if state.lifecycle&&state.lifecycle.playerIds.length>1}<aside class="controller-scoreboard" aria-label="Scores"><strong>ROUND {state.lifecycle.round+1}/3</strong>{#each standings as player}<span class:you={player.playerId===state.playerId}>{player.name} <b>{player.score}</b>{#if player.roundPoints>0}<small>+{player.roundPoints}</small>{/if}</span>{/each}</aside>{/if}
   <OpponentList opponents={opponentDisplays} label="Opponent boards" let:opponent><strong>{(opponent as PlayerProgress&{name:string}).name}</strong><PillBottle state={(opponent as PlayerProgress).state} label={`${(opponent as PlayerProgress&{name:string}).name} opponent bottle`} showPreview={false}/><span>{(opponent as PlayerProgress).state.viruses} viruses</span></OpponentList>
   <ControllerStatus {online} ready={state.ready} gamepadName={gamepadConnected?gamepadName:''} room={code}/>
   <section class="session"><strong>{playerName}</strong><span>room {code}</span>{#if state.bottle}<PillBottle state={state.bottle}/><span>{state.lifecycle?.playerIds.length===1?`level ${state.bottle.level}`:`round ${(state.lifecycle?.round??state.bottle.level)+1}/3`} · {state.bottle.viruses} viruses</span><span>speed {gravityTicksForState(state.bottle)} ticks · {state.bottle.pills} pills</span>{#if state.lifecycle?.terminalResults[state.playerId??'']==='cleared'}<strong class="countdown">LEVEL CLEAR</strong>{:else if state.bottle.phase==='lost'&&!state.lifecycle?.finished}<strong class="result">ELIMINATED · WAITING</strong>{/if}{/if}<span class="tick">tick {state.tick}</span>{#if state.lastCommand}<small class="command-status">{state.lastCommand}</small>{/if}</section>
   {#if state.lifecycle?.finished}<MatchResult title={state.lifecycle.playerIds.length===1?'GAME OVER':state.lifecycle.matchComplete?'MATCH COMPLETE':`ROUND ${state.lifecycle.round+1} COMPLETE`} action={state.lifecycle.matchComplete?'PLAY AGAIN':'NEXT LEVEL'} ready={state.lifecycle.readyPlayerIds.length} total={state.lifecycle.playerIds.length} disabled={state.lifecycle.readyPlayerIds.includes(state.playerId??'')} activate={nextRound}/>{/if}
-  <section class="dpad" aria-label="Movement controls">
+  {#if !gamepadActive}<section class="dpad" aria-label="Movement controls">
     <button class="up" aria-label="Hard drop" title="Arrow Up" disabled={!controlsEnabled} on:pointerdown={()=>send({type:'input/hard-drop',payload:{}})}>↑</button>
     <button class="left" aria-label="Move left" title="Arrow Left" disabled={!controlsEnabled} on:pointerdown={(event)=>pressMove(event,-1)} on:pointerup={()=>touchMoveRepeater.stop()} on:pointercancel={()=>touchMoveRepeater.stop()} on:lostpointercapture={()=>touchMoveRepeater.stop()}>←</button>
     <button class:held={downHeld} class="down" aria-label="Accelerate down" title="Arrow Down" disabled={!controlsEnabled} on:pointerdown={pressDown} on:pointerup={releasePointerDown} on:pointercancel={releasePointerDown} on:lostpointercapture={releasePointerDown}>↓</button>
     <button class="right" aria-label="Move right" title="Arrow Right" disabled={!controlsEnabled} on:pointerdown={(event)=>pressMove(event,1)} on:pointerup={()=>touchMoveRepeater.stop()} on:pointercancel={()=>touchMoveRepeater.stop()} on:lostpointercapture={()=>touchMoveRepeater.stop()}>→</button>
   </section>
   <section class="rotations" aria-label="Rotation controls">
-    <button aria-label="Rotate counterclockwise" title="T" disabled={!controlsEnabled} on:pointerdown={()=>send({type:'input/rotate',payload:{direction:'counterclockwise'}})}>↺</button>
-    <button aria-label="Rotate clockwise" title="R" disabled={!controlsEnabled} on:pointerdown={()=>send({type:'input/rotate',payload:{direction:'clockwise'}})}>↻</button>
+    <button aria-label="Rotate counterclockwise" title="T" disabled={!controlsEnabled} on:pointerdown={()=>{gamepadActive=false;send({type:'input/rotate',payload:{direction:'counterclockwise'}})}}>↺</button>
+    <button aria-label="Rotate clockwise" title="R" disabled={!controlsEnabled} on:pointerdown={()=>{gamepadActive=false;send({type:'input/rotate',payload:{direction:'clockwise'}})}}>↻</button>
   </section>
-  <div class="control-guide" aria-label="Control hints"><span>STICK / D-PAD · MOVE</span><span>A · CLOCKWISE</span><span>B · COUNTER</span></div>
+  <div class="control-guide" aria-label="Control hints"><span>STICK / D-PAD · MOVE</span><span>A · CLOCKWISE</span><span>B · COUNTER</span></div>{:else}<button class="input-mode-toggle" on:click={()=>gamepadActive=false}>SHOW TOUCH CONTROLS</button>{/if}
 </main>{/if}</div>
 
 <style>
@@ -150,6 +153,7 @@
   .up{grid-area:1/2}.left{grid-area:2/1}.down{grid-area:2/2}.right{grid-area:2/3}
   .rotations{position:absolute;right:max(.55rem,4vw,env(safe-area-inset-right));bottom:max(.55rem,3dvh,env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(2,min(14vw,28dvh,130px));gap:min(1rem,2.5dvh);height:min(35dvh,150px)}.rotations button:first-child{background:color-mix(in srgb,var(--pink),#292c38 45%)}.rotations button:last-child{background:color-mix(in srgb,var(--cyan),#292c38 45%)}
   .control-guide{position:absolute;left:50%;bottom:.6rem;transform:translateX(-50%);display:flex;gap:.6rem;color:#7f8291;font-size:.5rem;white-space:nowrap}.control-guide.compact{position:static;transform:none;justify-content:center;flex-wrap:wrap;margin-top:1.5rem;color:var(--muted);font-size:.65rem;white-space:normal}.control-guide.compact span{border:1px solid #3c3f50;padding:.45rem}
+  .input-mode-toggle{position:absolute;z-index:7;left:50%;bottom:max(.45rem,env(safe-area-inset-bottom));transform:translateX(-50%);padding:.4rem .65rem;border-color:#45495b;background:#171923;color:var(--muted);font-size:.48rem}.gamepad-mode .session :global(.bottle-shell){width:min(44vw,46dvh,420px)}
   @media(orientation:portrait){
     .session{top:max(3.4rem,calc(env(safe-area-inset-top) + 3rem));transform:translateX(-50%);gap:.1rem;max-height:61dvh}
     .session :global(.bottle-shell){width:min(58vw,29dvh,230px)}
@@ -158,6 +162,9 @@
     .rotations{right:max(.45rem,env(safe-area-inset-right));bottom:max(.65rem,env(safe-area-inset-bottom));grid-template-columns:repeat(2,min(20vw,82px));height:min(16dvh,125px);gap:.5rem}
     .dpad button,.rotations button{font-size:clamp(1.4rem,8vw,2.4rem)}
     .landscape-controller>.control-guide{display:none}
+    .gamepad-mode .session{top:max(3.4rem,calc(env(safe-area-inset-top) + 3rem));max-height:90dvh}
+    .gamepad-mode .session :global(.bottle-shell){width:min(68vw,36dvh,300px)}
+    .gamepad-mode :global(.opponent){width:54px}
   }
   @media(max-height:430px){.landscape-controller>.control-guide{display:none}}
 </style>

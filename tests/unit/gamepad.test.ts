@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { StandardGamepadControls, type GamepadLike } from '../../src/lib/input/gamepad.ts';
+import { gamepadLayoutMode, StandardGamepadControls, type GamepadLike } from '../../src/lib/input/gamepad.ts';
 
 function pad(pressedButtons: number[] = [], axes = [0, 0]): GamepadLike {
   return {
@@ -46,4 +46,11 @@ test('the primary stick mirrors every d-pad direction with a dead zone', () => {
   assert.deepEqual(controls.sample([pad([], [0, -0.8])], 48), ['hard-drop']);
   assert.deepEqual(controls.sample([pad([], [0, 0.9])], 64), ['soft-drop-start']);
   assert.deepEqual(controls.sample([pad([], [0, 0])], 80), ['soft-drop-end']);
+});
+
+test('gamepad layout activates only after input and resets on disconnect', () => {
+  assert.equal(gamepadLayoutMode(false, true, []), false);
+  assert.equal(gamepadLayoutMode(false, true, ['rotate-clockwise']), true);
+  assert.equal(gamepadLayoutMode(true, true, []), true);
+  assert.equal(gamepadLayoutMode(true, false, []), false);
 });

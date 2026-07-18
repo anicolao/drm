@@ -13,6 +13,10 @@ export interface GamepadLike {
   axes?: ArrayLike<number>;
 }
 
+export function gamepadLayoutMode(current: boolean, connected: boolean, actions: readonly GamepadControlAction[]) {
+  return connected && (current || actions.length > 0);
+}
+
 const BUTTON = Object.freeze({ a: 0, b: 1, up: 12, down: 13, left: 14, right: 15 });
 const INITIAL_REPEAT_DELAY_MS = 220;
 const REPEAT_INTERVAL_MS = 90;

@@ -13,3 +13,15 @@
 - [x] Score and line count start from deterministic state
 
 ---
+
+## Using a gamepad hides phone controls and gives the board more space
+
+![Using a gamepad hides phone controls and gives the board more space](./screenshots/001-gamepad-board-mode.png)
+
+**Verifications:**
+- [x] A real gamepad action switches the controller to gamepad mode
+- [x] Touch movement and rotation controls are hidden
+- [x] The local board grows while the compact opponent remains visible
+- [x] The player can explicitly restore touch controls
+
+---
