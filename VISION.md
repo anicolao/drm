@@ -60,6 +60,9 @@ long-lived player progression are possible later, but do not shape the MVP.
 
 ## Product shape
 
+The current application implements host, player, and display roles. Explicit
+end-room controls and spectator-only entry remain future work.
+
 The web app has four roles:
 
 - **Host:** creates the room, selects rules, starts rounds, and can end a match.

@@ -1,39 +1,48 @@
-The rotation system in *Dr. Mario* operates on a simple but strict set of rules that governs how the two-block vitamin pills maneuver around the bottle and existing viruses. While it feels intuitive in practice, the underlying mechanics rely on a specific grid system.
+# Color Cure Rotation System
 
----
+This is the frozen `pill-bottle/3` rotation contract implemented in
+`src/lib/game/pill-bottle/engine.ts`. It describes DRM behavior, not a claim of
+exact parity with a particular commercial release.
 
-## The 2x2 Bounding Box
+## Anchor and orientations
 
-Unlike *Tetris* pieces that often rotate around a central pivot block, *Dr. Mario* pills rotate within an invisible **2x2 grid box**.
+An active pill occupies two cells in a 2×2 box. `(row, col)` is the bottom-left
+anchor and is occupied in all four logical orientations. The two colors remain
+attached to their original halves as orientation advances clockwise or
+counter-clockwise.
 
-The most important rule of this system is **the anchor point**: The bottom-left corner of this 2x2 box is *always* filled by one half of the pill.
+The four states alternate horizontal and vertical placement while swapping which
+colored half occupies the anchor. Four logical states are therefore required even
+though there are only two geometric axes.
 
-* **When the pill is horizontal:** The left half of the pill is in the bottom-left corner, and the right half is in the bottom-right corner.
-* **When the pill is vertical:** The bottom half of the pill is in the bottom-left corner, and the top half is in the top-left corner.
+## Ordered kick behavior
 
-## Standard Rotations
+Rotation is deterministic and tries only the documented placements:
 
-Because the bottom-left corner acts as the permanent anchor, rotating a piece simply shifts the "free" half of the pill between the top-left and bottom-right corners of the 2x2 box.
+- Vertical to horizontal first rotates in place. If the new right cell is
+  blocked, the complete 2×2 box tries one column left.
+- Horizontal to vertical first rotates in place. If the upper cell is blocked,
+  the pill tries a complete vertical placement one column right, then one column
+  left.
+- If none of those placements fit, rotation is a no-op.
 
-1. **Horizontal to Vertical:** The left block stays exactly where it is. The right block swings up to position itself directly above the left block.
-2. **Vertical to Horizontal:** The bottom block stays exactly where it is. The top block swings down and to the right, landing directly next to the bottom block.
+There are no downward, diagonal, floor, or unbounded “search nearby” kicks.
+Cells must remain inside the 8×16 bottle and may not overlap settled cells.
 
-## Wall Kicks
+## Lock interaction
 
-A **wall kick** occurs when you attempt to rotate a pill, but the space the "free" half wants to swing into is already occupied by a wall, a virus, or another pill segment. Instead of simply failing to rotate, the game attempts to "kick" the entire pill to an adjacent empty column so the rotation can complete.
+A successful move or rotation of a grounded pill resets its 30-tick lock delay.
+A failed rotation changes neither position, orientation, colors, nor lock timing.
+The result is reconstructed from the direction command; the chosen kick and final
+cells are never network records.
 
-In the classic *Dr. Mario* (NES/Game Boy) ruleset, kicks are handled very specifically:
+## Required fixtures
 
-### Vertical to Horizontal (Blocked on the Right)
+Unit coverage freezes:
 
-If you have a vertical pill against the right wall (or a block on its right), rotating it normally would cause the top half to swing into the obstruction.
-
-* **The Kick:** The game shifts the *entire* 2x2 bounding box one column to the **left**. The top block swings down into the space where the bottom block used to be, and the bottom block is shoved one space to the left.
-
-### Horizontal to Vertical (Blocked on Top)
-
-If you have a horizontal pill and the space directly above the left block is occupied, the right block cannot swing up into it.
-
-* **The Kick:** Depending on the exact spatial arrangement, the pill will attempt to shift right or left to find a clear vertical column. If it cannot find a clear column (e.g., it is wedged tightly between blocks), the rotation fails and the pill stays horizontal.
-
-> **Modern Variations:** While the classic NES ruleset only allows basic left/right kicking to squeeze into columns, later releases like *Tetris & Dr. Mario* (SNES) expanded the system. These newer versions allow horizontal pills to kick **down** or **down-and-right** if they are blocked from above, making it much easier to slide pills into tight gaps just before they lock into place.
+- all four color-preserving orientations;
+- clockwise/counter-clockwise traversal;
+- right obstruction causing the one-column-left kick;
+- blocked upper space selecting right before left;
+- failure when in-place, right, and left vertical placements are blocked;
+- replay producing the same orientation and position as live input.
