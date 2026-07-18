@@ -2,7 +2,7 @@
 
 ## Objective
 
-Color Cure and Block Stack must feel like two games inside one real-time game
+Color Cure, Block Stack, and Quarry Match must feel like games inside one real-time game
 framework. Gameplay state, rules, scoring, board rendering, and game-specific
 effects may differ. Room entry, routes, authority, transport, recovery, clocks,
 input, lifecycle, audio placement, lag reporting, and responsive presentation
@@ -21,7 +21,7 @@ The application has one host lobby and only two active-game routes:
 /cast?code=ABCD   shared-display entry
 ```
 
-Both routes read the immutable start record and choose game behavior through
+All three rulesets use these routes, read the immutable start record, and choose game behavior through
 `src/lib/runtime/game-registry.ts`. The former `/tetris` and `/tetris-cast`
 implementations are gone.
 
@@ -61,6 +61,13 @@ Block Stack owns:
 - Block Stack board/stat presentation and music;
 - its current single-round survivor result.
 
+Quarry Match owns:
+
+- `quarry-match/1` engine, generator/solver, state, hashing, and replay adapter;
+- matching-group selection, first-clear claim, round-win score projection, and
+  stone/cursor rendering;
+- Prismatic Descent music and clear cue.
+
 These differences are supplied behind the shared framework rather than copied
 into routes or transport layers.
 
@@ -69,11 +76,11 @@ into routes or transport layers.
 The migration removed the architectural duplication, but the active-game Svelte
 components still contain parallel orchestration that can be narrowed further:
 
-1. `PillController.svelte` and `TetrisController.svelte` each assemble the shared
+1. The three game controller components each assemble the shared
    runtime primitives, status, controls, opponents, and result UI. A generic
    controller-session component could own that assembly while slots/adapters
    provide board, stats, score labels, and game-specific actions.
-2. `PillCast.svelte` and `TetrisCast.svelte` each subscribe to the registered
+2. The three cast components each subscribe to the registered
    replay/lifecycle data and arrange player frames. A generic cast-session
    component could own loading, errors, player iteration, lag/hash status, result
    overlays, and responsive multi-board layout.

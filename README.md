@@ -3,9 +3,9 @@
 [![CI](https://github.com/anicolao/drm/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/anicolao/drm/actions/workflows/ci.yml)
 [![Deploy to GitHub Pages](https://github.com/anicolao/drm/actions/workflows/deploy.yml/badge.svg?branch=main)](https://github.com/anicolao/drm/actions/workflows/deploy.yml)
 
-`drm` is a playable multiplayer falling-block game for a room full of people. A
-room can use either Block Stack (Tetris-style) or Color Cure (Dr. Mario-style)
-rules and can be played in two
+`drm` is a playable multiplayer puzzle-game collection for a room full of people.
+A room can use Block Stack (Tetris-style), Color Cure (Dr. Mario-style), or
+Quarry Match (Tumblestone-style Puzzle Race) rules and can be played in two
 ways:
 
 - each player uses a tablet as both controller and game board; or
@@ -14,7 +14,8 @@ ways:
 
 See [VISION.md](VISION.md) for the intended experience, [MVP_DESIGN.md](MVP_DESIGN.md)
 for the original MVP scope and current outcome, [PILL_BOTTLE.md](PILL_BOTTLE.md)
-for Color Cure's frozen rules, and [TETRIS_NEXT.md](TETRIS_NEXT.md) for the
+for Color Cure's frozen rules, [TUMBLESTONE_RULES.md](TUMBLESTONE_RULES.md) for
+Quarry Match's frozen contract, and [TETRIS_NEXT.md](TETRIS_NEXT.md) for the
 remaining Block Stack backlog.
 
 ## Architecture
@@ -48,12 +49,16 @@ Color Cure uses the frozen `pill-bottle/3` engine, three-round replay-derived
 scoring, next-level/rematch voting, next-pill previews, and deterministic rain
 attacks. Block Stack uses `tetris/1` with a seeded seven-bag, SRS rotation, ghost
 and next pieces, gravity, lock delay, line scoring, top-out, multiplayer
-last-survivor results, controller replay, and cast replay. Block Stack hold,
+last-survivor results, controller replay, and cast replay. Quarry Match uses
+solver-verified seeded five-column puzzles, match-three shooting, restarts,
+first-clear race arbitration, first-to-three scoring, controller/cast replay,
+and its original Prismatic Descent score. Block Stack hold,
 advanced scoring, garbage attacks, and multi-round matches remain future work.
 
 The player route accepts touch and keyboard controls plus standard browser
-gamepads: D-pad or primary stick for movement/drop, A for clockwise rotation,
-and B for counterclockwise rotation.
+gamepads. Falling-block games use the D-pad or primary stick for movement/drop,
+A for clockwise rotation, and B for counterclockwise rotation. Quarry Match uses
+horizontal movement plus any face button or D-pad up to fire.
 
 ```sh
 nix develop
