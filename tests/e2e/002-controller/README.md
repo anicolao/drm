@@ -58,3 +58,14 @@
 - [x] The reversed ready order produces no permission failure
 
 ---
+
+## Match complete centers the final standings for every player
+
+![Match complete centers the final standings for every player](./screenshots/005-final-standings.png)
+
+**Verifications:**
+- [x] Final standings appear directly under Match Complete
+- [x] Players are ordered by accumulated points
+- [x] The rematch action remains available below the standings
+
+---
