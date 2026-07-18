@@ -4,19 +4,21 @@
   import TetrisAudio from '$lib/components/TetrisAudio.svelte';
   import ControllerStatus from './ControllerStatus.svelte';
   import MatchResult from './MatchResult.svelte';
+  import MatchStandings from './MatchStandings.svelte';
   import LevelPicker from './LevelPicker.svelte';
   import OpponentList from './OpponentList.svelte';
   import { auth,firebaseConfigured } from '$lib/firebase/config';
-  import { joinRoom,subscribeRoom,subscribeRoomPlayers,updatePlayerLevel } from '$lib/firebase/rooms';
+  import { joinRoom,subscribeRoom,subscribeRoomPlayers,updatePlayerLevel,type RoomPlayer } from '$lib/firebase/rooms';
   import { createTetrisController,requestTetrisRematch,type TetrisControllerState,type TetrisProgress } from '$lib/firebase/tetris';
   import type { TetrisInput } from '$lib/game/tetris';
   import { HeldActionRepeater } from '$lib/input/held-repeat';
   import { gamepadLayoutMode,StandardGamepadControls,type GamepadControlAction } from '$lib/input/gamepad';
   import { commandForGamepadAction,commandForKey,HeldInputGate } from '$lib/runtime/core-input';
-  let code='',name='',needsName=false,error='',gameId='',roomId='',online=true,gamepadName='',gamepadActive=false,selectedLevel=0;
+  let code='',name='',needsName=false,error='',gameId='',roomId='',online=true,gamepadName='',gamepadActive=false,selectedLevel=0,roomPlayers:RoomPlayer[]=[];
   let controller:ReturnType<typeof createTetrisController>|undefined,state:TetrisControllerState={tick:0,ready:false},stopRoom=()=>{},stopPlayers=()=>{},gamepadFrame=0;
   const gamepad=new StandardGamepadControls(),repeat=new HeldActionRepeater<-1|1>(dx=>send({type:'input/move',payload:{dx}})),hardDropKeys=new HeldInputGate<string>();
   $: enabled=Boolean(state.ready&&state.state?.phase==='playing'&&!state.lifecycle?.finished);
+  $: standings=(state.lifecycle?.playerIds??[]).map((playerId,index)=>{const progress=playerId===state.playerId?state.state:state.opponents?.find(player=>player.playerId===playerId)?.state;return{playerId,name:roomPlayers.find(player=>player.uid===playerId)?.displayName??(playerId===state.playerId?name:`Player ${index+1}`),score:progress?.score??0}}).sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name));
   onMount(()=>{online=navigator.onLine;void init();gamepadFrame=requestAnimationFrame(poll);
     const kd=(e:KeyboardEvent)=>{if(e.key==='ArrowUp'&&!hardDropKeys.press(e.key)){e.preventDefault();return}const command=commandForKey(e);if(command){e.preventDefault();send(command)}};
     const ku=(e:KeyboardEvent)=>{if(e.key==='ArrowUp')hardDropKeys.release(e.key);if(e.key==='ArrowDown')send({type:'input/soft-drop-end',payload:{}})};
@@ -26,7 +28,7 @@
     return()=>{cancelAnimationFrame(gamepadFrame);stopRoom();stopPlayers();controller?.destroy();window.removeEventListener('blur',release);window.removeEventListener('keydown',kd);window.removeEventListener('keyup',ku);window.removeEventListener('online',network);window.removeEventListener('offline',network);document.removeEventListener('visibilitychange',visibility)}
   });
   async function init(){code=new URL(location.href).searchParams.get('code')?.toUpperCase()??'';if(!firebaseConfigured){error='Firebase configuration is required.';return}name=localStorage.getItem('drm-player-name')??'';if(!name){needsName=true;return}await join()}
-  async function join(){try{const room=await joinRoom(code,name);roomId=room.id;stopPlayers=subscribeRoomPlayers(room.id,players=>selectedLevel=players.find(player=>player.uid===auth?.currentUser?.uid)?.level??selectedLevel,e=>error=e.message);if(room.activeGameId)start(room.activeGameId);stopRoom=subscribeRoom(room.id,next=>{if(next.activeGameId)start(next.activeGameId)},e=>error=e.message)}catch(e){error=e instanceof Error?e.message:String(e)}}
+  async function join(){try{const room=await joinRoom(code,name);roomId=room.id;stopPlayers=subscribeRoomPlayers(room.id,players=>{roomPlayers=players;selectedLevel=players.find(player=>player.uid===auth?.currentUser?.uid)?.level??selectedLevel},e=>error=e.message);if(room.activeGameId)start(room.activeGameId);stopRoom=subscribeRoom(room.id,next=>{if(next.activeGameId)start(next.activeGameId)},e=>error=e.message)}catch(e){error=e instanceof Error?e.message:String(e)}}
   async function save(){if(!name.trim())return;localStorage.setItem('drm-player-name',name.trim());needsName=false;await join()}
   function start(id:string){if(id===gameId)return;gameId=id;error='';controller?.destroy();controller=createTetrisController(id,next=>{state=next;if(next.error)error=next.error})}
   function send(input:TetrisInput){if(enabled)controller?.command(input)}
@@ -43,7 +45,7 @@
   <TetrisAudio enabled={state.audioOutput==='controllers'} level={state.state.level}/><ControllerStatus {online} ready={state.ready} {gamepadName} room={code}/>
   <section class="game"><strong>{name}</strong><TetrisBoard state={state.state}/><span>LEVEL {state.state.level} · LINES {state.state.lines}</span><span>SCORE {state.state.score}</span><span class="tick">TICK {state.tick}</span>{#if state.lastCommand}<small class="command-status">{state.lastCommand}</small>{/if}</section>
   <OpponentList opponents={state.opponents??[]} let:opponent><TetrisBoard state={(opponent as TetrisProgress).state} label="Opponent Block Stack board" compact/><small>SCORE {(opponent as TetrisProgress).state.score}</small></OpponentList>
-  {#if state.lifecycle?.finished}<MatchResult title={state.lifecycle.winnerId===state.playerId?'ROUND WIN':'GAME OVER'} action={state.lifecycle.matchComplete?'PLAY AGAIN':'NEXT ROUND'} ready={state.lifecycle.readyPlayerIds.length} total={state.lifecycle.playerIds.length} disabled={state.lifecycle.readyPlayerIds.includes(state.playerId??'')} level={selectedLevel} changeLevel={(level)=>selectedLevel=level} activate={nextRound}/>{/if}
+  {#if state.lifecycle?.finished}<MatchResult title={state.lifecycle.winnerId===state.playerId?'ROUND WIN':'GAME OVER'} action={state.lifecycle.matchComplete?'PLAY AGAIN':'NEXT ROUND'} ready={state.lifecycle.readyPlayerIds.length} total={state.lifecycle.playerIds.length} disabled={state.lifecycle.readyPlayerIds.includes(state.playerId??'')} level={selectedLevel} changeLevel={(level)=>selectedLevel=level} activate={nextRound}>{#if state.lifecycle.matchComplete&&standings.length>1}<MatchStandings entries={standings}/>{/if}</MatchResult>{/if}
   {#if !gamepadActive}<section class="dpad"><button aria-label="Hard drop" disabled={!enabled} on:pointerdown={()=>touch({type:'input/hard-drop',payload:{}})}>↑</button><button aria-label="Move left" disabled={!enabled} on:pointerdown={()=>{gamepadActive=false;repeat.start(-1)}} on:pointerup={()=>repeat.stop()} on:pointercancel={()=>repeat.stop()}>←</button><button aria-label="Soft drop" disabled={!enabled} on:pointerdown={()=>touch({type:'input/soft-drop-start',payload:{}})} on:pointerup={()=>touch({type:'input/soft-drop-end',payload:{}})} on:pointercancel={()=>touch({type:'input/soft-drop-end',payload:{}})}>↓</button><button aria-label="Move right" disabled={!enabled} on:pointerdown={()=>{gamepadActive=false;repeat.start(1)}} on:pointerup={()=>repeat.stop()} on:pointercancel={()=>repeat.stop()}>→</button></section>
   <section class="rotate"><button aria-label="Rotate counterclockwise" disabled={!enabled} on:pointerdown={()=>touch({type:'input/rotate',payload:{direction:'counterclockwise'}})}>↺</button><button aria-label="Rotate clockwise" disabled={!enabled} on:pointerdown={()=>touch({type:'input/rotate',payload:{direction:'clockwise'}})}>↻</button></section>{:else}<button class="input-mode-toggle" on:click={()=>gamepadActive=false}>SHOW TOUCH CONTROLS</button>{/if}
 </main>{/if}

@@ -149,5 +149,17 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
     { spec: 'Survivor points accumulate across rounds', check: async () => { await expect(playerPage.getByLabel('Scores')).toContainText('Jo 15'); await expect(playerPage.getByLabel('Scores')).toContainText('Sam 15'); } },
     { spec: 'The reversed ready order produces no permission failure', check: async () => { await expect(playerPage.getByText(/permission/i)).not.toBeVisible(); await expect(returningPage.getByText(/permission/i)).not.toBeVisible(); } }
   ]});
+  const finalGamesResponse=await fetch('http://127.0.0.1:9000/games.json?ns=drm-e2e',{headers:{authorization:'Bearer owner'}});
+  const finalGames=await finalGamesResponse.json() as Record<string,{start:{players:Record<string,unknown>;round?:number}}>;
+  const [finalGameId]=Object.entries(finalGames).find(([,game])=>game.start.round===2&&playerIds.every(playerId=>playerId! in game.start.players))!;
+  await fetch(`http://127.0.0.1:9000/games/${finalGameId}/terminals/${playerIds[0]}.json?ns=drm-e2e`,{
+    method:'PUT',headers:{authorization:'Bearer owner','content-type':'application/json'},body:JSON.stringify({type:'player/terminal',playerId:playerIds[0],tick:5,result:'lost',stateHash:'pb3-00000000',serverTime:Date.now()})
+  });
+  await expect(playerPage.getByRole('heading',{name:'MATCH COMPLETE'})).toBeVisible({timeout:10000});
+  await tester.step('final-standings',{description:'Match complete centers the final standings for every player',networkStatus:'skip',verifications:[
+    {spec:'Final standings appear directly under Match Complete',check:async()=>await expect(playerPage.getByLabel('Final standings')).toBeVisible()},
+    {spec:'Players are ordered by accumulated points',check:async()=>{const rows=playerPage.getByLabel('Final standings').locator('li');await expect(rows.nth(0)).toContainText('Sam');await expect(rows.nth(0)).toContainText('40');await expect(rows.nth(1)).toContainText('Jo');await expect(rows.nth(1)).toContainText('15')}},
+    {spec:'The rematch action remains available below the standings',check:async()=>await expect(playerPage.getByRole('button',{name:'PLAY AGAIN'})).toBeEnabled()}
+  ]});
   await returningContext.close(); await context.close(); tester.generateDocs();
 });
