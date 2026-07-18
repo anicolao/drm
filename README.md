@@ -3,28 +3,29 @@
 [![CI](https://github.com/anicolao/drm/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/anicolao/drm/actions/workflows/ci.yml)
 [![Deploy to GitHub Pages](https://github.com/anicolao/drm/actions/workflows/deploy.yml/badge.svg?branch=main)](https://github.com/anicolao/drm/actions/workflows/deploy.yml)
 
-`drm` is a multiplayer falling-block game for a room full of people. A game can
-use either Tetris-style rules or Dr. Mario-style rules and can be played in two
+`drm` is a playable multiplayer falling-block game for a room full of people. A
+room can use either Block Stack (Tetris-style) or Color Cure (Dr. Mario-style)
+rules and can be played in two
 ways:
 
 - each player uses a tablet as both controller and game board; or
 - players use phones as controllers while a shared Chromecast-compatible screen
   displays the game.
 
-The project has a playable Color Cure prototype. See [VISION.md](VISION.md) for the intended
-experience, [MVP_DESIGN.md](MVP_DESIGN.md) for the proposed first release, and
-[PILL_BOTTLE.md](PILL_BOTTLE.md) for the protocol and animation design of the
-Dr. Mario-style mode.
+See [VISION.md](VISION.md) for the intended experience, [MVP_DESIGN.md](MVP_DESIGN.md)
+for the original MVP scope and current outcome, [PILL_BOTTLE.md](PILL_BOTTLE.md)
+for Color Cure's frozen rules, and [TETRIS_NEXT.md](TETRIS_NEXT.md) for the
+remaining Block Stack backlog.
 
-## Proposed architecture
+## Architecture
 
 - A static SvelteKit web app, deployed to GitHub Pages at
   `https://anicolao.github.io/drm/`.
-- A new, dedicated Firebase project.
-- Cloud Firestore for lobbies, game setup, participants, and presence/coordination
-  metadata.
-- Firebase Realtime Database for immutable, tick-tagged player command streams
-  plus lightweight progress/hash projections.
+- A dedicated Firebase project.
+- Cloud Firestore for lobbies, game setup, participants, and coordination
+  metadata. Network presence remains planned work.
+- Firebase Realtime Database for immutable, tick-tagged player journals,
+  including lightweight progress/hash commands.
 - A deterministic, shared game engine that rebuilds every observed board by
   replaying commands. Materialized board state is never synchronized.
 
@@ -37,29 +38,32 @@ in the browser bundle.
 
 ## Implementation status
 
-The production prototype implements Firebase authentication, room coordination,
-a versioned `pill-bottle/3` Color Cure engine, immediate local controls,
-tick-tagged RTDB commands, deterministic replay/state hashes, three-round
-replay-derived scoring, next-level/rematch voting, and a shared canvas display
-reconstructed from commands. Clears of two or more match lines during one pill's full settling sequence generate immutable,
-replayable rain attacks against every remaining opponent. Controllers and the
-shared display show a replay-derived preview of the next pill. Incoming rain is
-queued until the current pill finishes resolving, then falls from the top at one
-row per quarter second before the next pill spawns. Matches made by landed rain
-resolve normally but cannot generate another attack. Additional rulesets remain to
-be implemented.
+The application implements anonymous Firebase authentication, transactional room
+coordination, shared `/play` and `/cast` routes, durable controller outboxes,
+single-writer leases, immutable tick-tagged RTDB journals, local checkpoints,
+late-record rewind/replay, lifecycle records, responsive controller/cast layouts,
+audio routing and mute controls. No materialized board state crosses the network.
+
+Color Cure uses the frozen `pill-bottle/3` engine, three-round replay-derived
+scoring, next-level/rematch voting, next-pill previews, and deterministic rain
+attacks. Block Stack uses `tetris/1` with a seeded seven-bag, SRS rotation, ghost
+and next pieces, gravity, lock delay, line scoring, top-out, multiplayer
+last-survivor results, controller replay, and cast replay. Block Stack hold,
+advanced scoring, garbage attacks, and multi-round matches remain future work.
 
 The player route accepts touch and keyboard controls plus standard browser
 gamepads: D-pad or primary stick for movement/drop, A for clockwise rotation,
 and B for counterclockwise rotation.
 
 ```sh
-npm install
+nix develop
+npm ci
 npm run dev
 ```
 
-Copy `.env.example` to `.env` when the dedicated Firebase project is ready. Run
-`npm run check` and `npm run build` before submitting changes. See
+Copy `.env.example` to `.env` and supply the Firebase web configuration for local
+development. Run `npm run check`, `npm run test:unit`, and `npm run build` before
+submitting changes. See
 [E2E_GUIDE.md](E2E_GUIDE.md) for emulator-backed, zero-pixel-tolerance scenarios.
 Pull requests deploy under `/drm/pr<PR number>/` and receive a preview link.
 

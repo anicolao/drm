@@ -1,881 +1,172 @@
-# Pill Bottle game design
+# Color Cure (`pill-bottle/3`) Contract
 
-## Purpose
+## Purpose and authority
 
-This document defines the Dr. Mario-style game mode as a latency-first,
-controller-authoritative deterministic simulation backed by Firebase Realtime
-Database (RTDB).
+Color Cure is DRM's Dr. Mario-style ruleset. `pill-bottle/3` is a frozen,
+deterministic, controller-authoritative protocol: a controller applies input
+immediately, tags it with its local tick, and durably appends it to that player's
+journal. Controllers, opponents, and casts reconstruct boards from the same seed
+and immutable records. Materialized bottle state and checkpoints never cross the
+network.
 
-The working UI name is **Color Cure**. “Pill Bottle” names the rules and protocol
-module without depending on commercial artwork, characters, sounds, or trade
-dress.
+The design favors latency and co-located play over anti-cheat. Firebase validates
+identity and record shape, not whether a move or claimed terminal result is fair.
+Any state-affecting change requires a new rules version.
 
-The core design is:
+## Frozen rules
 
-> Each player's controller runs that player's game immediately. It records the
-> input command and the local game tick on which the input happened. Other
-> clients reproduce the board by running the same simulation with the same seed
-> and tick-tagged commands.
+- Board: 8 columns × 16 visible rows; cyan, pink, and yellow cells.
+- Tick rate: 60 Hz.
+- Seeded xorshift32 PRNG. Every seat deliberately receives the same virus layout
+  and pill stream.
+- Level 0 starts with 5 viruses. Each later level adds 5, capped at 80. Viruses
+  occupy rows 6–15 without an initial four-cell match.
+- Pills spawn at row 1, column 3. The next pill is derived without advancing the
+  authoritative RNG and is rendered above the bottle.
+- Gravity starts at 50 ticks per row, accelerates by one tick every 10 locked
+  pills, and resets to `50 - 5 × level` at a new level, with a one-tick minimum.
+- Soft drop advances every 2 ticks. Hard drop locks immediately. Soft and hard
+  drop require a fresh press for each newly spawned pill.
+- Grounded lock delay is 30 ticks. Resolution gravity is 15 ticks per row.
+- Four or more adjacent cells of one color clear horizontally or vertically.
+  Viruses never fall. Joined pill halves remain rigid until one half is cleared;
+  separated halves fall independently.
+- Clearing all viruses enters a 180-tick countdown and starts the next level.
+  Failing to spawn loses.
+- Rotation uses the four-state 2×2 contract in
+  [ROTATION_SYSTEM.md](ROTATION_SYSTEM.md).
 
-The controller can lie about its tick or commands. That is acceptable. The MVP
-optimizes for immediate controls, simple recovery, and a good co-located game,
-not anti-cheat authority.
+## Match lifecycle and scoring
 
-## Game summary
+Color Cure uses three rounds. A multiplayer round finishes when all but one
+player have terminal declarations, or all players declare terminal results. A
+single-player terminal ends that game.
 
-Each player has an 8×16 visible bottle. A deterministic initial arrangement of
-colored viruses is generated from the game seed. The seat remains protocol
-metadata, but `pill-bottle/3` deliberately gives every seat the same layout and
-capsule stream. A two-segment
-capsule falls from the top. The player moves and rotates it until it locks.
-Horizontal or vertical runs of four or more cells of one color clear. Unsupported
-capsule segments fall after a clear, possibly causing chains. Viruses never fall.
-Clearing every virus starts the next level after a three-second countdown;
-being unable to spawn the next capsule eliminates the player.
+- A player who clears earns points equal to the viruses remaining on every
+  opponent's replayed bottle at the clearer's terminal tick.
+- If nobody clears, the sole survivor earns the viruses recorded in opponents'
+  lost terminal checkpoints.
+- The final survivor receives no extra points after all other scoring
+  opportunities are exhausted. Simultaneous all-player loss is a zero-point draw.
+- Every player marks readiness. A transactionally reserved successor game carries
+  the scores, increments the round/level policy, and links to the prior journal.
+  After round three, the same readiness mechanism creates a new match.
 
-For the `pill-bottle/3` implementation, the deterministic PRNG is
-xorshift32. All players use the same seed and therefore receive the same virus
-layout and capsule sequence. Level zero has five viruses and each subsequent
-level adds five. Viruses are scattered without replacement through rows 6–15;
-candidate placements that create an initial run of four are rejected. Capsule
-colors use the same three-color PRNG stream.
+Scores and lifecycle are projections derived from starts, journals, terminals,
+and readiness. They are not an authoritative server simulation.
 
-Normal gravity begins at one row every 50 ticks. It accelerates by one tick every
-ten locked pills and resets to `50 - 5 × level` when a new level begins, with a
-minimum interval of one tick. Soft drop advances every 2 ticks. Hard drop locks immediately. A
-grounded capsule locks after 30 ticks (0.5 seconds); a successful move or rotation
-resets that delay.
+## Rain attacks
 
-Rotation uses the fixed 2 × 2 bounding box in `ROTATION_SYSTEM.md`. `(row, col)`
-is the bottom-left cell of that box and is occupied in every orientation. The
-four orientation states preserve segment colors while alternating which segment
-occupies the bottom-left anchor. A vertical-to-horizontal rotation that is
-blocked on the right tries the box one column left. A horizontal-to-vertical
-rotation blocked above tries the column to the right and then the column to the
-left; it fails if neither complete vertical placement fits. There are no down or
-down-and-right kicks.
+All match lines cleared during one pill's full settling sequence count together;
+they need not clear on the same tick and viruses do not affect eligibility.
 
-Matches clear deterministically when the pill locks. A capsule remains a rigid,
-joined pair unless the match removes one of its two segments; only that affected
-capsule becomes a single segment. Joined pairs and separated segments fall one
-row every 15 resolution ticks and stop on the first
-occupied cell or the bottle floor. One supported half supports its still-joined
-partner. The engine checks for the next chain only after all falling pieces have
-come to rest. A hidden controller pauses its tick and disconnected players do
-not automatically lose. Scoring and multiplayer rain attacks are replay-derived.
-Top-out publishes an immutable terminal declaration; the last surviving player wins.
+- 0–1 cleared rows/columns: no rain.
+- 2 lines: 2 rain pieces.
+- 3 lines: 3 rain pieces.
+- 4 or more lines: 4 rain pieces.
 
-## Design goals
+The source appends one immutable `attack/generated` interaction for every active
+opponent. Colors come from the qualifying matched lines. Each target
+deterministically chooses distinct columns from the attack ID and appends an
+`attack/rain` record to its own authoritative journal. Duplicate attack IDs are
+ignored.
 
-1. A button press changes the local board immediately, without a network round
-   trip.
-2. Given a rules version, seed, player seat, and tick-tagged command stream, every
-   client derives the same board.
-3. Reloading reconstructs the game by replaying commands.
-4. The cast display can trade a small amount of delay for smooth presentation.
-5. Server timestamps provide a global ordering for interactions between players.
-6. No server or host validates ordinary movement, rotation, gravity, locking, or
-   clears.
+Rain waits until the current pill and all of its cascades finish. It then falls
+from the bottle top one row every 15 ticks (one quarter second), entirely between
+pills. Landed rain may make and resolve ordinary matches, but those matches can
+never generate another rain attack. A qualifying single-player clear produces
+the rain sound/presentation without a network interaction.
 
-## Authority model
+## Network model
 
-### Controller authority
+The immutable start record contains the room, ruleset/version, seed, 60 Hz tick
+rate, host, audio destination, member/player maps, frozen settings, match ID,
+round, optional previous game, and server time.
 
-The device controlling a player owns that player's live simulation:
-
-- It receives the immutable game definition and `game/started` record.
-- It initializes the player's deterministic engine.
-- It starts a local integer tick counter at tick zero.
-- It advances the simulation at the configured fixed tick rate.
-- It applies player input immediately on the current tick.
-- It appends the input command to RTDB with that tick.
-- It publishes lightweight progress information so displays can follow its clock.
-- It declares locally derived win, loss, chain, and attack facts when required by
-  the multiplayer protocol.
-
-No acknowledgement is needed before the input affects the local board.
-
-### Observer reconstruction
-
-Other tablets, spectators, and the cast display reconstruct a player's board by:
-
-1. loading the game definition and seed;
-2. loading that player's commands;
-3. sorting them by player tick and per-player command sequence;
-4. running the deterministic engine to the player's reported current tick; and
-5. continuing to simulate while new progress and commands arrive.
-
-An observer may intentionally render several ticks behind the controller. This
-buffer absorbs Firebase latency and reduces rollback artifacts.
-
-### Host responsibility
-
-The host coordinates the lobby and starts/ends a match. Once the match starts,
-the host is not the authority for another player's bottle. There is no central
-host sequencer for ordinary gameplay.
-
-## The two time domains
-
-The protocol deliberately separates per-player game time from global arrival
-time.
-
-### Player tick
-
-`tick` is an integer maintained by the controller. It is the time coordinate for
-one player's bottle.
-
-- Tick zero is established by `game/started`.
-- The game definition fixes the tick rate at 60 ticks per second for
-  `pill-bottle/3`.
-- Gravity, soft drop, lock delay, clears, falling segments, and animations use
-  ticks rather than wall-clock timestamps.
-- Commands for one player are evaluated at the tick recorded by that controller.
-- Two players may temporarily report different current ticks because their
-  devices started late, suspended, or experienced load.
-- A tick never goes backward for a given controller epoch.
-
-The engine must define the exact order inside a tick. Proposed order:
-
-1. Apply commands assigned to the tick in `clientSeq` order.
-2. Apply gravity scheduled for the tick.
-3. Update grounded/lock-delay state.
-4. Lock the capsule if its deadline is reached.
-5. Advance one board-resolution step if resolving.
-6. Spawn the next capsule if the board becomes stable.
-7. Derive attacks, win, or loss.
-
-This order is part of the rules version.
-
-### Server timestamp
-
-`serverTime` is assigned with RTDB `ServerValue.TIMESTAMP` when a record reaches
-Firebase. It provides global arrival ordering across controllers.
-
-Server time is used for:
-
-- ordering records from different players;
-- ordering multiplayer attacks that arrive close together;
-- diagnosing latency and disconnected clients;
-- deciding which global fact was published first when rules require it; and
-- selecting a deterministic tie-break before the server timestamp is resolved.
-
-Server time is not used to decide where a capsule is on a player's board. The
-player tick does that.
-
-RTDB timestamps have millisecond resolution and can tie. Global order is:
-
-```text
-(serverTime, pushId)
-```
-
-RTDB push IDs are unique and time-sortable. Consumers wait until the server
-timestamp placeholder resolves before using a record for cross-player ordering.
-
-## Starting the match
-
-The host writes one immutable start record:
+Current RTDB shape:
 
 ```text
 games/{gameId}/start
-```
-
-```json
-{
-  "type": "game/started",
-  "roomId": "room-id",
-  "ruleset": "pill-bottle",
-  "rulesVersion": "pill-bottle/3",
-  "seed": 123456789,
-  "tickRate": 60,
-  "hostUid": "uid-a",
-  "audioOutput": "cast",
-  "members": { "uid-a": true, "uid-b": true },
-  "players": {
-    "uid-a": { "seat": 0 },
-    "uid-b": { "seat": 1 }
-  },
-  "settings": {
-    "initialVirusCount": 5,
-    "initialGravityTicks": 50,
-    "hardDrop": true
-  },
-  "serverTime": { ".sv": "timestamp" }
-}
-```
-
-The record is immutable. A controller begins when it observes this record and has
-loaded the specified rules implementation. Its own first simulation tick is zero;
-network arrival delay does not make its bottle begin partway through the game.
-
-`audioOutput` is immutable presentation metadata. It is `cast` when the host
-starts in shared-display mode and `controllers` when the host starts as a player.
-It routes local music and clear cues without synchronizing audio or game state.
-
-The host screen may show “waiting for player” until each controller publishes
-that it started. Players do not need to start on the same wall-clock millisecond.
-
-## RTDB data model
-
-```text
-games/{gameId}/start
-  immutable game/started record
-
-games/{gameId}/players/{playerId}/records/{pushId}
-  immutable ordered input or progress command
-
+games/{gameId}/players/{playerId}/records/{commandId}
 games/{gameId}/players/{playerId}/epochs/{epochId}
-  controller epoch metadata
-
+games/{gameId}/players/{playerId}/writer
 games/{gameId}/terminals/{playerId}
-  immutable top-out declaration
-
-games/{gameId}/interactions/{pushId}
-  immutable cross-player facts ordered by server timestamp
-
+games/{gameId}/interactions/{interactionId}
 games/{gameId}/rematch/ready/{playerId}
-  immutable rematch readiness
-
 games/{gameId}/rematch/nextGameId
-  host-reserved rematch identity
 ```
 
-Controller records, interactions, starts, terminals, and readiness are
-append-only. Derived checkpoints exist only in local browser storage and can be
-discarded. No network record contains a board or serialized engine state.
-
-## Controller epochs
-
-A player may reload, reconnect, or move to another device. Commands therefore
-include an `epochId` in addition to a monotonically increasing per-player
-`clientSeq` that continues across epochs.
+The unified `records` journal replaces the former separate command/progress
+projections. Every record has `playerId`, `epochId`, monotonically increasing
+`clientSeq`, `tick`, type/payload, and server time. Supported types are:
 
 ```text
-games/{gameId}/players/{playerId}/epochs/{epochId}
+input/move
+input/rotate
+input/soft-drop-start
+input/soft-drop-end
+input/hard-drop
+progress/tick
+attack/rain
 ```
 
-```json
-{
-  "clientId": "browser-installation-id",
-  "startedFromTick": 0,
-  "startedFromCommandSeq": 0,
-  "serverTime": { ".sv": "timestamp" }
-}
-```
-
-For the MVP, only one active controller epoch is allowed per player. On reload,
-the same device reconstructs the board, chooses a new epoch ID, resumes from the
-reconstructed tick, and continues `clientSeq` from the recovered history.
-
-If two devices control one player concurrently, the most recently published
-epoch by `(serverTime, epochId)` becomes active. Commands from an older epoch
-remain in history but commands after its replacement point are ignored. This is
-not anti-cheat protection; it prevents accidental double control.
-
-The precise epoch handoff record must be designed atomically before multi-device
-resume is implemented. Initial implementation may support reload on the same
-device only.
-
-## Command record
-
-Each user action is an immutable RTDB controller record:
-
-```json
-{
-  "type": "input/move",
-  "playerId": "uid",
-  "epochId": "epoch-id",
-  "clientSeq": 42,
-  "tick": 1837,
-  "payload": { "dx": -1 },
-  "serverTime": { ".sv": "timestamp" }
-}
-```
-
-Fields:
-
-| Field | Meaning |
-| --- | --- |
-| `type` | Input command type |
-| `playerId` | Firebase UID of the controlled bottle |
-| `epochId` | Controller session that produced the command |
-| `clientSeq` | Strictly increasing sequence for this player across epochs |
-| `tick` | Player tick on which the input was applied locally |
-| `payload` | Command-specific JSON; omitted by RTDB for commands with no fields |
-| `serverTime` | Firebase server timestamp assigned on receipt |
-
-For one player's simulation, records are consumed by:
-
-```text
-clientSeq
-```
-
-`serverTime` does not reorder commands inside that player's bottle. It orders
-cross-player records and provides diagnostics.
-
-The controller writes after applying the command locally. A temporary network
-failure therefore does not block play. The command remains in a local outbox and
-is retried with the same identity and tick until RTDB contains it.
-
-## User command vocabulary
-
-Commands describe only user actions. Gravity, locking, clearing, capsule falling,
-and spawning are deterministic engine consequences and are not written as
-ordinary commands.
-
-### `input/move`
-
-```json
-{ "dx": -1 }
-```
-
-`dx` is exactly `-1` or `1`. The local engine immediately attempts one horizontal
-move. The command is recorded even if the move is blocked, because it records
-what the user did and makes replay reproduce the same attempted input.
-
-### `input/rotate`
-
-```json
-{ "direction": "clockwise" }
-```
-
-Direction is `clockwise` or `counterclockwise`. The engine applies the versioned
-rotation and kick rules immediately. Both successful and blocked attempts are
-recorded.
-
-### `input/soft-drop-start`
-
-```json
-{}
-```
-
-Turns on accelerated gravity beginning at this tick.
-
-### `input/soft-drop-end`
-
-```json
-{}
-```
-
-Turns off accelerated gravity beginning at this tick. A controller that loses
-focus must synthesize this command locally and record it so a held input cannot
-remain stuck indefinitely.
-
-### `input/hard-drop`
-
-```json
-{}
-```
-
-If enabled by the immutable settings, the local engine immediately moves the
-capsule to the lowest legal position and locks it according to the hard-drop
-rule. If disabled, the attempted input may still be recorded but has no effect.
-
-### Commands outside the bottle simulation
-
-Lobby readiness, leaving, and host setup remain coordination rather than
-tick-tagged bottle commands. Rematch readiness is an immutable RTDB lifecycle
-fact.
-
-There are no user commands named `clear`, `score`, `attack`, `win`, or `spawn`.
-Those are derived facts. `progress/tick` is a periodic simulation no-op rather
-than user input.
-
-## Progress command
-
-Observers need the controller's current tick even when the player is not
-pressing buttons. The controller appends to the same immutable stream:
-
-```text
-games/{gameId}/players/{playerId}/records/{pushId}
-```
-
-```json
-{
-  "type": "progress/tick",
-  "playerId": "uid",
-  "epochId": "epoch-id",
-  "clientSeq": 42,
-  "tick": 1902,
-  "payload": {
-    "stateHash": "pb3-1234abcd",
-    "phase": "playing"
-  },
-  "serverTime": { ".sv": "timestamp" }
-}
-```
-
-This command is emitted every 15 controller ticks and on start, suspension,
-resume, countdown, and terminal transitions.
-
-It is an event-log record but a simulation no-op. The cast keeps its own display
-tick; the progress tick supplies signed lag and recovery metadata, not a shared
-clock. `stateHash` detects divergence at that tick but never overrides locally
-derived state.
-
-The controller continues to render while its progress writes are delayed.
-
-## Match completion and rematch
-
-A top-out writes one immutable declaration at
-`games/{gameId}/terminals/{playerId}` containing `playerId`, terminal `tick`,
-`result: "lost"`, the `pb3` state hash, and a server timestamp. It does not
-contain a board. With multiple players, the sole player without a terminal
-declaration wins once every other player has declared; if every player declares
-before a survivor is observed, the result is a draw. A single-player terminal is
-game over without a winner.
-
-After the result, each controller may append readiness at
-`games/{gameId}/rematch/ready/{playerId}`. Once every listed player is ready, the
-host transactionally reserves `rematch/nextGameId`, writes a new immutable start
-record with the same players and seats and a new seed, and points the room at the
-new game. The old journal stays immutable and the new game begins at tick zero.
-
-## Deterministic bottle engine
-
-The pure engine API is conceptually:
-
-```text
-state = createBottle(gameSeed, playerSeat)
-state = advanceToTick(state, targetTick, commands)
-```
-
-It has no Firebase, DOM, unseeded randomness, or wall-clock access.
-
-State includes:
-
-```text
-BottleState
-  tick
-  level
-  pillsLockedThisLevel
-  gravityCounter
-  countdownEndsAt (only during a level transition)
-  randomGeneratorPosition
-  board[128]
-  activeCapsule
-  nextCapsuleId
-  virusCount
-  phase: playing | countdown | lost
-  softDropHeld
-  lockDeadlineTick
-  chain
-  derivedScore (only if scoring is approved)
-```
-
-Each virus and capsule segment has a stable deterministic ID. Capsule halves
-record whether they remain joined. Stable IDs allow the renderer to follow cells
-through rotations, clears, separation, and falling without making the DOM part of
-game state.
-
-### Seed derivation
-
-The global seed, without UID or device data, derives the same sequence for every
-player:
-
-- the virus layout;
-- the capsule color sequence; and
-- any rules-approved attack randomness.
-
-The exact derivation and PRNG are part of `pill-bottle/3` and covered by fixtures.
-
-### Tick processing
-
-The engine advances through every tick. It never calculates gravity from elapsed
-wall-clock duration. When replay needs to cover many empty ticks, an optimized
-implementation may skip directly to the next scheduled transition only if it is
-provably identical to processing each tick.
-
-## Local controller loop
-
-The controller uses `requestAnimationFrame` and its monotonic callback timestamp
-to schedule fixed 60 Hz simulation ticks. RAF requests rendering opportunities;
-an accumulator determines how many 1/60-second game ticks must run, so 90 Hz or
-120 Hz displays do not speed up the bottle and a delayed frame does not discard
-simulation time. A typical loop:
-
-1. Accumulate elapsed monotonic time.
-2. Run zero or more fixed ticks to catch up.
-3. Sample queued inputs at the next tick boundary.
-4. Apply them immediately in a stable order.
-5. Append command records asynchronously.
-6. Render the resulting state.
-7. Periodically publish progress.
-
-Input must not wait for the next Firebase operation. It may be sampled for the
-current tick or queued for the immediately following tick. `pill-bottle/3`
-records and applies an input on the current completed tick at the time the input
-handler runs.
-
-If rendering falls behind, the simulation processes multiple ticks before the
-next frame. Rendering may drop frames; simulation may not drop ticks.
-
-## Mobile controller layout
-
-The initial controller is designed for a phone held in landscape orientation.
-It uses the screen corners so the player's hands do not cover the center status
-area.
-
-```text
-┌──────────────────────────────────────────────────────────────┐
-│  room / player / tick                         connection     │
-│                                                              │
-│       [ ↑ ]                                      [ ↺ ] [ ↻ ] │
-│  [ ← ][ ↓ ][ → ]                                             │
-└──────────────────────────────────────────────────────────────┘
-```
-
-The left side is a four-direction D-pad:
-
-- left emits `input/move { dx: -1 }`;
-- right emits `input/move { dx: 1 }`;
-- down emits `input/soft-drop-start` on press and
-  `input/soft-drop-end` on release, cancellation, blur, or visibility loss; and
-- up emits `input/hard-drop`.
-
-The right side has separate counterclockwise and clockwise rotation buttons,
-emitting `input/rotate` with the corresponding direction.
-
-Controls use pointer events so touch, pen, and mouse share semantics. Each button
-captures its pointer until release. Buttons provide immediate pressed-state and
-haptic feedback where supported; neither waits for RTDB. The center displays only
-real session facts such as room, player, tick, and connection/write status.
-
-Portrait orientation shows an instruction to rotate the device and does not
-silently rearrange the production controls into an unreviewed layout. On a
-keyboard, the arrow keys emit the corresponding D-pad commands: Arrow Up hard
-drops and holding Arrow Down starts soft drop until key release. `R` rotates
-clockwise and `T` rotates counterclockwise. Keyboard input emits the same command
-records as pointer input and is ignored while the player is typing in a field.
-
-## Suspension and background behavior
-
-Mobile browsers can suspend a controller. The game cannot assume a JavaScript
-timer ran while hidden.
-
-Proposed MVP behavior:
-
-- On `visibilitychange` to hidden, record the current tick and publish progress.
-- Stop advancing that player's tick while the controller is suspended.
-- On return, resume at the next tick rather than advancing through wall-clock time
-  spent suspended.
-- Other players continue on their own tick counters.
-- The UI and cast display mark the suspended player as disconnected using RTDB
-  presence/progress age.
-
-This makes `tick` the actual time of the player's game, as opposed to elapsed
-match wall time. Whether a disconnected player's bottle should eventually lose
-is a separate multiplayer policy decision.
-
-## Reload and recovery
-
-On reload the controller:
-
-1. reads `game/started`;
-2. loads the player's active epoch and command history;
-3. loads the newest valid controller-local checkpoint if available;
-4. replays commands in `(tick, clientSeq, pushId)` order;
-5. verifies any available progress state hash;
-6. creates/resumes an allowed controller epoch; and
-7. resumes the tick loop from reconstructed state.
-
-The URL remains tied to the room/game identity. Recovery never returns an active
-player to the lobby merely because the page reloaded.
-
-## Local checkpoints
-
-Long games may use serialized engine checkpoints in browser-local storage such as
-IndexedDB. A checkpoint records its tick, last command identity, serialized state,
-and state hash. It never crosses the network: Firestore and RTDB must not contain
-a board, checkpoint, or serialized engine state.
-
-A client validates a local checkpoint against its rules version and known hash.
-If validation fails, it discards the cache and replays commands from tick zero.
-Clearing browser data must affect recovery performance only, never replay results.
-
-## Derived bottle outcomes
-
-Movement, gravity, locking, matches, clears, falling segments, chains, and capsule
-spawning are not separate RTDB events. They are deterministic consequences of
-advancing a bottle through ticks with its commands.
-
-This keeps the durable user-action log small and makes the controller's immediate
-simulation the exact same path used for replay.
-
-Development diagnostics may expose derived transitions locally:
-
-```text
-capsule moved
-capsule rotated
-capsule locked
-cells matched
-cells cleared
-segments fell
-board stabilized
-viruses cleared
-top out
-```
-
-These diagnostic transitions drive animation but are not canonical database
-records.
-
-## Cross-player interactions
-
-Actions affecting another player's bottle require a global order. Controllers
-publish immutable interaction facts:
-
-```text
-games/{gameId}/interactions/{pushId}
-```
-
-Clearing at least two viruses in one resolution step generates rain. The source
-uses up to four cleared-virus colors in board-index order and targets every
-opponent who has not reached a terminal result. A qualifying single-player clear
-produces the same rain presentation and sound locally without a network write.
-
-Interaction shape:
-
-```json
-{
-  "type": "attack/generated",
-  "sourcePlayerId": "uid-a",
-  "sourceTick": 2100,
-  "sourceChain": 2,
-  "attackId": "uid-a:epoch:17",
-  "targetPlayerIds": ["uid-b"],
-  "colors": ["cyan", "yellow"],
-  "serverTime": { ".sv": "timestamp" }
-}
-```
-
-The source controller derives and publishes the interaction immediately after its
-local engine produces the qualifying result. It does not wait for host approval.
-
-Interactions are globally ordered by their Firebase push key, with server time
-retained for diagnostics. Each target
-controller deterministically shuffles the eight columns from `attackId`, applies
-one isolated garbage segment per color to distinct columns at its current local
-tick, and appends the resulting `attack/rain` record to its own authoritative
-journal. Observers replay the target's exact application order and tick without
-downloading a board. Duplicate interaction IDs are ignored. A selected column
-with no free cell tops out the target.
-
-Rain never cancels or rewrites a source command. Simultaneous source attacks are
-serialized by Firebase interaction order; their effects remain immutable records
-in each target journal.
-
-## Finish declarations
-
-When a controller derives zero viruses or spawn obstruction, it immediately moves
-its local bottle into a terminal state and writes:
-
-```text
-games/{gameId}/finish/{pushId}
-```
-
-```json
-{
-  "type": "player/finished",
-  "playerId": "uid",
-  "tick": 9021,
-  "result": "viruses-cleared",
-  "stateHash": "terminal-state-hash",
-  "serverTime": { ".sv": "timestamp" }
-}
-```
-
-Finish records are ordered globally by `(serverTime, pushId)`. If the mode is
-first-to-clear, the earliest qualifying server-ordered declaration wins. This is
-latency-sensitive and cheat-sensitive by design. The UI may wait a small fixed
-settlement window before presenting the winner so near-simultaneous declarations
-can be ordered.
-
-Tie and disconnect policies remain review decisions.
-
-## Animation model
-
-Animations visualize the local deterministic engine's derived transitions.
-They are not database authority.
-
-### Controller/tablet rendering
-
-The controlling device renders from its local engine state with no intentional
-network delay.
-
-- Input button feedback is immediate.
-- A legal move or rotation begins animating immediately.
-- A blocked action gives a subtle non-audio-only response.
-- Gravity and lock timing follow simulation ticks.
-- Clear, separation, falling, and chain animations follow derived engine
-  transitions.
-- Firebase writes occur in parallel and do not block animation.
-
-The engine advances canonically at tick boundaries. Rendering interpolates
-between the previous and current tick states.
-
-### Observer rendering
-
-Observers maintain a reconstructed simulation for each player. They follow the
-player's progress tick and incoming commands.
-
-The cast display should normally render behind the latest reported tick by a
-small fixed buffer, initially proposed as 6–12 ticks. Commands usually arrive
-before the display reaches their tick, allowing smooth animation without
-correction.
-
-### Late command rollback
-
-If an observer has already rendered beyond a newly arrived command's tick:
-
-1. restore the closest state before that tick;
-2. insert the command in `(tick, clientSeq, pushId)` order;
-3. replay to the current observer target tick;
-4. compare state hashes when available; and
-5. reconcile the visual state.
-
-Small corrections interpolate over a short bounded duration. Large corrections
-cross-fade or snap at an animation barrier. The controller that originated the
-command never rolls back for ordinary network delay because it applied the input
-before writing it.
-
-### Derived animation sequence
-
-After a capsule locks, the local engine emits presentation transitions in this
-order:
-
-```text
-lock capsule
-  → highlight all simultaneous matches
-  → clear matched cells
-  → detach surviving capsule halves
-  → fall supported groups to their deterministic destinations
-  → highlight the next chain, if any
-  → repeat until stable
-  → spawn next capsule or finish
-```
-
-The renderer may not reorder these transitions. Reduced-motion mode replaces
-movement with immediate placement and short fades while retaining match, virus,
-attack, and result information.
-
-### Bottle rendering
-
-The bottle is drawn into a fixed 92 × 180 logical-pixel canvas and scaled with
-nearest-neighbour rendering. Every wall, grid line, capsule, highlight, and
-virus sprite is placed on an integer logical coordinate. Capsule halves join
-into one stepped, rounded capsule silhouette; unsupported halves render as
-individual rounded segments. Viruses use colored pixel sprites with dark eyes
-and a mouth. The renderer does not use DOM cell borders, fractional grid tracks,
-curves, or platform font glyphs for game pieces, avoiding platform-dependent
-edge antialiasing.
-
-### Catch-up
-
-An observer falling far behind may shorten or skip intermediate animations and
-advance to a stable barrier. It must still run every simulation transition and
-reach the same state hash.
-
-## RTDB security rules
-
-Rules enforce identity and shape, not fair play.
-
-- Only room members can read a game.
-- Only the host can create the immutable start record.
-- A player can append commands only under their own `playerId` path.
-- Command `playerId` must equal `auth.uid`.
-- `tick` and `clientSeq` must be non-negative integers within reasonable bounds.
-- Command type and payload keys must match the protocol vocabulary.
-- Commands cannot be changed or deleted.
-- A player can update only their own progress and presence.
-- A player can publish interactions only as their own source.
-- A player can publish finish declarations only for themselves.
-- Server timestamps must be RTDB server timestamp placeholders at write time.
-
-Rules do not verify that a tick is honest, a move was legal, a chain occurred, or
-a terminal state hash is genuine.
-
-## Gameplay flow
-
-### Lobby
-
-Firestore owns room membership, names, host configuration, and readiness. The
-host selects a concrete Pill Bottle rules version and settings.
-
-### Start
-
-The host creates a new `gameId`, writes the immutable RTDB start record, and links
-the Firestore room to that game. Controllers observe the start, initialize their
-bottles, publish their epoch/progress, and begin at tick zero.
-The host chooses **Play** to attach their own controller, or **I am the TV** to
-remain input-free and render the other players on the shared display.
-
-### Active game
-
-Each controller advances its player's ticks independently and records inputs.
-Observers replay those inputs. Cross-player interactions are ordered by server
-timestamps and scheduled onto target-player ticks.
-
-### Finish
-
-Controllers publish terminal declarations as soon as their local engine reaches a
-terminal state. The match result is derived from server-ordered declarations and
-the chosen finish policy. Rematch coordination returns to Firestore and creates a
-new immutable game stream and seed.
-
-## Testing requirements
-
-### Engine unit tests
-
-- Seeded virus layout and capsule stream fixtures proving the shared seat stream.
-- Identical state from live stepping and command replay.
-- Multiple commands on one tick in `clientSeq` order.
-- Blocked commands remain no-ops during replay.
-- Gravity, grounding, lock, clear, fall, and chain tick boundaries.
-- Horizontal, vertical, crossing, and greater-than-four matches.
-- Joined and detached capsule settling.
-- Reload from tick zero and from a controller-local checkpoint.
-- Stable state hashes across browsers.
-
-### RTDB rule tests
-
-- Players append only to their own command path.
-- Commands are immutable and schema constrained.
-- Server timestamp fields require server values.
-- Progress is writable only by its player and is not treated as history.
-- Interactions and finish declarations have correct source ownership.
-- Non-members cannot read game data.
-
-### Browser E2E scenarios
-
-- A real host starts a seeded game for two real browser identities.
-- Both controllers begin at tick zero when they receive the start record.
-- A button press updates the controller board before the RTDB write completes.
-- The persisted command contains the actual local tick and client sequence.
-- A second tablet reconstructs the identical board from the command stream.
-- A cast display follows progress with its configured tick buffer.
-- A deliberately delayed command causes observer rollback and deterministic
-  replay without changing the controller.
-- Reload reconstructs the same tick, board, and state hash.
-- A background/suspended controller stops advancing its player tick and resumes
-  without wall-clock catch-up.
-- Cross-player interactions apply in server timestamp order.
-- Zero-tolerance screenshots cover move, lock, clear, fall, chain, correction,
-  disconnect, and finish animations.
-
-No test may substitute invented board state or mocked gameplay. Emulator tests
-must produce all displayed gameplay through the real deterministic engine and
-RTDB protocol.
-
-## Frozen `pill-bottle/3` rules and remaining decisions
-
-The implementation freezes xorshift32, five initial viruses with five more per
-level in rows 6–15, the shared per-seat stream, 60 Hz ticks, 50-tick initial
-gravity, one-tick acceleration per ten pills, five-tick acceleration per level,
-a three-second level countdown, two-tick soft drop, immediate hard drop,
-30-tick lock delay, the four-state rotation/kick system, and 15-tick resolution
-gravity. State hashes use FNV-1a over the versioned canonical JSON serialization
-and are diagnostic rather than authority.
-
-Still to decide are disconnect match policy, concurrent epoch handoff, scoring,
-and attacks. The current finish policy is last survivor, with simultaneous
-all-player top-out treated as a draw. Any change to a state-affecting frozen choice
-requires a new rules version so recorded command streams remain replayable.
+Progress is a command containing phase and `pb3-…` state hash. It is emitted at
+most every 15 ticks and at important boundaries. A controller never emits a
+later record for a tick earlier than its latest progress record. Progress advances
+an observer's knowledge of the controller tick; it does not transmit state.
+
+Terminal records are immutable `player/terminal` declarations with result
+`cleared` or `lost`, tick, hash, and server time. Readiness records contain only
+the player ID and server time. Attack interactions contain source identity/tick,
+chain, targets, colors, ID, and server time—never target state.
+
+## Local controller and recovery
+
+The controller uses a requestAnimationFrame-driven fixed-tick clock based on
+elapsed time. It pauses while hidden and resumes without pretending suspended
+wall time elapsed. Input is applied before its Firebase write.
+
+Pending records live in a versioned local durable outbox and flush in sequence.
+Reload merges acknowledged history with pending records by stable command ID,
+claims a single-writer epoch, validates any local checkpoint, replays forward,
+and resumes at the reconstructed tick. Explicit takeover replaces another tab's
+lease. Checkpoints, interaction acknowledgements, and outboxes are local-only and
+may be discarded without changing replay results.
+
+## Observer behavior
+
+Each observer has its own display clock. It consumes records in client sequence,
+queues gaps and records ahead of its display tick, and caches a checkpoint after
+each controller record. If a command for tick 80 arrives after the observer has
+displayed tick 100, it restores the checkpoint preceding that record and replays
+to tick 100. Records after an absorbing terminal state are consumed without
+advancing beyond that terminal state.
+
+Lag is the moving-average difference between the observer display and reported
+controller progress. UI hides ordinary jitter and shows `BEHIND` only at 100 or
+more ticks. Hash comparison is diagnostic; it does not replace replay.
+
+## Rendering and audio
+
+`PillBottle.svelte` draws a fixed 184×360 backing canvas (92×180 logical pixels
+at 2× scale), including the bottle, subtle grid, detailed joined/separated pills,
+and viruses. Primary boards use smooth scaling; compact opponent canvases use
+pixelated scaling for cross-platform screenshot stability. All animations are
+derived locally from replay transitions.
+
+The TV owns audio when the immutable start selects cast mode. Otherwise every
+controller plays locally. Chill is used for even levels, Fever for odd levels,
+with matching clear cues. Mute state is persistent and accessible.
+
+## Security and tests
+
+Firestore and RTDB rules enforce membership, ownership, immutable appends,
+allowed keys/types, writer leases, terminal/readiness shape, and the absence of
+materialized state. Emulator-backed rule tests are part of the 65-test unit suite.
+
+Six documented Playwright scenarios exercise real Auth, Firestore, and RTDB
+emulators. Relevant coverage includes room/start flow, controllers in both phone
+orientations, replay-derived opponent boards, both readiness click orders,
+scoring, rain queue/fall/resolution ordering, cast reconstruction, and exact
+zero-pixel screenshots. Remaining recovery/fault-injection work is tracked in
+[NEXT_STEPS.md](NEXT_STEPS.md).

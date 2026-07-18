@@ -17,22 +17,29 @@ tests/e2e/001-room-flow/
   screenshots/000-landing.png
 ```
 
-Use `TestStepHelper.step()` for verification and capture. Never manually manage screenshot counters or walkthrough content. The helper is copied verbatim from `food`.
+Use `TestStepHelper.step()` for verification and capture. Never manually manage screenshot counters or walkthrough content.
 
 ## Commands
 
 ```sh
+nix develop
 npx playwright install chromium
 npm run test:e2e:update-snapshots
 npm run test:e2e
 ```
 
-Playwright starts all Firebase emulators and the dev server. Java is required. Never use production Firebase credentials in E2E tests.
+Playwright starts the Auth, Firestore, and RTDB emulators plus the dev server. The
+Nix shell supplies the pinned Node, Java, Firebase CLI, and browser-test tooling.
+Never use production Firebase credentials in E2E tests.
 
 ## Authoring rules
 
 - Assertions time out after at most 2000 ms.
-- Never use `waitForTimeout`; wait for observable UI or network state.
+- Prefer observable UI/network state. A short `waitForTimeout` is permitted only
+  when elapsed time is itself the behavior under test (for example, proving a
+  held one-shot input does not fire again).
+- Freeze or drive RAF-based gameplay to an explicit deterministic state before a
+  screenshot; hiding tick text alone does not stabilize a moving board.
 - Add semantic assertions to every visual step.
 - Cover phone and cast/desktop viewports explicitly.
 - Call `generateDocs()` after the final step.
