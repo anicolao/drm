@@ -7,7 +7,7 @@ export interface RematchStart {
   type: 'game/started'; roomId: string; ruleset: string; rulesVersion: string; seed: number;
   tickRate: number; hostUid: string; audioOutput: 'cast'|'controllers'; members: Record<string,true>;
   players: Record<string,{seat:number;level:number}>; settings: object; matchId: string;
-  round: number; previousGameId?: string;
+  round: number; previousGameId?: string; scores?:Record<string,number>;
 }
 
 export async function requestRematchReady(gameId:string,level:number) {
@@ -19,7 +19,7 @@ export async function requestRematchReady(gameId:string,level:number) {
 
 export async function startRematch<Start extends RematchStart>(
   gameId:string, parse:(value:unknown)=>Start,
-  nextRound:(start:Start)=>{advance:boolean;settings?:Start['settings']}
+  nextRound:(start:Start)=>{advance:boolean;settings?:Start['settings'];scores?:Record<string,number>}
 ) {
   if (!auth?.currentUser || !firestore || !realtimeDatabase) throw new Error('Firebase is unavailable.');
   const snapshot=await get(ref(realtimeDatabase,`games/${gameId}/start`));
@@ -37,8 +37,9 @@ export async function startRematch<Start extends RematchStart>(
   try {
     await set(nextStart,{type:'game/started',roomId:start.roomId,ruleset:start.ruleset,rulesVersion:start.rulesVersion,
       seed:randomGameSeed(),tickRate:start.tickRate,hostUid:start.hostUid,members:start.members,
-      players:Object.fromEntries(Object.entries(start.players).map(([id,player])=>[id,{...player,level:ready.get(id)!}])),
+      players:Object.fromEntries(Object.entries(start.players).map(([id,player])=>[id,{...player,level:start.ruleset==='quarry-match'?Math.max(...ready.values()):ready.get(id)!}])),
       settings:policy.settings??start.settings,audioOutput:start.audioOutput,
+      ...(policy.scores??start.scores?{scores:policy.scores??start.scores}:{}),
       matchId:policy.advance?start.matchId:nextGameId,round:policy.advance?start.round+1:0,
       previousGameId:gameId,serverTime:serverTimestamp()});
   } catch(cause) {

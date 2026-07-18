@@ -4,7 +4,7 @@ import { auth, firestore, realtimeDatabase } from '$lib/firebase/config';
 import type { RoomPlayer } from '$lib/firebase/rooms';
 
 export interface RealtimeGameDefinition<Settings extends object> {
-  ruleset: 'pill-bottle' | 'tetris';
+  ruleset: 'pill-bottle' | 'tetris' | 'quarry-match';
   rulesVersion: string;
   tickRate: number;
   settings: Settings;
@@ -27,13 +27,16 @@ export async function startRealtimeGame<Settings extends object>(
     .sort((left, right) => left.uid.localeCompare(right.uid));
   if (!participants.length) throw new Error('A TV game requires at least one joined controller.');
   const gameId = crypto.randomUUID();
+  const sharedLevel=definition.ruleset==='quarry-match'?Math.max(...participants.map(player=>player.level??0)):undefined;
   await set(ref(realtimeDatabase, `games/${gameId}/start`), {
     type: 'game/started', roomId, ruleset: definition.ruleset, rulesVersion: definition.rulesVersion,
     seed: randomGameSeed(), tickRate: definition.tickRate, hostUid,
     members: Object.fromEntries(members.map((member) => [member.uid, true])),
-    players: Object.fromEntries(participants.map((player, seat) => [player.uid, { seat, level: player.level??0 }])),
+    players: Object.fromEntries(participants.map((player, seat) => [player.uid, { seat, level: sharedLevel??player.level??0 }])),
     audioOutput: hostMode === 'display' ? 'cast' : 'controllers', settings: definition.settings,
-    matchId: gameId, round: 0, serverTime: serverTimestamp()
+    matchId: gameId, round: 0,
+    ...(definition.ruleset === 'quarry-match' ? { scores: Object.fromEntries(participants.map((player) => [player.uid, 0])) } : {}),
+    serverTime: serverTimestamp()
   });
   await updateDoc(doc(firestore, 'rooms', roomId), { status: 'active', activeGameId: gameId, startedAt: firestoreTimestamp() });
   return gameId;
