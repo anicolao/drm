@@ -72,6 +72,7 @@ test('US-005: Block Stack starts a deterministic playable controller',async({bro
   await page.evaluate(()=>{const pad=(window as typeof window&{__e2ePad:{buttons:Array<{pressed:boolean;value:number}>}}).__e2ePad;pad.buttons[0]={pressed:false,value:0}});
   await expect(page.getByRole('button',{name:'SHOW TOUCH CONTROLS'})).toBeVisible();
   await page.clock.pauseAt(Date.now());
+  await page.addStyleTag({content:'.matrix .active,.matrix .ghost{visibility:hidden!important}'});
   await tester.step('gamepad-board-mode',{description:'Using a gamepad hides phone controls and gives the board more space',networkStatus:'skip',verifications:[
     {spec:'A real gamepad action switches the controller to gamepad mode',check:async()=>await expect(page.getByText('GAMEPAD READY')).toBeVisible()},
     {spec:'Touch movement and rotation controls are hidden',check:async()=>{await expect(page.getByRole('button',{name:'Move left'})).not.toBeVisible();await expect(page.getByRole('button',{name:'Rotate clockwise'})).not.toBeVisible()}},
