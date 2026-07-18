@@ -2,9 +2,9 @@
 
 ## Current baseline
 
-Both games are playable on `main` through the same room, controller, cast, input,
+All three games are playable through the same room, controller, cast, input,
 audio, lifecycle, persistence, and replay framework. The repository currently has
-65 deterministic unit tests and six documented, emulator-backed Playwright
+75 deterministic unit tests and eight documented, emulator-backed Playwright
 scenarios with zero-pixel screenshot tolerance. CI type-checks, runs unit and E2E
 tests, builds the static application, and publishes production and pull-request
 GitHub Pages deployments.
@@ -37,6 +37,10 @@ The architectural constraints remain non-negotiable:
 - `tetris/1`: 10×20 visible board plus two hidden rows, seeded seven-bag, SRS,
   next queue, ghost, gravity, lock delay/reset cap, basic scoring/levels, top-out,
   durable journals, replay, cast, and single-round survivor result.
+- `quarry-match/1`: seeded solver-verified five-column puzzles, matching triples,
+  manual restart, shared race boards, first-clear arbitration, first-to-three
+  scoring, routed original music, responsive controllers, compact opponents,
+  cast replay, standings, and rematches.
 
 ## Remaining project work
 
@@ -77,7 +81,7 @@ The architectural constraints remain non-negotiable:
 - Add more replay-derived lock, hard-drop, cascade, danger, level, top-out, and
   result effects without networking animation state.
 - Improve four-board cast hierarchy and scoreboard density.
-- Add separate music/effects volume only if mute is no longer sufficient.
+- Continue real-device validation of the separate music/effects mixer.
 - Extend color-blind and real-device accessibility validation.
 
 ### 5. Block Stack rules follow-ons

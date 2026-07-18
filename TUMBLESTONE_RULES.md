@@ -2,8 +2,8 @@
 
 ## Status and intent
 
-This is a review document, not a frozen protocol. The working title is **Quarry
-Match**. It adapts the core of Tumblestone's Puzzle Race into DRM's shared,
+`quarry-match/1` is now the frozen implemented protocol. **Quarry Match** adapts
+the core of Tumblestone's Puzzle Race into DRM's shared,
 controller-authoritative real-time framework without copying its characters,
 art, names, levels, modifiers, or music.
 
@@ -15,7 +15,7 @@ player to empty it. These points are described by the
 and the [official game site](https://www.tumblestonegame.com/). Everything more
 specific below is a proposed DRM rule.
 
-## Recommended first release
+## Implemented first release
 
 The first release should contain one polished mode: a deterministic multiplayer
 Puzzle Race which also works with one player. It should reuse the same room,
@@ -67,19 +67,17 @@ independent deterministic solver before play.
 
 Generation uses the immutable start seed and level:
 
-1. Choose the level's colour count and number of candidate generations.
+1. Choose the level's colour count.
 2. Create 20 colour triples from a balanced seeded bag.
 3. Starting with five empty columns, process triples in intended removal order.
    For each of its three stones, choose a non-full column and append that colour
    above its existing stones. Bias against putting all three in one column and
    against long monochrome runs.
-4. Run a depth-first solver over states `(five stacks, partial group colour,
+4. Run an independent depth-first solver over states `(five stacks, partial group colour,
    partial group count)`. Memoize canonical states and enumerate columns in
    seeded order.
-5. Reject candidates with no solution, trivial forced play throughout, excessive
-   branching, or a solution shorter/longer than exactly 60 successful shots.
-6. Select deterministically from the acceptable candidates. Keep the solution
-   only in local development fixtures; it is not transmitted or exposed in play.
+5. Reject the board if it has no complete 60-shot solution. Keep the discovered
+   solution local; it is not transmitted or exposed in play.
 
 The reverse construction guarantees at least the authored removal sequence; the
 solver is still required to catch implementation mistakes and measure puzzle
@@ -93,14 +91,12 @@ comparable. Level changes puzzle breadth:
 
 | Level | Colours | Generator target |
 | --- | ---: | --- |
-| 0–1 | 3 | frequent choices; tutorial-friendly |
-| 2–3 | 4 | moderate branching and colour tracking |
-| 4+ | 5 | deeper dependencies; reject mostly forced boards |
+| 0–1 | 3 | smaller colour vocabulary; tutorial-friendly |
+| 2–3 | 4 | moderate colour tracking |
+| 4+ | 5 | full colour vocabulary and deeper dependencies |
 
-Levels above 9 retain five colours and increase the minimum number of solver
-branch points, capped at a documented value once generation is benchmarked.
-Exact quality thresholds should be fixture-driven before `quarry-match/1` is
-frozen.
+Levels above 4 retain five colours. Puzzle construction and solver behavior are
+fixture-tested and frozen for `quarry-match/1`.
 
 ## Mistakes, dead ends, and restart
 
@@ -210,13 +206,10 @@ every board forever.
 - Security tests rejecting materialized state, foreign-player writes, malformed
   commands, mutable starts, and overwritten winner claims.
 
-## Review decisions
+## Frozen decisions
 
-Before implementation, confirm:
-
-1. First to 3 round wins versus the project's existing fixed three-round format.
-2. Highest selected player level becoming the shared multiplayer difficulty.
-3. Rejected off-colour shots versus allowing a mismatch penalty.
-4. Strategic dead ends with manual restart versus blocking solver-proven bad moves.
-5. First committed clear as the race winner despite possible network-latency ties.
-6. Five columns × twelve stones and the proposed 3/4/5-colour level curve.
+The first version freezes first-to-three round wins, the highest selected level
+as shared race difficulty, rejected off-colour shots, strategic dead ends with a
+manual restart, the first committed clear as winner, a 5×12 board, and the
+documented 3/4/5-colour level curve. Changing any of these requires a new rules
+version.
