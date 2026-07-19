@@ -12,6 +12,7 @@ These original chiptune loops are provisional alternatives to the existing gamep
 - **Snowbound Sabre Clear** — 176 BPM, 4 bars. A fast ascending answer built from Snowbound Sabre's original motif and pulse palette.
 - **Prismatic Descent** — 144 BPM, 20 bars. A crystalline pulse melody, descending arpeggios, and steady race rhythm composed for the proposed Quarry Match game.
 - **Prismatic Descent Clear** — 144 BPM, 4 bars. An upbeat completion cadence derived from Prismatic Descent's harmony, lead voice, and arpeggio shape.
+- **Prismatic Descent Combo** — 144 BPM, 1 bar. A short dominant-color sparkle derived from the gameplay motif, designed to sit rhythmically over the running Quarry track.
 
 The Russian-classical influence is stylistic only. The scores do not quote or adapt an existing composition, including the traditional Tetris themes.
 

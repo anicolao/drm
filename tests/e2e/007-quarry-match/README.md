@@ -11,9 +11,29 @@
 
 ---
 
+## The current shot group uses full Quarry stone renders
+
+![The current shot group uses full Quarry stone renders](./screenshots/001-quarry-held-stone.png)
+
+**Verifications:**
+- [x] One held stone has the same occupied stone treatment as the board
+- [x] Restart remains visible beside the controller
+
+---
+
+## Internal horizontal matches resolve as visible cascades
+
+![Internal horizontal matches resolve as visible cascades](./screenshots/002-quarry-cascade.png)
+
+**Verifications:**
+- [x] The opening group caused replay-derived cascade bursts
+- [x] Cascades removed stones beyond the three direct shots
+
+---
+
 ## Direct shots and horizontal cascades empty the replayed board and claim the round
 
-![Direct shots and horizontal cascades empty the replayed board and claim the round](./screenshots/001-quarry-clear.png)
+![Direct shots and horizontal cascades empty the replayed board and claim the round](./screenshots/003-quarry-clear.png)
 
 **Verifications:**
 - [x] Every stone was removed in same-colour groups of three

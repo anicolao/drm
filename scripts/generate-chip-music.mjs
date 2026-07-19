@@ -79,6 +79,11 @@ const tracks = [
     progression: [0, 5, 10, 12],
     melody: [12, 15, 19, 22, 17, 19, 22, 24, 19, 22, 27, 31, 24, 27, 31, 36],
     arp: [0, 7, 12, 15, 19, 24, 19, 12], leadDuty: 0.25, swing: 0, energy: 1.04, seed: 151, fanfare: true
+  },
+  {
+    slug: 'prismatic-descent-combo', title: 'Prismatic Descent Combo', bpm: 144, bars: 1, root: 43,
+    progression: [7], melody: [12, 15, 19, 22, 19, 22, 24, 27],
+    arp: [0, 7, 12, 19, 15, 19, 24, 27], leadDuty: 0.25, swing: 0, energy: 1.02, seed: 153, fanfare: true
   }
 ];
 

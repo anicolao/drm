@@ -70,6 +70,8 @@ test("a bottom shot creates a horizontal clear and attack", () => {
   const event = applyQuarryInput(state, { type: "input/fire", payload: {} });
   assert.deepEqual(state.columns, [["green"], ["purple"], ["purple"], ["green"], []]);
   assert.deepEqual(event?.colors, ["cyan"]);
+  assert.deepEqual(event?.cells.map(({column,row})=>[column,row]),[[0,1],[1,1],[2,1]]);
+  assert.deepEqual(state.lastCascadeCells,event?.cells);
   assert.equal(state.cascades, 1);
   assert.equal(state.removed, 56);
 });

@@ -56,6 +56,7 @@ test("US-007: Quarry Match plays a solver-backed puzzle race", async ({
           await expect(
             page.getByRole("button", { name: "Move right" }),
           ).toBeEnabled();
+          await expect(page.getByRole("button", { name: "RESTART · X" })).toBeEnabled();
         },
       },
       {
@@ -93,11 +94,16 @@ test("US-007: Quarry Match plays a solver-backed puzzle race", async ({
     }
   };
   await page.clock.resume();
-  await play(plan.slice(0, 3));
+  await play(plan.slice(0, 1));
+  await page.locator(".command-status").evaluate((element:HTMLElement)=>element.style.visibility="hidden");
+  await tester.step("quarry-held-stone",{description:"The current shot group uses full Quarry stone renders",networkStatus:"skip",verifications:[{spec:"One held stone has the same occupied stone treatment as the board",check:async()=>{await expect(page.getByLabel("Current match group").locator(".stone")).toHaveCount(1);await expect(page.getByText("GROUP 1/3")).toBeVisible()}},{spec:"Restart remains visible beside the controller",check:async()=>await expect(page.getByRole("button",{name:"RESTART · X"})).toBeEnabled()}]});
+  await play(plan.slice(1, 3));
   await expect(board).toHaveAttribute("data-remaining", "35", {
     timeout: 10000,
   });
   await expect(page.getByText("GROUP 0/3")).toBeVisible();
+  await expect.poll(async()=>Number(await board.getAttribute("data-cascades"))).toBeGreaterThan(0);
+  await tester.step("quarry-cascade",{description:"Internal horizontal matches resolve as visible cascades",networkStatus:"skip",verifications:[{spec:"The opening group caused replay-derived cascade bursts",check:async()=>await expect(board.locator(".burst")).not.toHaveCount(0)},{spec:"Cascades removed stones beyond the three direct shots",check:async()=>await expect(board).toHaveAttribute("data-remaining","35")}]});
   await play(plan.slice(3));
   await expect(page.getByText("ROUND WIN")).toBeVisible({ timeout: 15000 });
   await page.clock.pauseAt(Date.now());
