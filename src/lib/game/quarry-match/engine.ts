@@ -96,7 +96,7 @@ export function canFire(state: QuarryState) {
   const color = state.columns[state.cursor][0];
   return Boolean(color && (!state.groupColor || state.groupColor === color));
 }
-function cascadeRuns(state:QuarryState){const runs:{key:string;color:QuarryColor;row:number;start:number;end:number}[]=[];for(let row=1;row<QUARRY_HEIGHT;row++)for(let start=0;start<QUARRY_WIDTH;){const color=state.columns[start][row];if(!color){start++;continue}let end=start+1;while(end<QUARRY_WIDTH&&state.columns[end][row]===color)end++;if(end-start>=3)runs.push({key:`${row}:${start}:${end}:${color}`,color,row,start,end});start=end}return runs}
+function cascadeRuns(state:QuarryState){const runs:{key:string;color:QuarryColor;row:number;start:number;end:number}[]=[];for(let row=1;row<QUARRY_HEIGHT;row++)for(let start=0;start<QUARRY_WIDTH;){const color=state.columns[start][row];if(!color){start++;continue}let runEnd=start+1;while(runEnd<QUARRY_WIDTH&&state.columns[runEnd][row]===color)runEnd++;if(runEnd-start>=3){const end=start+3;runs.push({key:`${row}:${start}:${end}:${color}`,color,row,start,end})}start=runEnd}return runs}
 function clearCascadeWave(state: QuarryState, excluded=new Set<string>()) {
   const cells = new Set<string>(),
     colors: QuarryColor[] = [],cleared:{column:number;row:number;color:QuarryColor}[]=[];
