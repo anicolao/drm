@@ -1,13 +1,14 @@
 <script lang="ts">
- import{Canvas,T}from'@threlte/core';import{OrbitControls}from'@threlte/extras';import StaxPaddle from'./StaxPaddle.svelte';import StaxTile from'./StaxTile.svelte';import{staxLevelRules,type StaxState}from'$lib/game/stax';
+ import{Canvas,T}from'@threlte/core';import{OrbitControls}from'@threlte/extras';import{WebGLRenderer}from'three';import StaxPaddle from'./StaxPaddle.svelte';import StaxTile from'./StaxTile.svelte';import{staxLevelRules,type StaxState}from'$lib/game/stax';
  export let state:StaxState;export let compact=false;export let label='Stax ramp';export let selectLane:((lane:number)=>void)|undefined=undefined;
  let inspect=false;
  const x=(lane:number)=>(lane-2)*1.15;
+ const createRenderer=(canvas:HTMLCanvasElement)=>new WebGLRenderer({canvas,antialias:false,alpha:true,powerPreference:'high-performance'});
  $: travel=staxLevelRules(state.level).travel;
- const route=(progress:number,returning=false)=>{const t=Math.min(1,progress/(returning?360:travel)),towardPlayer=returning?1-t:t;return{z:-4.35+towardPlayer*7.65,y:1.24-towardPlayer*.98,roll:(returning?-1:1)*progress*.06}};
+ const route=(progress:number,returning=false)=>{const rendered=Math.floor(progress/3)*3,t=Math.min(1,rendered/(returning?360:travel)),towardPlayer=returning?1-t:t;return{z:-4.35+towardPlayer*7.65,y:1.24-towardPlayer*.98,roll:(returning?-1:1)*rendered*.06}};
 </script>
 <div class="scene" class:compact aria-label={label} data-tick={state.tick} data-phase={state.phase} data-paddle-lane={state.paddleLane} data-paddle-count={state.paddle.length} data-ramp-count={state.ramp.length} data-leading-progress={state.ramp[0]?.progress??''} data-leading-roll={state.ramp[0]?route(state.ramp[0].progress,state.ramp[0].returning).roll:''} data-column-counts={state.columns.map(column=>column.length).join(',')} data-score={state.score} data-ramp-direction="far-to-player" data-roll-direction="edge-over-edge-toward-player" data-paddle-position="player-edge" data-bin-position="below-paddle" data-bin-layout="vertical-stacks">
- <Canvas dpr={[1,2]}>
+ <Canvas dpr={[1,2]} {createRenderer} shadows={false}>
   <T.PerspectiveCamera makeDefault position={[0,8.9,11.8]} fov={43} on:create={({ref})=>ref.lookAt(0,.25,.4)}/>{#if selectLane&&inspect}<OrbitControls enableDamping target={[0,.25,.4]}/>{/if}
   <T.Color attach="background" args={['#05050a']}/><T.AmbientLight intensity={.72}/><T.DirectionalLight position={[5,10,7]} intensity={4} color="#fff0dd" castShadow/><T.DirectionalLight position={[-8,5,-5]} intensity={3} color="#cceeff"/><T.SpotLight position={[0,8,-5]} intensity={10} color="#00ffcc" angle={.5} penumbra={.5} decay={0} distance={20}/>
   <T.Mesh position={[0,10,-10]}><T.SphereGeometry args={[4,24,24]}/><T.MeshBasicMaterial color="#ffffff"/></T.Mesh>
