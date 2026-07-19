@@ -4,7 +4,7 @@ import { auth, firestore, realtimeDatabase } from '$lib/firebase/config';
 import type { RoomPlayer } from '$lib/firebase/rooms';
 
 export interface RealtimeGameDefinition<Settings extends object> {
-  ruleset: 'pill-bottle' | 'tetris' | 'quarry-match' | 'crystal-canopy';
+  ruleset: 'pill-bottle' | 'tetris' | 'quarry-match' | 'crystal-canopy' | 'stax';
   rulesVersion: string;
   tickRate: number;
   settings: Settings;
@@ -35,7 +35,7 @@ export async function startRealtimeGame<Settings extends object>(
     players: Object.fromEntries(participants.map((player, seat) => [player.uid, { seat, level: sharedLevel??player.level??0 }])),
     audioOutput: hostMode === 'display' ? 'cast' : 'controllers', settings: definition.settings,
     matchId: gameId, round: 0,
-    ...(['quarry-match','crystal-canopy'].includes(definition.ruleset) ? { scores: Object.fromEntries(participants.map((player) => [player.uid, 0])) } : {}),
+    ...(['quarry-match','crystal-canopy','stax'].includes(definition.ruleset) ? { scores: Object.fromEntries(participants.map((player) => [player.uid, 0])) } : {}),
     serverTime: serverTimestamp()
   });
   await updateDoc(doc(firestore, 'rooms', roomId), { status: 'active', activeGameId: gameId, startedAt: firestoreTimestamp() });
