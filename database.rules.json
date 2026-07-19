@@ -21,7 +21,9 @@
           "round": { ".validate": true },
           "previousGameId": { ".validate": true },
           "scores": {
-            "$playerId": { ".validate": "newData.isNumber() && newData.val() % 1 == 0 && newData.val() >= 0 && newData.val() <= 3 && newData.parent().parent().child('players/'+$playerId).exists()" }
+            "$playerId": {
+              ".validate": "newData.isNumber() && newData.val() % 1 == 0 && newData.val() >= 0 && newData.val() <= 3 && newData.parent().parent().child('players/'+$playerId).exists()"
+            }
           },
           "members": {
             "$uid": { ".validate": "newData.val() == true" }
@@ -36,16 +38,32 @@
           },
           "settings": {
             ".validate": "(newData.parent().child('rulesVersion').val() == 'pill-bottle/2' && newData.hasChildren(['virusCount','speed','hardDrop']) && newData.child('virusCount').val() == 12 && newData.child('speed').val() == 'medium' && newData.child('hardDrop').val() == true) || (newData.parent().child('rulesVersion').val() == 'pill-bottle/3' && newData.hasChildren(['initialVirusCount','initialGravityTicks','hardDrop']) && newData.child('initialVirusCount').val() == 5 && newData.child('initialGravityTicks').val() == 50 && newData.child('hardDrop').val() == true && (!newData.child('matchRounds').exists() || newData.child('matchRounds').val() == 3)) || (newData.parent().child('rulesVersion').val() == 'tetris/1' && newData.child('width').val() == 10 && newData.child('height').val() == 20 && newData.child('hiddenRows').val() == 2 && newData.child('matchRounds').val() == 1) || (newData.parent().child('rulesVersion').val() == 'quarry-match/1' && newData.child('width').val() == 5 && newData.child('height').val() == 12 && newData.child('targetWins').val() == 3 && newData.child('matchRounds').val() == 5)",
-            "virusCount": { ".validate": "newData.parent().parent().child('rulesVersion').val() == 'pill-bottle/2'" },
-            "speed": { ".validate": "newData.parent().parent().child('rulesVersion').val() == 'pill-bottle/2'" },
-            "initialVirusCount": { ".validate": "newData.parent().parent().child('rulesVersion').val() == 'pill-bottle/3'" },
-            "initialGravityTicks": { ".validate": "newData.parent().parent().child('rulesVersion').val() == 'pill-bottle/3'" },
+            "virusCount": {
+              ".validate": "newData.parent().parent().child('rulesVersion').val() == 'pill-bottle/2'"
+            },
+            "speed": {
+              ".validate": "newData.parent().parent().child('rulesVersion').val() == 'pill-bottle/2'"
+            },
+            "initialVirusCount": {
+              ".validate": "newData.parent().parent().child('rulesVersion').val() == 'pill-bottle/3'"
+            },
+            "initialGravityTicks": {
+              ".validate": "newData.parent().parent().child('rulesVersion').val() == 'pill-bottle/3'"
+            },
             "hardDrop": { ".validate": true },
             "matchRounds": { ".validate": true },
-            "width": { ".validate": "newData.parent().parent().child('rulesVersion').val() == 'tetris/1' || newData.parent().parent().child('rulesVersion').val() == 'quarry-match/1'" },
-            "height": { ".validate": "newData.parent().parent().child('rulesVersion').val() == 'tetris/1' || newData.parent().parent().child('rulesVersion').val() == 'quarry-match/1'" },
-            "hiddenRows": { ".validate": "newData.parent().parent().child('rulesVersion').val() == 'tetris/1'" },
-            "targetWins": { ".validate": "newData.parent().parent().child('rulesVersion').val() == 'quarry-match/1'" },
+            "width": {
+              ".validate": "newData.parent().parent().child('rulesVersion').val() == 'tetris/1' || newData.parent().parent().child('rulesVersion').val() == 'quarry-match/1'"
+            },
+            "height": {
+              ".validate": "newData.parent().parent().child('rulesVersion').val() == 'tetris/1' || newData.parent().parent().child('rulesVersion').val() == 'quarry-match/1'"
+            },
+            "hiddenRows": {
+              ".validate": "newData.parent().parent().child('rulesVersion').val() == 'tetris/1'"
+            },
+            "targetWins": {
+              ".validate": "newData.parent().parent().child('rulesVersion').val() == 'quarry-match/1'"
+            },
             "$other": { ".validate": false }
           },
           "$other": { ".validate": false }
@@ -55,7 +73,7 @@
             "records": {
               "$recordId": {
                 ".write": "auth != null && auth.uid == $playerId && !data.exists() && root.child('games/'+$gameId+'/start/players/'+$playerId).exists() && root.child('games/'+$gameId+'/players/'+$playerId+'/epochs/'+newData.child('epochId').val()).exists()",
-                ".validate": "newData.hasChildren(['type','playerId','epochId','clientSeq','tick','serverTime']) && newData.child('playerId').val() == $playerId && newData.child('epochId').isString() && newData.child('epochId').val().length <= 128 && newData.child('clientSeq').isNumber() && newData.child('clientSeq').val() % 1 == 0 && newData.child('clientSeq').val() >= 1 && newData.child('clientSeq').val() <= 1000000000 && newData.child('tick').isNumber() && newData.child('tick').val() % 1 == 0 && newData.child('tick').val() >= 0 && newData.child('tick').val() <= 1000000000 && newData.child('serverTime').isNumber() && ((newData.child('type').val() == 'input/move' && newData.child('payload/dx').isNumber() && (newData.child('payload/dx').val() == -1 || newData.child('payload/dx').val() == 1)) || (newData.child('type').val() == 'input/rotate' && (newData.child('payload/direction').val() == 'clockwise' || newData.child('payload/direction').val() == 'counterclockwise')) || ((newData.child('type').val() == 'input/soft-drop-start' || newData.child('type').val() == 'input/soft-drop-end' || newData.child('type').val() == 'input/hard-drop' || newData.child('type').val() == 'input/fire' || newData.child('type').val() == 'input/restart') && !newData.child('payload').exists()) || (newData.child('type').val() == 'progress/tick' && newData.child('payload').hasChildren(['phase','stateHash']) && newData.child('payload/stateHash').isString() && ((root.child('games/'+$gameId+'/start/rulesVersion').val() == 'pill-bottle/2' && (newData.child('payload/phase').val() == 'playing' || newData.child('payload/phase').val() == 'won' || newData.child('payload/phase').val() == 'lost') && newData.child('payload/stateHash').val().matches(/^pb2-[0-9a-f]{8}$/)) || (root.child('games/'+$gameId+'/start/rulesVersion').val() == 'pill-bottle/3' && (newData.child('payload/phase').val() == 'playing' || newData.child('payload/phase').val() == 'countdown' || newData.child('payload/phase').val() == 'lost') && newData.child('payload/stateHash').val().matches(/^pb3-[0-9a-f]{8}$/)) || (root.child('games/'+$gameId+'/start/rulesVersion').val() == 'tetris/1' && (newData.child('payload/phase').val() == 'playing' || newData.child('payload/phase').val() == 'lost') && newData.child('payload/stateHash').val().matches(/^t1-[0-9a-f]{8}$/)) || (root.child('games/'+$gameId+'/start/rulesVersion').val() == 'quarry-match/1' && (newData.child('payload/phase').val() == 'playing' || newData.child('payload/phase').val() == 'cleared') && newData.child('payload/stateHash').val().matches(/^q1-[0-9a-f]{8}$/)))) || (newData.child('type').val() == 'attack/rain' && newData.child('payload').hasChildren(['attackId','colors','columns']) && newData.child('payload/attackId').isString() && newData.child('payload/attackId').val().length <= 128 && newData.child('payload/colors').hasChildren(['0','1']) && newData.child('payload/columns').hasChildren(['0','1']) && !newData.child('payload/colors/4').exists() && !newData.child('payload/columns/4').exists() && newData.child('payload/colors/2').exists() == newData.child('payload/columns/2').exists() && newData.child('payload/colors/3').exists() == newData.child('payload/columns/3').exists()))",
+                ".validate": "newData.hasChildren(['type','playerId','epochId','clientSeq','tick','serverTime']) && newData.child('playerId').val() == $playerId && newData.child('epochId').isString() && newData.child('epochId').val().length <= 128 && newData.child('clientSeq').isNumber() && newData.child('clientSeq').val() % 1 == 0 && newData.child('clientSeq').val() >= 1 && newData.child('clientSeq').val() <= 1000000000 && newData.child('tick').isNumber() && newData.child('tick').val() % 1 == 0 && newData.child('tick').val() >= 0 && newData.child('tick').val() <= 1000000000 && newData.child('serverTime').isNumber() && ((newData.child('type').val() == 'input/move' && newData.child('payload/dx').isNumber() && (newData.child('payload/dx').val() == -1 || newData.child('payload/dx').val() == 1)) || (newData.child('type').val() == 'input/rotate' && (newData.child('payload/direction').val() == 'clockwise' || newData.child('payload/direction').val() == 'counterclockwise')) || ((newData.child('type').val() == 'input/soft-drop-start' || newData.child('type').val() == 'input/soft-drop-end' || newData.child('type').val() == 'input/hard-drop' || newData.child('type').val() == 'input/fire' || newData.child('type').val() == 'input/restart') && !newData.child('payload').exists()) || (newData.child('type').val() == 'progress/tick' && newData.child('payload').hasChildren(['phase','stateHash']) && newData.child('payload/stateHash').isString() && ((root.child('games/'+$gameId+'/start/rulesVersion').val() == 'pill-bottle/2' && (newData.child('payload/phase').val() == 'playing' || newData.child('payload/phase').val() == 'won' || newData.child('payload/phase').val() == 'lost') && newData.child('payload/stateHash').val().matches(/^pb2-[0-9a-f]{8}$/)) || (root.child('games/'+$gameId+'/start/rulesVersion').val() == 'pill-bottle/3' && (newData.child('payload/phase').val() == 'playing' || newData.child('payload/phase').val() == 'countdown' || newData.child('payload/phase').val() == 'lost') && newData.child('payload/stateHash').val().matches(/^pb3-[0-9a-f]{8}$/)) || (root.child('games/'+$gameId+'/start/rulesVersion').val() == 'tetris/1' && (newData.child('payload/phase').val() == 'playing' || newData.child('payload/phase').val() == 'lost') && newData.child('payload/stateHash').val().matches(/^t1-[0-9a-f]{8}$/)) || (root.child('games/'+$gameId+'/start/rulesVersion').val() == 'quarry-match/1' && (newData.child('payload/phase').val() == 'playing' || newData.child('payload/phase').val() == 'cleared') && newData.child('payload/stateHash').val().matches(/^q1-[0-9a-f]{8}$/)))) || (newData.child('type').val() == 'attack/rain' && newData.child('payload').hasChildren(['attackId','colors','columns']) && newData.child('payload/attackId').isString() && newData.child('payload/attackId').val().length <= 128 && newData.child('payload/colors/0').exists() && newData.child('payload/columns/0').exists() && !newData.child('payload/colors/4').exists() && !newData.child('payload/columns/4').exists() && newData.child('payload/colors/1').exists() == newData.child('payload/columns/1').exists() && newData.child('payload/colors/2').exists() == newData.child('payload/columns/2').exists() && newData.child('payload/colors/3').exists() == newData.child('payload/columns/3').exists()))",
                 "type": { ".validate": true },
                 "playerId": { ".validate": true },
                 "epochId": { ".validate": true },
@@ -63,13 +81,31 @@
                 "tick": { ".validate": true },
                 "serverTime": { ".validate": true },
                 "payload": {
-                  "dx": { ".validate": "newData.parent().parent().child('type').val() == 'input/move'" },
-                  "direction": { ".validate": "newData.parent().parent().child('type').val() == 'input/rotate'" },
-                  "phase": { ".validate": "newData.parent().parent().child('type').val() == 'progress/tick'" },
-                  "stateHash": { ".validate": "newData.parent().parent().child('type').val() == 'progress/tick'" },
-                  "attackId": { ".validate": "newData.parent().parent().child('type').val() == 'attack/rain'" },
-                  "colors": { "$index": { ".validate": "newData.parent().parent().parent().child('type').val() == 'attack/rain' && (newData.val() == 'cyan' || newData.val() == 'pink' || newData.val() == 'yellow')" } },
-                  "columns": { "$index": { ".validate": "newData.parent().parent().parent().child('type').val() == 'attack/rain' && newData.isNumber() && newData.val() % 1 == 0 && newData.val() >= 0 && newData.val() <= 7" } },
+                  "dx": {
+                    ".validate": "newData.parent().parent().child('type').val() == 'input/move'"
+                  },
+                  "direction": {
+                    ".validate": "newData.parent().parent().child('type').val() == 'input/rotate'"
+                  },
+                  "phase": {
+                    ".validate": "newData.parent().parent().child('type').val() == 'progress/tick'"
+                  },
+                  "stateHash": {
+                    ".validate": "newData.parent().parent().child('type').val() == 'progress/tick'"
+                  },
+                  "attackId": {
+                    ".validate": "newData.parent().parent().child('type').val() == 'attack/rain'"
+                  },
+                  "colors": {
+                    "$index": {
+                      ".validate": "newData.parent().parent().parent().child('type').val() == 'attack/rain' && (newData.val() == 'cyan' || newData.val() == 'pink' || newData.val() == 'yellow' || (root.child('games/'+$gameId+'/start/rulesVersion').val() == 'quarry-match/1' && (newData.val() == 'green' || newData.val() == 'purple')))"
+                    }
+                  },
+                  "columns": {
+                    "$index": {
+                      ".validate": "newData.parent().parent().parent().child('type').val() == 'attack/rain' && newData.isNumber() && newData.val() % 1 == 0 && newData.val() >= 0 && ((root.child('games/'+$gameId+'/start/rulesVersion').val() == 'quarry-match/1' && newData.val() <= 4) || (root.child('games/'+$gameId+'/start/rulesVersion').val() != 'quarry-match/1' && newData.val() <= 7))"
+                    }
+                  },
                   "$other": { ".validate": false }
                 },
                 "$other": { ".validate": false }
@@ -99,10 +135,23 @@
         "interactions": {
           "$attackId": {
             ".write": "auth != null && !data.exists() && newData.child('sourcePlayerId').val() == auth.uid && root.child('games/'+$gameId+'/start/players/'+auth.uid).exists()",
-            ".validate": "newData.hasChildren(['type','attackId','sourcePlayerId','sourceTick','sourceChain','targetPlayerIds','colors','serverTime']) && newData.child('type').val() == 'attack/generated' && newData.child('attackId').isString() && newData.child('attackId').val().length <= 128 && newData.child('sourcePlayerId').isString() && newData.child('sourceTick').isNumber() && newData.child('sourceTick').val() % 1 == 0 && newData.child('sourceTick').val() >= 0 && newData.child('sourceChain').isNumber() && newData.child('sourceChain').val() % 1 == 0 && newData.child('sourceChain').val() >= 1 && newData.child('targetPlayerIds/0').exists() && !newData.child('targetPlayerIds/3').exists() && newData.child('colors').hasChildren(['0','1']) && !newData.child('colors/4').exists() && newData.child('serverTime').isNumber()",
-            "type": { ".validate": true }, "attackId": { ".validate": true }, "sourcePlayerId": { ".validate": true }, "sourceTick": { ".validate": true }, "sourceChain": { ".validate": true }, "serverTime": { ".validate": true },
-            "targetPlayerIds": { "$index": { ".validate": "newData.isString() && root.child('games/'+$gameId+'/start/players/'+newData.val()).exists() && newData.val() != auth.uid" } },
-            "colors": { "$index": { ".validate": "newData.val() == 'cyan' || newData.val() == 'pink' || newData.val() == 'yellow'" } },
+            ".validate": "newData.hasChildren(['type','attackId','sourcePlayerId','sourceTick','sourceChain','targetPlayerIds','colors','serverTime']) && newData.child('type').val() == 'attack/generated' && newData.child('attackId').isString() && newData.child('attackId').val().length <= 128 && newData.child('sourcePlayerId').isString() && newData.child('sourceTick').isNumber() && newData.child('sourceTick').val() % 1 == 0 && newData.child('sourceTick').val() >= 0 && newData.child('sourceChain').isNumber() && newData.child('sourceChain').val() % 1 == 0 && newData.child('sourceChain').val() >= 1 && newData.child('targetPlayerIds/0').exists() && !newData.child('targetPlayerIds/3').exists() && newData.child('colors/0').exists() && !newData.child('colors/4').exists() && newData.child('serverTime').isNumber()",
+            "type": { ".validate": true },
+            "attackId": { ".validate": true },
+            "sourcePlayerId": { ".validate": true },
+            "sourceTick": { ".validate": true },
+            "sourceChain": { ".validate": true },
+            "serverTime": { ".validate": true },
+            "targetPlayerIds": {
+              "$index": {
+                ".validate": "newData.isString() && root.child('games/'+$gameId+'/start/players/'+newData.val()).exists() && newData.val() != auth.uid"
+              }
+            },
+            "colors": {
+              "$index": {
+                ".validate": "newData.val() == 'cyan' || newData.val() == 'pink' || newData.val() == 'yellow' || (root.child('games/'+$gameId+'/start/rulesVersion').val() == 'quarry-match/1' && (newData.val() == 'green' || newData.val() == 'purple'))"
+              }
+            },
             "$other": { ".validate": false }
           }
         },
@@ -122,7 +171,10 @@
         "winner": {
           ".write": "auth != null && !data.exists() && newData.child('playerId').val() == auth.uid && root.child('games/'+$gameId+'/start/rulesVersion').val() == 'quarry-match/1' && root.child('games/'+$gameId+'/start/players/'+auth.uid).exists()",
           ".validate": "newData.hasChildren(['playerId','tick','stateHash','serverTime']) && newData.child('playerId').isString() && newData.child('tick').isNumber() && newData.child('tick').val() % 1 == 0 && newData.child('tick').val() >= 0 && newData.child('stateHash').isString() && newData.child('stateHash').val().matches(/^q1-[0-9a-f]{8}$/) && newData.child('serverTime').isNumber()",
-          "playerId": { ".validate": true }, "tick": { ".validate": true }, "stateHash": { ".validate": true }, "serverTime": { ".validate": true },
+          "playerId": { ".validate": true },
+          "tick": { ".validate": true },
+          "stateHash": { ".validate": true },
+          "serverTime": { ".validate": true },
           "$other": { ".validate": false }
         },
         "rematch": {
