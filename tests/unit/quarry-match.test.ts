@@ -75,6 +75,7 @@ test("a bottom shot creates a horizontal clear and attack", () => {
   assert.equal(state.cascades, 1);
   assert.equal(state.removed, 56);
 });
+test("a run of five clears only its leftmost group of three",()=>{const state=createQuarry(8);state.columns=Array.from({length:5},(_,column)=>[column===0?'pink':'purple','cyan']);state.cursor=0;state.groupColor='pink';state.groupCount=1;state.removed=50;const event=applyQuarryInput(state,{type:'input/fire',payload:{}});assert.equal(event?.cells.length,3);assert.deepEqual(state.columns.map(column=>column.at(-1)),['cyan','purple','purple','purple','cyan']);assert.equal(state.removed,54)});
 test("rain is replayed as colored stones at deterministic target columns", () => {
   const state = createQuarry(4);
   state.columns = state.columns.map((column) => column.slice(0, 10));

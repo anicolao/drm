@@ -21,18 +21,20 @@ horizontal cave-ins. Those cave-ins cascade and rain stones onto opponents.
 After every accepted bottom shot, the columns settle. The game then scans every
 row except the bottom firing row.
 
-- Every contiguous horizontal run of three or more equal stones clears at once.
+- Exactly three horizontally adjacent equal stones form a cave-in and clear at
+  once. A run of four or five clears only its leftmost three stones, leaving the
+  remaining one or two in place.
 - A line that already existed before the shot is not a cave-in: the shot must
   bring the stones into alignment.
 - Columns settle after the simultaneous clear and the board is scanned again.
   Newly formed lines also clear. This repeats until the quarry is stable.
-- Overlapping cells clear once. Each distinct horizontal run is one cascade
-  line, whether it contains three, four, or five stones.
+- Each exact group of three is one cascade group. Left-to-right selection is
+  frozen and deterministic so the engine, solver, controller, and cast agree.
 - Cascades do not alter the partially completed direct-shot group.
 
 ## Rain attacks
 
-Each cascade line caused by one shot sends one stone to every opponent, capped
+Each cascade group caused by one shot sends one stone to every opponent, capped
 at four stones per shot. The attack stones use the colors of the cleared lines,
 in cascade order. Target columns are a deterministic shuffle derived from the
 attack identifier, so all replays agree without transmitting board state.

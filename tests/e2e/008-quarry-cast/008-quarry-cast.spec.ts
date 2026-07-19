@@ -54,7 +54,7 @@ test("US-008: shared Quarry Match display replays controller shots", async ({
     }
     await controller.keyboard.press("ArrowUp");
   }
-  await expect(castBoard).toHaveAttribute("data-remaining", "35", {
+  await expect(castBoard).toHaveAttribute("data-remaining", "36", {
     timeout: 10000,
   });
   await page.clock.pauseAt(Date.now());
@@ -67,14 +67,14 @@ test("US-008: shared Quarry Match display replays controller shots", async ({
       {
         spec: "The cast replayed the controller triple without receiving board state",
         check: async () =>
-          await expect(castBoard).toHaveAttribute("data-remaining", "35"),
+          await expect(castBoard).toHaveAttribute("data-remaining", "36"),
       },
       {
         spec: "The controller and cast show the same remaining stone count",
         check: async () =>
           await expect(
             controller.getByLabel("Quarry Match board"),
-          ).toHaveAttribute("data-remaining", "35"),
+          ).toHaveAttribute("data-remaining", "36"),
       },
       {
         spec: "Audio controls are on the TV and not the controller",
