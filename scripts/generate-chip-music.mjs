@@ -84,6 +84,10 @@ const tracks = [
     slug: 'prismatic-descent-combo', title: 'Prismatic Descent Combo', bpm: 144, bars: 1, root: 43,
     progression: [7], melody: [12, 15, 19, 22, 19, 22, 24, 27],
     arp: [0, 7, 12, 19, 15, 19, 24, 27], leadDuty: 0.25, swing: 0, energy: 1.02, seed: 153, combo: true
+  },
+  {
+    slug: 'prismatic-descent-reset', title: 'Prismatic Descent Reset', bpm: 144, bars: 1, root: 43,
+    progression: [0], melody: [], arp: [], leadDuty: 0.25, swing: 0, energy: 1, seed: 157, reset: true
   }
 ];
 
@@ -92,6 +96,20 @@ function envelope(position, length, attack = 0.025, release = 0.18) {
 }
 
 function render(track) {
+  if(track.reset){
+    const totalSeconds=.7,samples=Math.round(totalSeconds*SAMPLE_RATE),pcm=Buffer.alloc(samples*2);
+    for(let sample=0;sample<samples;sample++){
+      const time=sample/SAMPLE_RATE,fall=Math.min(1,time/.55),decay=Math.exp(-time*3.8);
+      const upper=390-205*fall,lower=upper*Math.pow(2,-6/12);
+      const sour=pulse(time*upper,.3)*.34+pulse(time*lower,.47)*.31;
+      const wobble=triangle(time*(7+5*fall))*.12;
+      const scrape=noise(sample,track.seed)*Math.exp(-time*7)*.24;
+      const drop=time>.43?Math.sin(2*Math.PI*68*(time-.43))*Math.exp(-(time-.43)*11)*.3:0;
+      const fade=Math.min(1,time/.006,(totalSeconds-time)/.045);
+      pcm.writeInt16LE(Math.round(clamp((sour*(1+wobble)*decay+scrape-drop)*Math.max(0,fade))*32767),sample*2);
+    }
+    return{pcm,totalSeconds};
+  }
   if(track.combo){
     const totalSeconds=.48,samples=Math.round(totalSeconds*SAMPLE_RATE),pcm=Buffer.alloc(samples*2);
     for(let sample=0;sample<samples;sample++){

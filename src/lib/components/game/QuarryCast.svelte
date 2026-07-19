@@ -26,6 +26,7 @@
     lifecycle: QuarryLifecycle | undefined,
     phase: "playing" | "cleared" = "playing",
     cascadeSignal = 0,
+    resetSignal = 0,
     audioEnabled = false;
   const lag = new LagIndicator();
   let stop = () => {},
@@ -87,9 +88,10 @@
     ? "cleared"
     : "playing";
   $: cascadeSignal = progress.reduce((total, player) => total + player.state.cascades, 0);
+  $: resetSignal = progress.reduce((total, player) => total + player.state.restarts, 0);
 </script>
 
-<QuarryAudio enabled={audioEnabled} {phase} {cascadeSignal} />
+<QuarryAudio enabled={audioEnabled} {phase} {cascadeSignal} {resetSignal} />
 <main>
   <header>QUARRY MATCH · ROOM {code}</header>
   {#if error}<h1 role="alert">{error}</h1>{:else}<section>

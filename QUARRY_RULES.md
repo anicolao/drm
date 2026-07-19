@@ -64,4 +64,5 @@ as stones in the quarry. Newly cleared cascade cells burst visibly, and every
 cascade event plays the sharp, non-melodic **Prismatic Descent Combo** impact
 over the running score on the device that owns game audio. The gamepad X button restarts the
 current puzzle once per press; the visible Restart control remains available for
-touch and mouse input.
+touch and mouse input. Restart also plays the discordant **Prismatic Descent
+Reset** cue through the device that owns game audio.
