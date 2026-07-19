@@ -232,6 +232,7 @@
       enabled={state.audioOutput === "controllers"}
       phase={state.state.phase}
       cascadeSignal={state.state.cascades}
+      resetSignal={state.state.restarts}
     /><ControllerStatus
       {online}
       ready={state.ready}
