@@ -7,14 +7,18 @@ const playing=(seed=1)=>{const state=createStax(seed);state.phase='playing';stat
 
 test('Stax has deterministic level pacing',()=>{
   assert.deepEqual(staxLevelRules(0).objective,{kind:'lines',target:3});
+  assert.equal(staxLevelRules(0).travel,540);
+  assert.equal(staxLevelRules(0).spawn,240);
+  assert.equal(staxLevelRules(20).travel,300);
+  assert.equal(staxLevelRules(20).spawn,120);
   assert.ok(staxLevelRules(12).travel<staxLevelRules(2).travel);
   assert.ok(staxLevelRules(12).rampLimit>staxLevelRules(2).rampLimit);
 });
 
 test('a ramp tile is caught only in the paddle lane',()=>{
-  const state=playing();state.ramp=[{id:1,color:'cyan',lane:2,progress:179}];advanceStax(state);
+  const state=playing(),arrival=staxLevelRules(state.level).travel-1;state.ramp=[{id:1,color:'cyan',lane:2,progress:arrival}];advanceStax(state);
   assert.deepEqual(state.paddle,[{id:1,color:'cyan'}]);assert.equal(state.misses,0);
-  state.ramp=[{id:2,color:'pink',lane:1,progress:179}];advanceStax(state);
+  state.ramp=[{id:2,color:'pink',lane:1,progress:arrival}];advanceStax(state);
   assert.equal(state.misses,1);
 });
 

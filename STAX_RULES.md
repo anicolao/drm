@@ -159,8 +159,8 @@ is caught or missed; the player must still avoid the failure conditions.
 Difficulty parameters:
 
 - colors: `min(8, 4 + floor(level / 4))`, with wild added separately at level 10;
-- base travel time: `max(72, 180 - 5 × level)` ticks from ramp top to paddle;
-- spawn interval: `max(30, 90 - 2 × level)` ticks, with seeded jitter of ±10%;
+- base travel time: `max(300, 540 - 12 × level)` ticks from ramp top to paddle;
+- spawn interval: `max(120, 240 - 6 × level)` ticks, with seeded jitter of ±10%;
 - simultaneous ramp limit: 2 at levels 0–4, 3 at 5–9, 4 at 10–14, and 5 at
   15–20; and
 - allowed misses: 5 at levels 0–4, 4 at 5–11, and 3 at 12–20.
