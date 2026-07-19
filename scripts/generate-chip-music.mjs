@@ -83,7 +83,7 @@ const tracks = [
   {
     slug: 'prismatic-descent-combo', title: 'Prismatic Descent Combo', bpm: 144, bars: 1, root: 43,
     progression: [7], melody: [12, 15, 19, 22, 19, 22, 24, 27],
-    arp: [0, 7, 12, 19, 15, 19, 24, 27], leadDuty: 0.25, swing: 0, energy: 1.02, seed: 153, fanfare: true
+    arp: [0, 7, 12, 19, 15, 19, 24, 27], leadDuty: 0.25, swing: 0, energy: 1.02, seed: 153, combo: true
   }
 ];
 
@@ -92,6 +92,20 @@ function envelope(position, length, attack = 0.025, release = 0.18) {
 }
 
 function render(track) {
+  if(track.combo){
+    const totalSeconds=.48,samples=Math.round(totalSeconds*SAMPLE_RATE),pcm=Buffer.alloc(samples*2);
+    for(let sample=0;sample<samples;sample++){
+      const time=sample/SAMPLE_RATE,decay=Math.exp(-time*8.5),crack=Math.exp(-time*24);
+      const sweepFrequency=1500-1050*Math.min(1,time/.34),sweep=pulse(time*sweepFrequency,.18)*decay;
+      const grit=noise(sample,track.seed)*crack;
+      const thump=Math.sin(2*Math.PI*(92-34*Math.min(1,time/.3))*time)*Math.exp(-time*12);
+      const second=time>.19?Math.exp(-(time-.19)*30):0;
+      const accent=second*(noise(sample,track.seed+17)*.65+pulse(time*880,.12)*.35);
+      const fade=Math.min(1,time/.004,(totalSeconds-time)/.025);
+      pcm.writeInt16LE(Math.round(clamp((sweep*.42+grit*.48+thump*.32+accent*.3)*Math.max(0,fade))*32767),sample*2);
+    }
+    return{pcm,totalSeconds};
+  }
   const beatSeconds = 60 / track.bpm;
   const stepSeconds = beatSeconds / 4;
   const totalSeconds = track.bars * 4 * beatSeconds;
