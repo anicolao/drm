@@ -61,7 +61,7 @@ when late commands arrive.
 
 The three held stones use the same shape, color, highlight, and depth treatment
 as stones in the quarry. Newly cleared cascade cells burst visibly, and every
-cascade event plays the one-bar **Prismatic Descent Combo** cue over the running
-score on the device that owns game audio. The gamepad X button restarts the
+cascade event plays the sharp, non-melodic **Prismatic Descent Combo** impact
+over the running score on the device that owns game audio. The gamepad X button restarts the
 current puzzle once per press; the visible Restart control remains available for
 touch and mouse input.
