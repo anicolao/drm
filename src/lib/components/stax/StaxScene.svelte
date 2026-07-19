@@ -6,7 +6,7 @@
  $: travel=Math.max(72,180-5*Math.min(20,state.level));
  const rampZ=(progress:number,returning=false)=>returning?-3.7+Math.min(1,progress/360)*8.2:4.5-Math.min(1,progress/travel)*8.2;
 </script>
-<div class="scene" class:compact aria-label={label} data-tick={state.tick} data-phase={state.phase} data-paddle-lane={state.paddleLane} data-paddle-count={state.paddle.length} data-ramp-count={state.ramp.length} data-score={state.score}>
+<div class="scene" class:compact aria-label={label} data-tick={state.tick} data-phase={state.phase} data-paddle-lane={state.paddleLane} data-paddle-count={state.paddle.length} data-ramp-count={state.ramp.length} data-column-counts={state.columns.map(column=>column.length).join(',')} data-score={state.score}>
  <Canvas dpr={[1,2]}>
   <T.PerspectiveCamera makeDefault position={[0,7.4,8.8]} rotation={[-.7,0,0]} fov={42}/>
   <T.Color attach="background" args={['#060713']}/><T.AmbientLight intensity={0.45}/><T.DirectionalLight position={[-4,7,5]} intensity={2.5} color="#ffd6a0"/><T.DirectionalLight position={[5,3,-2]} intensity={1.5} color="#5fdcff"/>
