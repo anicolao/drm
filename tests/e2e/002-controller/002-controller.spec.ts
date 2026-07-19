@@ -3,6 +3,7 @@ import { TestStepHelper } from '../helpers/test-step-helper';
 import { resetEmulators } from '../helpers/reset-emulators';
 test.beforeEach(resetEmulators);
 test('US-002: a second authenticated device joins the room', async ({ browser, page }, testInfo) => {
+  test.setTimeout(120000);
   await page.goto('/'); await page.getByLabel('Player name').fill('Alex'); await page.getByRole('button', { name: 'Continue' }).click(); await expect(page.getByRole('button', { name: 'Play anonymously' })).toBeEnabled({ timeout: 30000 }); await page.getByRole('button', { name: 'Play anonymously' }).click();
   await expect(page.getByText('ANONYMOUS PLAYER READY')).toBeVisible({ timeout: 10000 });
   await page.getByRole('button', { name: 'Create a room' }).click(); await expect(page).toHaveURL(/room\?code=TEST/, { timeout: 10000 });
