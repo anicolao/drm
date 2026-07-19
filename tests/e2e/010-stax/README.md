@@ -13,24 +13,36 @@
 
 ---
 
-## A seeded tile visibly tumbles down its lane and is caught by the aligned paddle
+## A seeded tile rotates into place while depressing the aligned paddle
 
-![A seeded tile visibly tumbles down its lane and is caught by the aligned paddle](./screenshots/001-stax-catch.png)
+![A seeded tile rotates into place while depressing the aligned paddle](./screenshots/001-stax-catch.png)
 
 **Verifications:**
 - [x] The paddle moved left using the shared directional input
 - [x] The arriving tile entered the LIFO paddle stack
+- [x] The catch is rendered as a settling transition rather than a resize
 - [x] No tile was missed while the paddle was aligned
 
 ---
 
-## The paddle deposits its newest glossy tile onto a compact vertical bin stack
+## The tile flips forward, then drops vertically into the lower bin
 
-![The paddle deposits its newest glossy tile onto a compact vertical bin stack](./screenshots/002-stax-place.png)
+![The tile flips forward, then drops vertically into the lower bin](./screenshots/002-stax-place.png)
 
 **Verifications:**
 - [x] Place consumes exactly the newest paddle tile into the selected bin column
+- [x] Placement has a visible flip-and-drop transition
 - [x] The bin keeps each column in one physical vertical stack
 - [x] Reset, throw-back, place, and hurry controls remain available
+
+---
+
+## A missed tile tumbles beyond the ramp and falls out of sight
+
+![A missed tile tumbles beyond the ramp and falls out of sight](./screenshots/003-stax-miss.png)
+
+**Verifications:**
+- [x] The paddle is deliberately outside the incoming lane
+- [x] The miss remains visible as a falling transition after leaving the ramp
 
 ---
