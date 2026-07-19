@@ -14,11 +14,13 @@ export interface QuarryState {
   cascades: number;
   rainReceived: number;
   phase: "playing" | "cleared";
+  lastCascadeCells?: { column: number; row: number; color: QuarryColor }[];
 }
 export interface QuarryCascadeEvent {
   tick: number;
   chain: number;
   colors: QuarryColor[];
+  cells: { column: number; row: number; color: QuarryColor }[];
 }
 export type QuarryInput =
   | { type: "input/move"; payload: { dx: -1 | 1 } }

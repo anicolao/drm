@@ -56,3 +56,10 @@ immutable start, input/progress records, attack interactions, and lifecycle
 claims—not materialized columns, cursor, group, cascade, or animation state.
 Cast and opponent views replay those records at 60 ticks per second and rewind
 when late commands arrive.
+
+The three held stones use the same shape, color, highlight, and depth treatment
+as stones in the quarry. Newly cleared cascade cells burst visibly, and every
+cascade event plays the one-bar **Prismatic Descent Combo** cue over the running
+score on the device that owns game audio. The gamepad X button restarts the
+current puzzle once per press; the visible Restart control remains available for
+touch and mouse input.

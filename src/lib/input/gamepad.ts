@@ -19,6 +19,7 @@ export function gamepadLayoutMode(current: boolean, connected: boolean, actions:
 }
 
 const BUTTON = Object.freeze({ a: 0, b: 1, up: 12, down: 13, left: 14, right: 15 });
+export class OneShotGamepadButton{private previous=false;private button:number;constructor(button=2){this.button=button}sample(gamepads:readonly(GamepadLike|null)[]){const current=pressed(gamepads,this.button),fired=current&&!this.previous;this.previous=current;return fired}reset(){this.previous=false}}
 const INITIAL_REPEAT_DELAY_MS = 220;
 const REPEAT_INTERVAL_MS = 90;
 const AXIS_THRESHOLD = 0.55;

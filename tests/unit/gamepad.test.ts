@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { gamepadLayoutMode, MenuGamepadControls, StandardGamepadControls, type GamepadLike } from '../../src/lib/input/gamepad.ts';
+import { gamepadLayoutMode, MenuGamepadControls, OneShotGamepadButton, StandardGamepadControls, type GamepadLike } from '../../src/lib/input/gamepad.ts';
 
 function pad(pressedButtons: number[] = [], axes = [0, 0]): GamepadLike {
   return {
@@ -17,6 +17,8 @@ test('standard gamepad buttons map to Color Cure controls once per press', () =>
   assert.deepEqual(controls.sample([pad()], 32), []);
   assert.deepEqual(controls.sample([pad([0])], 48), ['rotate-clockwise']);
 });
+
+test('a dedicated X-button gate restarts Quarry only once per press',()=>{const restart=new OneShotGamepadButton();assert.equal(restart.sample([pad([2])]),true);assert.equal(restart.sample([pad([2])]),false);assert.equal(restart.sample([pad()]),false);assert.equal(restart.sample([pad([2])]),true);restart.reset();assert.equal(restart.sample([pad([2])]),true)});
 
 test('d-pad left and right repeat while held without flooding frames', () => {
   const controls = new StandardGamepadControls();
