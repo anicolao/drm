@@ -102,7 +102,10 @@ const tracks = [
   },
   {slug:'glacial-vault-shot',title:'Glacial Vault Shot',bpm:116,bars:1,root:38,progression:[0],melody:[],arp:[],leadDuty:.125,swing:0,energy:1,seed:181,canopyEffect:'shot'},
   {slug:'glacial-vault-triple',title:'Glacial Vault Triple',bpm:116,bars:1,root:38,progression:[0],melody:[],arp:[],leadDuty:.125,swing:0,energy:1,seed:191,canopyEffect:'triple'},
-  {slug:'glacial-vault-reset',title:'Glacial Vault Reset',bpm:116,bars:1,root:38,progression:[0],melody:[],arp:[],leadDuty:.125,swing:0,energy:1,seed:193,canopyEffect:'reset'}
+  {slug:'glacial-vault-reset',title:'Glacial Vault Reset',bpm:116,bars:1,root:38,progression:[0],melody:[],arp:[],leadDuty:.125,swing:0,energy:1,seed:193,canopyEffect:'reset'},
+  {slug:'ivory-avalanche',title:'Ivory Avalanche',bpm:188,bars:24,root:45,progression:[0,7,3,10,0,5,8,7,0,3,10,5,8,7,3,0,5,10,7,0,8,5,7,0],melody:[12,19,15,24,22,19,15,12,17,24,20,29,27,24,20,17,12,15,19,22,24,22,19,15,27,24,22,19,15,12,10,7],arp:[0,7,12,15,19,15,12,7],leadDuty:.5,swing:.015,energy:1.05,seed:211,piano:true},
+  {slug:'ivory-avalanche-clear',title:'Ivory Avalanche Clear',bpm:188,bars:4,root:45,progression:[0,5,7,12],melody:[12,16,19,24,16,19,23,28,19,23,26,31,24,28,31,36],arp:[0,7,12,16,19,24,28,31],leadDuty:.5,swing:0,energy:1.1,seed:223,piano:true,fanfare:true},
+  ...['catch','place','throw','chain','miss','failure'].map((effect,index)=>({slug:`ivory-avalanche-${effect}`,title:`Ivory Avalanche ${effect[0].toUpperCase()+effect.slice(1)}`,bpm:188,bars:1,root:45,progression:[0],melody:[],arp:[],leadDuty:.5,swing:0,energy:1,seed:227+index*2,staxEffect:effect}))
 ];
 
 function envelope(position, length, attack = 0.025, release = 0.18) {
@@ -110,6 +113,7 @@ function envelope(position, length, attack = 0.025, release = 0.18) {
 }
 
 function render(track) {
+  if(track.staxEffect){const durations={catch:.16,place:.2,throw:.32,chain:.5,miss:.38,failure:.9},totalSeconds=durations[track.staxEffect],samples=Math.round(totalSeconds*SAMPLE_RATE),pcm=Buffer.alloc(samples*2),notes={catch:[76,83],place:[64,71],throw:[78,71,66],chain:[61,62,68,69],miss:[56,50],failure:[57,51,48]}[track.staxEffect];for(let sample=0;sample<samples;sample++){const time=sample/SAMPLE_RATE;let mix=0;notes.forEach((note,i)=>{const start=i*(totalSeconds/(notes.length+1)),t=time-start;if(t>=0){const decay=Math.exp(-t*(track.staxEffect==='chain'?7:10));mix+=(Math.sin(2*Math.PI*midi(note)*t)+.42*Math.sin(2*Math.PI*midi(note)*2.01*t)+.18*Math.sin(2*Math.PI*midi(note)*3.98*t))*decay*.24}});if(track.staxEffect==='chain')mix+=noise(sample,track.seed)*Math.exp(-time*13)*.18;const fade=Math.min(1,time/.003,(totalSeconds-time)/.025);pcm.writeInt16LE(Math.round(clamp(mix*Math.max(0,fade))*32767),sample*2)}return{pcm,totalSeconds}}
   if(track.canopyEffect){
     const durations={shot:.18,triple:.52,reset:.72},totalSeconds=durations[track.canopyEffect],samples=Math.round(totalSeconds*SAMPLE_RATE),pcm=Buffer.alloc(samples*2);
     for(let sample=0;sample<samples;sample++){
@@ -167,18 +171,18 @@ function render(track) {
 
     const bassNote = track.root + chord + ([0, 0, 7, 0][Math.floor(stepInBar / 4)] ?? 0);
     const bassPhase = time * midi(bassNote);
-    mix += triangle(bassPhase) * envelope(withinStep * stepSeconds, stepSeconds, 0.01, 0.12) * 0.24;
+    mix += (track.piano?(Math.sin(2*Math.PI*bassPhase)+.3*Math.sin(4.02*Math.PI*bassPhase))*Math.exp(-withinStep*3):triangle(bassPhase)) * envelope(withinStep * stepSeconds, stepSeconds, 0.01, 0.12) * 0.24;
 
     const arpNote = track.root + 12 + chord + track.arp[step % track.arp.length];
     const arpPhase = time * midi(arpNote);
-    mix += pulse(arpPhase, 0.5) * envelope(withinStep * stepSeconds, stepSeconds, 0.008, stepSeconds * 0.45) * 0.10;
+    mix += (track.piano?(Math.sin(2*Math.PI*arpPhase)+.36*Math.sin(4.01*Math.PI*arpPhase))*Math.exp(-withinStep*5):pulse(arpPhase, 0.5)) * envelope(withinStep * stepSeconds, stepSeconds, 0.008, stepSeconds * 0.45) * 0.10;
 
     const melodyIndex = (step + Math.floor(bar / 4) * 3) % track.melody.length;
     const melodyOffset = track.melody[melodyIndex];
     if (melodyOffset !== null && (track.energy > 0.8 || stepInBar % 2 === 0)) {
       const leadNote = track.root + 12 + chord + melodyOffset;
       const leadPhase = time * midi(leadNote);
-      mix += pulse(leadPhase, track.leadDuty) * envelope(withinStep * stepSeconds, stepSeconds, 0.012, stepSeconds * 0.62) * 0.18;
+      mix += (track.piano?(Math.sin(2*Math.PI*leadPhase)+.4*Math.sin(4.006*Math.PI*leadPhase)+.16*Math.sin(6.02*Math.PI*leadPhase))*Math.exp(-withinStep*4):pulse(leadPhase, track.leadDuty)) * envelope(withinStep * stepSeconds, stepSeconds, 0.012, stepSeconds * 0.62) * 0.18;
     }
 
     const beatPosition = (time % beatSeconds);
