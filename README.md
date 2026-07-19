@@ -5,7 +5,7 @@
 
 `drm` is a playable multiplayer puzzle-game collection for a room full of people.
 A room can use Block Stack (Tetris-style), Color Cure (Dr. Mario-style), or
-Quarry Match (Tumblestone-style Puzzle Race) rules and can be played in two
+Quarry Match's original excavation-and-cascade rules and can be played in two
 ways:
 
 - each player uses a tablet as both controller and game board; or
@@ -14,7 +14,7 @@ ways:
 
 See [VISION.md](VISION.md) for the intended experience, [MVP_DESIGN.md](MVP_DESIGN.md)
 for the original MVP scope and current outcome, [PILL_BOTTLE.md](PILL_BOTTLE.md)
-for Color Cure's frozen rules, [TUMBLESTONE_RULES.md](TUMBLESTONE_RULES.md) for
+for Color Cure's frozen rules, [QUARRY_RULES.md](QUARRY_RULES.md) for
 Quarry Match's frozen contract, and [TETRIS_NEXT.md](TETRIS_NEXT.md) for the
 remaining Block Stack backlog.
 
