@@ -88,7 +88,21 @@ const tracks = [
   {
     slug: 'prismatic-descent-reset', title: 'Prismatic Descent Reset', bpm: 144, bars: 1, root: 43,
     progression: [0], melody: [], arp: [], leadDuty: 0.25, swing: 0, energy: 1, seed: 157, reset: true
-  }
+  },
+  {
+    slug:'glacial-vault',title:'Glacial Vault',bpm:116,bars:20,root:38,
+    progression:[0,5,2,7,0,8,5,3,0,10,7,5,2,8,7,0,5,3,10,0],
+    melody:[12,null,19,null,17,14,12,null,24,null,22,19,17,null,14,10,12,17,19,null,22,19,17,14,12,null,10,14,17,null,19,null],
+    arp:[0,12,7,19,5,12,10,17],leadDuty:.125,swing:.06,energy:.66,seed:173
+  },
+  {
+    slug:'glacial-vault-clear',title:'Glacial Vault Clear',bpm:116,bars:4,root:38,
+    progression:[0,5,10,12],melody:[12,17,19,24,17,22,24,29,19,24,29,31,24,29,31,36],
+    arp:[0,7,12,19,24,19,12,7],leadDuty:.125,swing:0,energy:.92,seed:179,fanfare:true
+  },
+  {slug:'glacial-vault-shot',title:'Glacial Vault Shot',bpm:116,bars:1,root:38,progression:[0],melody:[],arp:[],leadDuty:.125,swing:0,energy:1,seed:181,canopyEffect:'shot'},
+  {slug:'glacial-vault-triple',title:'Glacial Vault Triple',bpm:116,bars:1,root:38,progression:[0],melody:[],arp:[],leadDuty:.125,swing:0,energy:1,seed:191,canopyEffect:'triple'},
+  {slug:'glacial-vault-reset',title:'Glacial Vault Reset',bpm:116,bars:1,root:38,progression:[0],melody:[],arp:[],leadDuty:.125,swing:0,energy:1,seed:193,canopyEffect:'reset'}
 ];
 
 function envelope(position, length, attack = 0.025, release = 0.18) {
@@ -96,6 +110,17 @@ function envelope(position, length, attack = 0.025, release = 0.18) {
 }
 
 function render(track) {
+  if(track.canopyEffect){
+    const durations={shot:.18,triple:.52,reset:.72},totalSeconds=durations[track.canopyEffect],samples=Math.round(totalSeconds*SAMPLE_RATE),pcm=Buffer.alloc(samples*2);
+    for(let sample=0;sample<samples;sample++){
+      const time=sample/SAMPLE_RATE;let mix=0;
+      if(track.canopyEffect==='shot')mix=pulse(time*(1250-520*time/totalSeconds),.12)*Math.exp(-time*22)*.55+noise(sample,track.seed)*Math.exp(-time*35)*.32;
+      if(track.canopyEffect==='triple'){const step=Math.min(2,Math.floor(time/.14)),local=time-step*.14;mix=pulse(time*midi([74,79,86][step]),.18)*Math.exp(-Math.max(0,local)*15)*.42+triangle(time*midi([62,67,74][step]))*Math.exp(-Math.max(0,local)*12)*.2}
+      if(track.canopyEffect==='reset'){const fall=Math.min(1,time/.6),frequency=330-230*fall;mix=(pulse(time*frequency,.4)*.3+pulse(time*frequency*Math.pow(2,-5/12),.22)*.34)*Math.exp(-time*3.6)+noise(sample,track.seed)*Math.exp(-time*8)*.2}
+      const fade=Math.min(1,time/.004,(totalSeconds-time)/.025);pcm.writeInt16LE(Math.round(clamp(mix*Math.max(0,fade))*32767),sample*2);
+    }
+    return{pcm,totalSeconds};
+  }
   if(track.reset){
     const totalSeconds=.7,samples=Math.round(totalSeconds*SAMPLE_RATE),pcm=Buffer.alloc(samples*2);
     for(let sample=0;sample<samples;sample++){

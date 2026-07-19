@@ -9,8 +9,8 @@ import {
 import type { QuarryRecord } from "$lib/game/quarry-match";
 export interface QuarryStartRecord {
   type: "game/started";
-  ruleset: "quarry-match";
-  rulesVersion: "quarry-match/1";
+  ruleset: "quarry-match" | "crystal-canopy";
+  rulesVersion: "quarry-match/1" | "crystal-canopy/1";
   seed: number;
   tickRate: 60;
   round: number;
@@ -46,8 +46,8 @@ export function parseQuarryStart(value: unknown): QuarryStartRecord {
       "serverTime",
     ]) ||
     value.type !== "game/started" ||
-    value.ruleset !== "quarry-match" ||
-    value.rulesVersion !== "quarry-match/1" ||
+    !((value.ruleset === "quarry-match" && value.rulesVersion === "quarry-match/1") ||
+      (value.ruleset === "crystal-canopy" && value.rulesVersion === "crystal-canopy/1")) ||
     value.tickRate !== 60 ||
     !isInteger(value.seed, 0, 0xffffffff) ||
     !isInteger(value.round, 0, 4) ||
@@ -71,7 +71,7 @@ export function parseQuarryStart(value: unknown): QuarryStartRecord {
     (value.previousGameId !== undefined && !isString(value.previousGameId)) ||
     (value.audioOutput !== "cast" && value.audioOutput !== "controllers")
   )
-    throw new Error("Invalid quarry-match/1 start record.");
+    throw new Error("Invalid match-puzzle start record.");
   const members = value.members as Record<string, unknown>,
     players = value.players as Record<string, unknown>,
     scores = value.scores;
@@ -158,7 +158,7 @@ export function parseQuarryRecord(
     hasOnlyKeys(payload, ["phase", "stateHash"]) &&
     (payload.phase === "playing" || payload.phase === "cleared") &&
     typeof payload.stateHash === "string" &&
-    /^q1-[0-9a-f]{8}$/.test(payload.stateHash)
+    /^(q1|c1)-[0-9a-f]{8}$/.test(payload.stateHash)
   )
     return {
       commandId,

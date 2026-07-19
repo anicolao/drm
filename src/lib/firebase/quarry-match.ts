@@ -25,6 +25,7 @@ import {
   type QuarryRecord,
   type QuarryState,
 } from "$lib/game/quarry-match";
+import { advanceCanopy, applyCanopyInput, createCanopy, hashCanopy, replayCanopy } from "$lib/game/crystal-canopy";
 import { FixedTickClock } from "$lib/runtime/fixed-tick-clock";
 import { ReplayObserver } from "$lib/runtime/replay-observer";
 import {
@@ -64,6 +65,12 @@ export interface QuarryControllerState {
 }
 const parseStart = parseQuarryStart,
   parseRecord = parseQuarryRecord;
+const isCanopy=(value:{rulesVersion:string})=>value.rulesVersion==='crystal-canopy/1';
+const createPuzzle=(start:QuarryStartRecord,level:number)=>isCanopy(start)?createCanopy(start.seed,level):createQuarry(start.seed,level);
+const advancePuzzle=(state:QuarryState)=>isCanopy(state)?advanceCanopy(state):advanceQuarry(state);
+const applyPuzzle=(state:QuarryState,input:QuarryInput,seed:number)=>isCanopy(state)?applyCanopyInput(state,input,seed):applyQuarryInput(state,input,seed);
+const hashPuzzle=(state:QuarryState)=>isCanopy(state)?hashCanopy(state):hashQuarry(state);
+const replayPuzzle=(initial:QuarryState,target:number,records:QuarryRecord[],seed:number)=>isCanopy(initial)?replayCanopy(initial,target,records,seed):replayQuarry(initial,target,records,seed);
 export async function getQuarryStart(gameId: string) {
   if (!realtimeDatabase) throw new Error("Firebase unavailable.");
   return parseStart(
@@ -282,7 +289,7 @@ export function createQuarryController(
     if (!state || (!force && tick - lastProgress < 15)) return;
     write({
       type: "progress/tick",
-      payload: { phase: state.phase, stateHash: hashQuarry(state) },
+      payload: { phase: state.phase, stateHash: hashPuzzle(state) },
     });
     lastProgress = tick;
   };
@@ -295,7 +302,7 @@ export function createQuarryController(
           ? {
               playerId,
               tick: state!.tick,
-              stateHash: hashQuarry(state!),
+              stateHash: hashPuzzle(state!),
               serverTime: serverTimestamp(),
             }
           : undefined,
@@ -313,7 +320,7 @@ export function createQuarryController(
     )
       return;
     for (let ticks = clock.consume(now); ticks > 0; ticks--) {
-      advanceQuarry(state);
+      advancePuzzle(state);
       tick = state.tick;
     }
     progress();
@@ -360,8 +367,8 @@ export function createQuarryController(
         const records = [...byId.values()].sort(
           (a, b) => a.clientSeq - b.clientSeq,
         );
-        state = replayQuarry(
-          createQuarry(start.seed, start.players[playerId].level),
+        state = replayPuzzle(
+          createPuzzle(start, start.players[playerId].level),
           Math.max(0, ...records.map((r) => r.tick)),
           records,
           start.seed,
@@ -384,9 +391,9 @@ export function createQuarryController(
         stopInteractions();
         stopInteractions = onChildAdded(ref(realtimeDatabase!, `games/${gameId}/interactions`), (child) => {
           const value = child.val() as QuarryAttackInteraction;
-          if (value?.type !== "attack/generated" || !value.targetPlayerIds?.includes(playerId) || appliedAttacks.has(value.attackId)) return;
+          if (isCanopy(start!) || value?.type !== "attack/generated" || !value.targetPlayerIds?.includes(playerId) || appliedAttacks.has(value.attackId)) return;
           const input: QuarryInput = { type: "attack/rain", payload: { attackId: value.attackId, colors: value.colors, columns: quarryAttackColumns(value.attackId, value.colors.length) } };
-          appliedAttacks.add(value.attackId); write(input); applyQuarryInput(state!, input, start!.seed); publish();
+          appliedAttacks.add(value.attackId); write(input); applyPuzzle(state!, input, start!.seed); publish();
         }, (e) => publish(e.message));
         void outbox.flush();
         progress(true);
@@ -406,14 +413,14 @@ export function createQuarryController(
       if (!ready || !state || state.phase !== "playing" || !start) return;
       if (
         input.type === "input/fire" &&
-        (!state.columns[state.cursor][0] ||
+        (!(isCanopy(state)?state.columns[state.cursor].at(-1):state.columns[state.cursor][0]) ||
           (state.groupColor &&
-            state.columns[state.cursor][0] !== state.groupColor))
+            (isCanopy(state)?state.columns[state.cursor].at(-1):state.columns[state.cursor][0]) !== state.groupColor))
       )
         return;
       write(input);
-      const cascade = applyQuarryInput(state, input, start.seed);
-      if (cascade && start) {
+      const cascade = applyPuzzle(state, input, start.seed);
+      if (cascade && start && !isCanopy(start)) {
         const targetPlayerIds = Object.keys(start.players).filter((id) => id !== playerId);
         if (targetPlayerIds.length) {
           const attackId = `${playerId}-${lease.epochId}-${seq}-${cascade.tick}-${cascade.chain}`;
@@ -485,13 +492,13 @@ export function subscribeQuarryProgress(
     tick: (state: QuarryState) => state.tick,
     advanceTo: (state: QuarryState, target: number) => {
       while (state.tick < target && state.phase === "playing")
-        advanceQuarry(state);
+        advancePuzzle(state);
     },
     apply: (state: QuarryState, record: QuarryRecord) => {
       if (record.type !== "progress/tick")
-        applyQuarryInput(state, record, start!.seed);
+        applyPuzzle(state, record, start!.seed);
     },
-    hash: hashQuarry,
+    hash: hashPuzzle,
     phase: (state: QuarryState) => state.phase,
     terminal: (state: QuarryState) => state.phase === "cleared",
     progress: (record: QuarryRecord) =>
@@ -535,7 +542,7 @@ export function subscribeQuarryProgress(
       for (const id of Object.keys(start.players)) {
         const observer = new ReplayObserver(
           adapter,
-          createQuarry(start.seed, start.players[id].level),
+          createPuzzle(start, start.players[id].level),
           initialDisplayTick,
         );
         observers.set(id, observer);

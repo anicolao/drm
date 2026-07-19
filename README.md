@@ -4,8 +4,8 @@
 [![Deploy to GitHub Pages](https://github.com/anicolao/drm/actions/workflows/deploy.yml/badge.svg?branch=main)](https://github.com/anicolao/drm/actions/workflows/deploy.yml)
 
 `drm` is a playable multiplayer puzzle-game collection for a room full of people.
-A room can use Block Stack (Tetris-style), Color Cure (Dr. Mario-style), or
-Quarry Match's original excavation-and-cascade rules and can be played in two
+A room can use Block Stack (Tetris-style), Color Cure (Dr. Mario-style), Quarry
+Match's excavation-and-cascade rules, or Crystal Canopy's fixed stalactite puzzle and can be played in two
 ways:
 
 - each player uses a tablet as both controller and game board; or
@@ -15,7 +15,8 @@ ways:
 See [VISION.md](VISION.md) for the intended experience, [MVP_DESIGN.md](MVP_DESIGN.md)
 for the original MVP scope and current outcome, [PILL_BOTTLE.md](PILL_BOTTLE.md)
 for Color Cure's frozen rules, [QUARRY_RULES.md](QUARRY_RULES.md) for
-Quarry Match's frozen contract, and [TETRIS_NEXT.md](TETRIS_NEXT.md) for the
+Quarry Match, [CRYSTAL_CANOPY_RULES.md](CRYSTAL_CANOPY_RULES.md) for Crystal
+Canopy, and [TETRIS_NEXT.md](TETRIS_NEXT.md) for the
 remaining Block Stack backlog.
 
 ## Architecture
@@ -52,13 +53,15 @@ and next pieces, gravity, lock delay, line scoring, top-out, multiplayer
 last-survivor results, controller replay, and cast replay. Quarry Match uses
 solver-verified seeded five-column puzzles, match-three shooting, restarts,
 first-clear race arbitration, first-to-three scoring, controller/cast replay,
-and its original Prismatic Descent score. Block Stack hold,
+and its original Prismatic Descent score. Crystal Canopy uses independently
+level-scaled solver-proven ceiling puzzles, fixed crystal positions, no cascades,
+first-to-three rounds, and its Glacial Vault score and effects. Block Stack hold,
 advanced scoring, garbage attacks, and multi-round matches remain future work.
 
 The player route accepts touch and keyboard controls plus standard browser
 gamepads. Falling-block games use the D-pad or primary stick for movement/drop,
-A for clockwise rotation, and B for counterclockwise rotation. Quarry Match uses
-horizontal movement plus any face button or D-pad up to fire.
+A for clockwise rotation, and B for counterclockwise rotation. Quarry Match and
+Crystal Canopy use horizontal movement plus any face button or D-pad up to fire.
 
 ```sh
 nix develop

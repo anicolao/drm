@@ -14,6 +14,8 @@ These original chiptune loops are provisional alternatives to the existing gamep
 - **Prismatic Descent Clear** — 144 BPM, 4 bars. An upbeat completion cadence derived from Prismatic Descent's harmony, lead voice, and arpeggio shape.
 - **Prismatic Descent Combo** — a 480 ms contrasting effects cue: sharp noise crack, descending pulse sweep, and low impact. It is intentionally non-melodic so cascades remain unmistakable over the Quarry score.
 - **Prismatic Descent Reset** — a 700 ms disappointed reset cue built from a descending detuned tritone, unstable pulse wobble, noise scrape, and final low drop.
+- **Glacial Vault** / **Glacial Vault Clear** — the spacious 116 BPM Crystal Canopy score and completion fanfare.
+- **Glacial Vault Shot**, **Triple**, and **Reset** — crystalline shot feedback, a rising three-note group cue, and a disappointed detuned fall.
 
 The Russian-classical influence is stylistic only. The scores do not quote or adapt an existing composition, including the traditional Tetris themes.
 

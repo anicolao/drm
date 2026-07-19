@@ -83,6 +83,8 @@ export function createQuarry(seed: number, level = 0): QuarryState {
     groupColor: null,
     groupCount: 0,
     removed: 0,
+    total: 60,
+    groups: 0,
     restarts: 0,
     cascades: 0,
     rainReceived: 0,
@@ -158,6 +160,7 @@ export function applyQuarryInput(
   else {
     state.groupColor = null;
     state.groupCount = 0;
+    state.groups++;
   }
   const cascadeColors: QuarryColor[] = [],cascadeCells:{column:number;row:number;color:QuarryColor}[]=[];
   for (let waveIndex=0;;waveIndex++) {

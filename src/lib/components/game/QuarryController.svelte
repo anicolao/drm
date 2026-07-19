@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import QuarryBoard from "$lib/components/QuarryBoard.svelte";
   import QuarryAudio from "$lib/components/QuarryAudio.svelte";
+  import CanopyAudio from "$lib/components/CanopyAudio.svelte";
   import ControllerStatus from "./ControllerStatus.svelte";
   import MatchResult from "./MatchResult.svelte";
   import MatchStandings from "./MatchStandings.svelte";
@@ -30,6 +31,7 @@
     type GamepadControlAction,
   } from "$lib/input/gamepad";
   import { HeldInputGate } from "$lib/runtime/core-input";
+  export let variant:'quarry'|'canopy'='quarry';
   let code = "",
     name = "",
     error = "",
@@ -221,27 +223,27 @@
         >Take over on this device</button
       >{/if}
   </main>{:else if !state.state}<main class="join">
-    <h1>WAITING FOR THE QUARRY…</h1>
+    <h1>WAITING FOR THE {variant==='canopy'?'CANOPY':'QUARRY'}…</h1>
     <LevelPicker level={selectedLevel} change={chooseLevel} />
   </main>{:else}<main
     class="controller"
     class:gamepad-mode={gamepadActive}
-    aria-label="Quarry Match controller"
+    aria-label={variant==='canopy'?'Crystal Canopy controller':'Quarry Match controller'}
   >
-    <QuarryAudio
+    {#if variant==='canopy'}<CanopyAudio enabled={state.audioOutput === "controllers"} phase={state.state.phase} shotSignal={state.state.removed} tripleSignal={state.state.groups} resetSignal={state.state.restarts}/>{:else}<QuarryAudio
       enabled={state.audioOutput === "controllers"}
       phase={state.state.phase}
       cascadeSignal={state.state.cascades}
       resetSignal={state.state.restarts}
-    /><ControllerStatus
+    />{/if}<ControllerStatus
       {online}
       ready={state.ready}
       {gamepadName}
       room={code}
     />
     <section class="game">
-      <strong>{name}</strong><QuarryBoard state={state.state} /><span
-        >LEVEL {state.state.level} · {60 - state.state.removed} STONES</span
+      <strong>{name}</strong><QuarryBoard state={state.state} label={variant==='canopy'?'Crystal Canopy board':'Quarry Match board'}/><span
+        >LEVEL {state.state.level} · {state.state.total - state.state.removed} STONES</span
       ><span
         >GROUP {state.state.groupCount}/3 · RESTARTS {state.state
           .restarts}</span
@@ -252,9 +254,9 @@
     <OpponentList opponents={state.opponents ?? []} let:opponent
       ><QuarryBoard
         state={(opponent as QuarryProgress).state}
-        label="Opponent Quarry Match board"
+        label={variant==='canopy'?"Opponent Crystal Canopy board":"Opponent Quarry Match board"}
         compact
-      /><small>{60 - (opponent as QuarryProgress).state.removed} LEFT</small
+      /><small>{(opponent as QuarryProgress).state.total - (opponent as QuarryProgress).state.removed} LEFT</small
       ></OpponentList
     >{#if state.lifecycle?.finished}<MatchResult
         title={state.lifecycle.winnerId === state.playerId
