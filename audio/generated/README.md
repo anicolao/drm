@@ -16,6 +16,11 @@ These original chiptune loops are provisional alternatives to the existing gamep
 - **Prismatic Descent Reset** — a 700 ms disappointed reset cue built from a descending detuned tritone, unstable pulse wobble, noise scrape, and final low drop.
 - **Glacial Vault** / **Glacial Vault Clear** — the spacious 116 BPM Crystal Canopy score and completion fanfare.
 - **Glacial Vault Shot**, **Triple**, and **Reset** — crystalline shot feedback, a rising three-note group cue, and a disappointed detuned fall.
+- **Ivory Avalanche** / **Ivory Avalanche Clear** — Stax's original 188 BPM
+  fast-piano loop and related completion cadence.
+- **Ivory Avalanche Catch**, **Place**, **Throw**, **Chain**, **Miss**, and
+  **Failure** — short physical piano cues; Chain deliberately stacks adjacent,
+  discordant notes and a noise transient so cascades cut through the score.
 
 The Russian-classical influence is stylistic only. The scores do not quote or adapt an existing composition, including the traditional Tetris themes.
 
