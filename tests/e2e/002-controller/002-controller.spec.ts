@@ -50,7 +50,7 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   // Replay both clients to an absolute game tick before recording the drop.
   // The resulting bottle state is independent of controller mount speed.
   for (const controller of [playerPage, returningPage]) {
-    while (await controllerTick(controller) < 300) await controller.clock.runFor(16);
+    while (await controllerTick(controller) < 480) await controller.clock.runFor(16);
   }
   const samCommandTick = await controllerTick(returningPage);
   const initialSamPill = await returningPage.getByLabel('Pill bottle', { exact: true }).getAttribute('data-active-pill-id');
