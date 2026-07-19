@@ -22,13 +22,13 @@
 
 ---
 
-## The caught tile moves from the paddle into the selected bin column
+## A legal placement updates the bin before deterministic reset restores the wave
 
-![The caught tile moves from the paddle into the selected bin column](./screenshots/002-stax-place.png)
+![A legal placement updates the bin before deterministic reset restores the wave](./screenshots/002-stax-place-reset.png)
 
 **Verifications:**
 - [x] Place consumes exactly the newest paddle tile
-- [x] The wave remains active after a legal placement
+- [x] Reset reconstructs the seeded three-second wave
 - [x] Reset, throw-back, place, and hurry controls remain available
 
 ---
