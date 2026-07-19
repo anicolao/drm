@@ -11,6 +11,6 @@
 <T.Group {position} {rotation} {scale}>
  <T.Mesh><T.BoxGeometry args={[.72,.25,.72]}/><T.MeshBasicMaterial color={paint} transparent opacity={glow}/></T.Mesh>
  <T.Mesh {geometry} castShadow receiveShadow>
-  <T.MeshPhysicalMaterial color={paint} transmission={.44} opacity={1} metalness={0} roughness={.08} ior={1.5} thickness={1.35} attenuationColor={paint} attenuationDistance={1.1} clearcoat={1} clearcoatRoughness={.07} envMapIntensity={2}/>
+  <T.MeshPhongMaterial color={paint} specular="#ffffff" shininess={90}/>
  </T.Mesh>
 </T.Group>
