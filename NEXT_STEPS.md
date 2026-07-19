@@ -2,9 +2,9 @@
 
 ## Current baseline
 
-All four games are playable through the same room, controller, cast, input,
+All five games are playable through the same room, controller, cast, input,
 audio, lifecycle, persistence, and replay framework. The repository currently has
-86 deterministic unit tests and nine documented, emulator-backed Playwright
+93 deterministic unit tests and eleven documented, emulator-backed Playwright
 scenarios with zero-pixel screenshot tolerance. CI type-checks, runs unit and E2E
 tests, builds the static application, and publishes production and pull-request
 GitHub Pages deployments.
@@ -41,6 +41,11 @@ The architectural constraints remain non-negotiable:
   manual restart, shared race boards, first-clear arbitration, first-to-three
   scoring, routed original music, responsive controllers, compact opponents,
   cast replay, standings, and rematches.
+- `crystal-canopy/1`: solver-proven ceiling puzzles, fixed crystals, shared
+  controls, original music/effects, cast replay, and first-to-three rounds.
+- `stax/1`: seeded five-lane waves, 3D Threlte ramp and paddle, line/chain
+  resolution, five rotating objectives, ranked three-round scoring, durable
+  replay, responsive controller/cast views, and original piano music/effects.
 
 ## Remaining project work
 
