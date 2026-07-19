@@ -11,9 +11,9 @@
 
 ---
 
-## Matching triples empties the replayed board and claims the round
+## Direct shots and horizontal cascades empty the replayed board and claim the round
 
-![Matching triples empties the replayed board and claims the round](./screenshots/001-quarry-clear.png)
+![Direct shots and horizontal cascades empty the replayed board and claim the round](./screenshots/001-quarry-clear.png)
 
 **Verifications:**
 - [x] Every stone was removed in same-colour groups of three

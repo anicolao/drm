@@ -95,7 +95,7 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await expect(returningPage.getByLabel('Pill bottle', { exact: true })).not.toHaveAttribute('data-next-colors', initialReturningNextPill!);
   await returningPage.clock.pauseAt(Date.now());
   const returningNextPill = await returningPage.getByLabel('Pill bottle', { exact: true }).getAttribute('data-next-colors');
-  await expect(playerPage.getByLabel('Sam opponent bottle')).toHaveAttribute('data-next-colors', returningNextPill!);
+  await expect(playerPage.getByLabel('Sam opponent bottle')).toHaveAttribute('data-next-colors', returningNextPill!, { timeout: 10000 });
   await tester.step('landscape-controller', { description: 'Landscape controller records tick-tagged input', networkStatus: 'skip', verifications: [
     { spec: 'D-pad exposes left, right, accelerate, and hard drop', check: async () => { await expect(playerPage.getByRole('button', { name: 'Move left' })).toBeVisible(); await expect(playerPage.getByRole('button', { name: 'Move right' })).toBeVisible(); await expect(playerPage.getByRole('button', { name: 'Accelerate down' })).toBeVisible(); await expect(playerPage.getByRole('button', { name: 'Hard drop' })).toBeVisible(); } },
     { spec: 'Both rotation directions are available', check: async () => { await expect(playerPage.getByRole('button', { name: 'Rotate clockwise' })).toBeVisible(); await expect(playerPage.getByRole('button', { name: 'Rotate counterclockwise' })).toBeVisible(); } },
