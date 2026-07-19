@@ -36,6 +36,7 @@ import { requestRematchReady, startRematch } from "$lib/runtime/rematch";
 import {
   parseStaxRecord,
   parseStaxStart,
+  parseStaxTerminal,
   type StaxStartRecord,
 } from "$lib/protocol/stax";
 
@@ -101,7 +102,7 @@ export function subscribeStaxLifecycle(
         onValue(
           ref(realtimeDatabase!, `games/${gameId}/terminals`),
           (snap) => {
-            terminals=[];snap.forEach(child=>{const value=child.val();if(value?.type==='player/terminal'&&value.playerId===child.key&&Object.hasOwn(start!.players,child.key!))terminals.push(value)});
+            terminals=[];snap.forEach(child=>{const value=parseStaxTerminal(child.val());if(value.playerId===child.key&&Object.hasOwn(start!.players,child.key!))terminals.push(value)});
             publish();
           },
           fail,
@@ -135,7 +136,7 @@ export async function startStaxRematch(gameId: string) {
     get(ref(realtimeDatabase, `games/${gameId}/start`)),
     get(ref(realtimeDatabase, `games/${gameId}/terminals`)),
   ]);
-  const start = parseStart(startSnap.val());const terminals:StaxTerminal[]=[];terminalSnap.forEach(child=>{terminals.push(child.val())});const lifecycle=deriveStaxLifecycle(Object.keys(start.players),start.scores,terminals,[],start.round);
+  const start = parseStart(startSnap.val());const terminals:StaxTerminal[]=[];terminalSnap.forEach(child=>{terminals.push(parseStaxTerminal(child.val()))});const lifecycle=deriveStaxLifecycle(Object.keys(start.players),start.scores,terminals,[],start.round);
   return startRematch(gameId, parseStart, (current) => {
     const scores = Object.fromEntries(
       Object.keys(current.players).map((id) => [
