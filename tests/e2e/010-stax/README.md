@@ -1,14 +1,14 @@
 # Test: US-010: Stax tumbles tiles down a deterministic 3D ramp
 
-## A glossy five-lane 3D ramp descends toward the player, paddle, and compact bins
+## A glossy five-lane 3D ramp descends toward the player, loaded paddle, and lower bins
 
-![A glossy five-lane 3D ramp descends toward the player, paddle, and compact bins](./screenshots/000-stax-ramp.png)
+![A glossy five-lane 3D ramp descends toward the player, loaded paddle, and lower bins](./screenshots/000-stax-ramp.png)
 
 **Verifications:**
 - [x] The deterministic wave begins with a three-second countdown
 - [x] Tiles roll edge over edge from the elevated far end toward the player
 - [x] The paddle is between the track and five vertical tile stacks
-- [x] All five ramp lanes are directly touchable
+- [x] Orbit inspection can temporarily replace the five touch lanes
 - [x] The complete controller fits a phone viewport
 
 ---
