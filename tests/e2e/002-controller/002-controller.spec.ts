@@ -44,12 +44,21 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await expect(duplicatePage.getByRole('button', { name: 'Take over on this device' })).toBeVisible();
   await duplicatePage.close();
   await playerPage.clock.pauseAt(Date.now());
+  await returningPage.clock.runFor(4000);
+  await playerPage.clock.runFor(4000);
+  const initialSamPreview = await returningPage.getByLabel('Pill bottle', { exact: true }).getAttribute('data-next-colors');
+  for(let drop=0;drop<3&&await returningPage.getByLabel('Pill bottle',{exact:true}).getAttribute('data-next-colors')===initialSamPreview;drop++){
+    await returningPage.getByRole('button', { name: 'Hard drop' }).dispatchEvent('pointerdown', { pointerId: 4+drop });
+    await returningPage.clock.runFor(100);
+  }
+  await expect(returningPage.getByLabel('Pill bottle', { exact: true })).not.toHaveAttribute('data-next-colors', initialSamPreview!);
+  const fixedSamPreview = await returningPage.getByLabel('Pill bottle', { exact: true }).getAttribute('data-next-colors');
+  await playerPage.clock.runFor(100);
+  await expect(playerPage.getByLabel('Sam opponent bottle')).toHaveAttribute('data-next-colors', fixedSamPreview!, { timeout: 10000 });
   await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-cell-count', '128');
   await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '15');
   await expect(returningPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '10');
   await expect(playerPage.getByLabel('Sam opponent bottle')).toBeVisible({ timeout: 10000 });
-  const returningNextPill = await returningPage.getByLabel('Pill bottle', { exact: true }).getAttribute('data-next-colors');
-  await expect(playerPage.getByLabel('Sam opponent bottle')).toHaveAttribute('data-next-colors', returningNextPill!, { timeout: 10000 });
   await page.getByRole('button', { name: 'Audio settings' }).click();
   await expect(page.getByRole('region', { name: 'Audio settings' })).toBeVisible();
   await page.getByLabel('Music volume').fill('25');
