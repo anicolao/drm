@@ -1,5 +1,5 @@
 <script lang="ts">
- import{Canvas,T}from'@threlte/core';import{OrbitControls}from'@threlte/extras';import StaxTile from'./StaxTile.svelte';import{staxLevelRules,type StaxState}from'$lib/game/stax';
+ import{Canvas,T}from'@threlte/core';import{OrbitControls}from'@threlte/extras';import StaxPaddle from'./StaxPaddle.svelte';import StaxTile from'./StaxTile.svelte';import{staxLevelRules,type StaxState}from'$lib/game/stax';
  export let state:StaxState;export let compact=false;export let label='Stax ramp';export let selectLane:((lane:number)=>void)|undefined=undefined;
  let inspect=false;
  const x=(lane:number)=>(lane-2)*1.15;
@@ -18,7 +18,7 @@
   {#each Array(6) as _,i}<T.Mesh position={[(i-2.5)*1.15,.025,5.35]}><T.BoxGeometry args={[.025,.025,1.32]}/><T.MeshBasicMaterial color="#263d68"/></T.Mesh>{/each}
   <T.Mesh position={[0,.025,4.68]}><T.BoxGeometry args={[5.75,.025,.035]}/><T.MeshBasicMaterial color="#263d68"/></T.Mesh><T.Mesh position={[0,.025,6.02]}><T.BoxGeometry args={[5.75,.025,.035]}/><T.MeshBasicMaterial color="#263d68"/></T.Mesh>
   {#each state.columns as column,c}{#each column as color,r}<StaxTile {color} position={[x(c),.2+r*.31,5.35]} scale={[.9,.72,.58]} glow={state.lastClearCells.some(cell=>cell.column===c&&cell.row===r)?.65:.28}/>{/each}{/each}
-  <StaxTile color="wild" position={[x(state.paddleLane),.18-state.paddle.length*.29,3.3]} scale={[1.16,.55,.65]} glow={.4}/>
+  <StaxPaddle position={[x(state.paddleLane),.18-state.paddle.length*.29,3.3]}/>
   {#each state.paddle as held,i}<StaxTile color={held.color} position={[x(state.paddleLane),.18-state.paddle.length*.29+(i+1)*.29,3.3]} scale={[.9,.72,.58]}/>{/each}
  </Canvas>
  {#if selectLane&&!inspect}<div class="lanes">{#each Array(5) as _,lane}<button aria-label={`Catch lane ${lane+1}`} on:pointerdown|preventDefault={()=>selectLane?.(lane)}></button>{/each}</div>{/if}{#if selectLane}<button class="inspect" class:active={inspect} aria-label={inspect?'Exit orbit view':'Inspect scene in orbit view'} aria-pressed={inspect} on:click={()=>inspect=!inspect}>{inspect?'EXIT ORBIT':'ORBIT VIEW'}</button>{/if}{#if state.phase==='countdown'}<strong class="countdown">{Math.max(1,Math.ceil(state.countdown/60))}</strong>{/if}

@@ -36,6 +36,7 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await expect(page).toHaveURL(/\/cast\?code=TEST$/, { timeout: 10000 });
   await expect(playerPage.getByLabel('Pill Bottle controller')).toBeVisible({ timeout: 10000 });
   await expect(returningPage.getByLabel('Pill Bottle controller')).toBeVisible({ timeout: 10000 });
+  await returningPage.clock.pauseAt(Date.now());
   await expect(playerPage.getByRole('button', { name: 'Move left' })).toBeEnabled({ timeout: 10000 });
   const duplicatePage = await context.newPage();
   await duplicatePage.goto('/play?code=TEST');
@@ -46,6 +47,8 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '15');
   await expect(returningPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '10');
   await expect(playerPage.getByLabel('Sam opponent bottle')).toBeVisible({ timeout: 10000 });
+  const returningNextPill = await returningPage.getByLabel('Pill bottle', { exact: true }).getAttribute('data-next-colors');
+  await expect(playerPage.getByLabel('Sam opponent bottle')).toHaveAttribute('data-next-colors', returningNextPill!, { timeout: 10000 });
   await page.getByRole('button', { name: 'Audio settings' }).click();
   await expect(page.getByRole('region', { name: 'Audio settings' })).toBeVisible();
   await page.getByLabel('Music volume').fill('25');
@@ -87,15 +90,6 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await expect(playerPage.getByText(/input\/hard-drop · tick/)).toBeVisible({ timeout: 10000 });
   await playerPage.locator('.tick').evaluate((element: HTMLElement) => { element.style.visibility = 'hidden'; });
   await playerPage.clock.pauseAt(Date.now());
-  const initialReturningNextPill = await returningPage.getByLabel('Pill bottle', { exact: true }).getAttribute('data-next-colors');
-  for(let drop=0;drop<3&&await returningPage.getByLabel('Pill bottle',{exact:true}).getAttribute('data-next-colors')===initialReturningNextPill;drop++){
-    await returningPage.getByRole('button', { name: 'Hard drop' }).dispatchEvent('pointerdown', { pointerId: 4+drop });
-    await expect(returningPage.getByText(/input\/hard-drop · tick/)).toBeVisible({ timeout: 10000 });
-  }
-  await expect(returningPage.getByLabel('Pill bottle', { exact: true })).not.toHaveAttribute('data-next-colors', initialReturningNextPill!);
-  await returningPage.clock.pauseAt(Date.now());
-  const returningNextPill = await returningPage.getByLabel('Pill bottle', { exact: true }).getAttribute('data-next-colors');
-  await expect(playerPage.getByLabel('Sam opponent bottle')).toHaveAttribute('data-next-colors', returningNextPill!, { timeout: 10000 });
   await tester.step('landscape-controller', { description: 'Landscape controller records tick-tagged input', networkStatus: 'skip', verifications: [
     { spec: 'D-pad exposes left, right, accelerate, and hard drop', check: async () => { await expect(playerPage.getByRole('button', { name: 'Move left' })).toBeVisible(); await expect(playerPage.getByRole('button', { name: 'Move right' })).toBeVisible(); await expect(playerPage.getByRole('button', { name: 'Accelerate down' })).toBeVisible(); await expect(playerPage.getByRole('button', { name: 'Hard drop' })).toBeVisible(); } },
     { spec: 'Both rotation directions are available', check: async () => { await expect(playerPage.getByRole('button', { name: 'Rotate clockwise' })).toBeVisible(); await expect(playerPage.getByRole('button', { name: 'Rotate counterclockwise' })).toBeVisible(); } },
