@@ -11,9 +11,20 @@
 
 ---
 
+## Touching beneath a column moves there and fires in one gesture
+
+![Touching beneath a column moves there and fires in one gesture](./screenshots/001-canopy-touch-fire.png)
+
+**Verifications:**
+- [x] The launcher jumped directly to the touched column
+- [x] The same touch fired the exposed crystal
+- [x] All five direct column targets remain available
+
+---
+
 ## Tip shots clear the canopy without gravity or cascades
 
-![Tip shots clear the canopy without gravity or cascades](./screenshots/001-canopy-clear.png)
+![Tip shots clear the canopy without gravity or cascades](./screenshots/002-canopy-clear.png)
 
 **Verifications:**
 - [x] Exactly twelve direct shots empty the level-zero puzzle

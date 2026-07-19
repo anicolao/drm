@@ -12,6 +12,8 @@ Crystal Canopy is a deterministic ceiling-hung triple puzzle race. It shares the
 ## Play
 
 - Move the launcher left or right and fire at the exposed bottom crystal in that column.
+- On touch controllers, tap beneath a column to move there and fire in one
+  gesture. Gamepad shoulder buttons jump to the left or right edge column.
 - The first crystal starts a group. The next two shots must have the same color; the third completes and clears the held group.
 - A shot removes only the crystal it hits. Crystals above it remain in their original cells: there is no falling, compaction, cascade, or attack rain.
 - Clear every crystal to win the round. Restart reconstructs the identical puzzle without rewinding the replay tick.

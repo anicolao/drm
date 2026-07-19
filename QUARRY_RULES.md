@@ -53,6 +53,10 @@ three round wins. Left/right moves, Fire shoots, and Restart reconstructs the
 seeded puzzle without rewinding the controller tick. Levels increase the color
 vocabulary from three to five.
 
+On touch controllers, tapping the launcher beneath a column moves directly to
+that column and fires as one gesture. On gamepads, the left and right shoulder
+buttons jump to the corresponding edge column.
+
 Each controller is authoritative for its own view. The network contains the
 immutable start, input/progress records, attack interactions, and lifecycle
 claims—not materialized columns, cursor, group, cascade, or animation state.

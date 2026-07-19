@@ -31,6 +31,7 @@
     type GamepadControlAction,
   } from "$lib/input/gamepad";
   import { HeldInputGate } from "$lib/runtime/core-input";
+  import { matchPuzzleColumnActions } from "$lib/input/match-puzzle";
   export let variant:'quarry'|'canopy'='quarry';
   let code = "",
     name = "",
@@ -163,9 +164,14 @@
   function send(input: QuarryInput) {
     if (enabled) controller?.command(input);
   }
+  function moveToColumn(column:number,fire=false){
+    if(!enabled||!state.state)return;
+    for(const input of matchPuzzleColumnActions(state.state.cursor,column,fire))send(input);
+  }
   function gamepadInput(action: GamepadControlAction) {
     gamepadActive = true;
-    if (action === "move-left" || action === "move-right")
+    if(action==="jump-left"||action==="jump-right")moveToColumn(action==="jump-left"?0:4);
+    else if (action === "move-left" || action === "move-right")
       send({
         type: "input/move",
         payload: { dx: action === "move-left" ? -1 : 1 },
@@ -242,7 +248,7 @@
       room={code}
     />
     <section class="game">
-      <strong>{name}</strong><QuarryBoard state={state.state} label={variant==='canopy'?'Crystal Canopy board':'Quarry Match board'}/><span
+      <strong>{name}</strong><QuarryBoard state={state.state} label={variant==='canopy'?'Crystal Canopy board':'Quarry Match board'} selectColumn={(column)=>moveToColumn(column,true)}/><span
         >LEVEL {state.state.level} · {state.state.total - state.state.removed} STONES</span
       ><span
         >GROUP {state.state.groupCount}/3 · RESTARTS {state.state

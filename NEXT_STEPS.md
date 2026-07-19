@@ -4,7 +4,7 @@
 
 All four games are playable through the same room, controller, cast, input,
 audio, lifecycle, persistence, and replay framework. The repository currently has
-83 deterministic unit tests and nine documented, emulator-backed Playwright
+86 deterministic unit tests and nine documented, emulator-backed Playwright
 scenarios with zero-pixel screenshot tolerance. CI type-checks, runs unit and E2E
 tests, builds the static application, and publishes production and pull-request
 GitHub Pages deployments.
