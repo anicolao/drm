@@ -51,11 +51,15 @@ test('US-004: incoming rain waits, falls slowly, resolves, then yields to the ne
   await expect(bottle).toHaveAttribute('data-pending-rain-count', '1', { timeout: 5_000 });
   await expect(bottle).toHaveAttribute('data-active-pill', 'true');
   await expect(bottle).toHaveAttribute('data-rain-rows', '');
+  await controller.clock.pauseAt(Date.now());
+  const controllerTick = async () => Number((await controller.locator('.tick').textContent())?.replace('tick ', ''));
+  while (await controllerTick() < 400) await controller.clock.runFor(16);
   await controller.locator('.tick').evaluate((element: HTMLElement) => { element.style.visibility = 'hidden'; });
   await tester.step('rain-queued', { description: 'Incoming rain waits for the active pill', networkStatus: 'skip', verifications: [
     { spec: 'The current pill remains active after the attack arrives', check: async () => await expect(bottle).toHaveAttribute('data-active-pill', 'true') },
     { spec: 'Rain is queued and not yet visible in the bottle', check: async () => { await expect(bottle).toHaveAttribute('data-pending-rain-count', '1'); await expect(bottle).toHaveAttribute('data-rain-rows', ''); } }
   ] });
+  await controller.clock.resume();
 
   await controller.getByRole('button', { name: 'Hard drop' }).dispatchEvent('pointerdown', { pointerId: 10 });
   await expect(bottle).toHaveAttribute('data-active-pill', 'false', { timeout: 5_000 });
