@@ -61,7 +61,9 @@ advanced scoring, garbage attacks, and multi-round matches remain future work.
 The player route accepts touch and keyboard controls plus standard browser
 gamepads. Falling-block games use the D-pad or primary stick for movement/drop,
 A for clockwise rotation, and B for counterclockwise rotation. Quarry Match and
-Crystal Canopy use horizontal movement plus any face button or D-pad up to fire.
+Crystal Canopy share one controller: touch beneath a column to move and fire,
+use horizontal movement plus any face button or D-pad up to fire, or use the
+left/right shoulder buttons to jump to the corresponding board edge.
 
 ```sh
 nix develop

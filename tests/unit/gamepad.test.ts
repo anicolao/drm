@@ -20,6 +20,8 @@ test('standard gamepad buttons map to Color Cure controls once per press', () =>
 
 test('a dedicated X-button gate restarts Quarry only once per press',()=>{const restart=new OneShotGamepadButton();assert.equal(restart.sample([pad([2])]),true);assert.equal(restart.sample([pad([2])]),false);assert.equal(restart.sample([pad()]),false);assert.equal(restart.sample([pad([2])]),true);restart.reset();assert.equal(restart.sample([pad([2])]),true)});
 
+test('shoulder buttons jump match-puzzle launchers once per press',()=>{const controls=new StandardGamepadControls();assert.deepEqual(controls.sample([pad([4])],0),['jump-left']);assert.deepEqual(controls.sample([pad([4])],300),[]);assert.deepEqual(controls.sample([pad()],316),[]);assert.deepEqual(controls.sample([pad([5])],332),['jump-right'])});
+
 test('d-pad left and right repeat while held without flooding frames', () => {
   const controls = new StandardGamepadControls();
   assert.deepEqual(controls.sample([pad([14])], 0), ['move-left']);

@@ -57,6 +57,7 @@ test("US-007: Quarry Match plays a solver-backed puzzle race", async ({
             page.getByRole("button", { name: "Move right" }),
           ).toBeEnabled();
           await expect(page.getByRole("button", { name: "RESTART · X" })).toBeEnabled();
+          await expect(page.getByRole("button", { name: /Shoot column/ })).toHaveCount(5);
         },
       },
       {
