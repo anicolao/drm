@@ -8,7 +8,7 @@
 </script>
 <div class="scene" class:compact aria-label={label} data-tick={state.tick} data-phase={state.phase} data-paddle-lane={state.paddleLane} data-paddle-count={state.paddle.length} data-ramp-count={state.ramp.length} data-leading-progress={state.ramp[0]?.progress??''} data-leading-roll={state.ramp[0]?route(state.ramp[0].progress,state.ramp[0].returning).roll:''} data-column-counts={state.columns.map(column=>column.length).join(',')} data-score={state.score} data-ramp-direction="far-to-player" data-roll-direction="edge-over-edge-toward-player" data-paddle-position="player-edge" data-bin-position="below-paddle" data-bin-layout="vertical-stacks">
  <Canvas dpr={[1,2]}>
-  <T.PerspectiveCamera makeDefault position={[0,8.9,11.8]} fov={43} on:create={({ref})=>ref.lookAt(0,.25,.4)}/>{#if selectLane}<OrbitControls enabled={inspect} enableDamping target={[0,.25,.4]}/>{/if}
+  <T.PerspectiveCamera makeDefault position={[0,8.9,11.8]} fov={43} on:create={({ref})=>ref.lookAt(0,.25,.4)}/>{#if selectLane&&inspect}<OrbitControls enableDamping target={[0,.25,.4]}/>{/if}
   <T.Color attach="background" args={['#05050a']}/><T.AmbientLight intensity={.72}/><T.DirectionalLight position={[5,10,7]} intensity={4} color="#fff0dd" castShadow/><T.DirectionalLight position={[-8,5,-5]} intensity={3} color="#cceeff"/><T.SpotLight position={[0,8,-5]} intensity={10} color="#00ffcc" angle={.5} penumbra={.5} decay={0} distance={20}/>
   <T.Mesh position={[0,10,-10]}><T.SphereGeometry args={[4,24,24]}/><T.MeshBasicMaterial color="#ffffff"/></T.Mesh>
   <T.Mesh rotation={[.13,0,0]} position={[0,.72,-.52]} receiveShadow><T.BoxGeometry args={[6.3,.18,8.35]}/><T.MeshStandardMaterial color="#11182b" metalness={.28} roughness={.38}/></T.Mesh>
