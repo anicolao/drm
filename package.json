@@ -16,8 +16,11 @@
     "audio:generate": "node scripts/generate-chip-music.mjs"
   },
   "dependencies": {
+    "@threlte/core": "^8.5.16",
+    "@types/three": "^0.185.1",
     "firebase": "^12.6.0",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
