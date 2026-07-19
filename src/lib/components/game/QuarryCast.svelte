@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import QuarryBoard from "$lib/components/QuarryBoard.svelte";
   import QuarryAudio from "$lib/components/QuarryAudio.svelte";
+  import CanopyAudio from "$lib/components/CanopyAudio.svelte";
   import {
     getRoom,
     subscribeRoomPlayers,
@@ -18,6 +19,7 @@
   import CastPlayerFrame from "./CastPlayerFrame.svelte";
   import MatchResult from "./MatchResult.svelte";
   import MatchStandings from "./MatchStandings.svelte";
+  export let variant:'quarry'|'canopy'='quarry';
   type Display = QuarryProgress & { displayLag?: number };
   let code = "",
     error = "",
@@ -26,6 +28,8 @@
     lifecycle: QuarryLifecycle | undefined,
     phase: "playing" | "cleared" = "playing",
     cascadeSignal = 0,
+    shotSignal = 0,
+    tripleSignal = 0,
     resetSignal = 0,
     audioEnabled = false;
   const lag = new LagIndicator();
@@ -89,20 +93,22 @@
     : "playing";
   $: cascadeSignal = progress.reduce((total, player) => total + player.state.cascades, 0);
   $: resetSignal = progress.reduce((total, player) => total + player.state.restarts, 0);
+  $: shotSignal = progress.reduce((total, player) => total + player.state.removed, 0);
+  $: tripleSignal = progress.reduce((total, player) => total + player.state.groups, 0);
 </script>
 
-<QuarryAudio enabled={audioEnabled} {phase} {cascadeSignal} {resetSignal} />
+{#if variant==='canopy'}<CanopyAudio enabled={audioEnabled} {phase} {shotSignal} {tripleSignal} {resetSignal}/>{:else}<QuarryAudio enabled={audioEnabled} {phase} {cascadeSignal} {resetSignal} />{/if}
 <main>
-  <header>QUARRY MATCH · ROOM {code}</header>
+  <header>{variant==='canopy'?'CRYSTAL CANOPY':'QUARRY MATCH'} · ROOM {code}</header>
   {#if error}<h1 role="alert">{error}</h1>{:else}<section>
       {#each progress as player}<CastPlayerFrame
           name={name(player.playerId)}
           lost={false}
           lag={player.displayLag}
           hashMatches={player.hashMatches}
-          ><QuarryBoard state={player.state} />
+          ><QuarryBoard state={player.state} label={variant==='canopy'?'Crystal Canopy board':'Quarry Match board'}/>
           <p>
-            {60 - player.state.removed} STONES · GROUP {player.state
+            {player.state.total - player.state.removed} STONES · GROUP {player.state
               .groupCount}/3
           </p>
           <p>

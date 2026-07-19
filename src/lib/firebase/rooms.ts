@@ -53,10 +53,10 @@ async function roomRefForCode(code: string) {
 export async function getRoom(code: string) {
   const snapshot = await getDoc(await roomRefForCode(code));
   if (!snapshot.exists()) throw new Error('Room not found.');
-  return { id: snapshot.id, ...snapshot.data() } as { id: string; hostUid: string; status: 'lobby' | 'active'; ruleset: 'tetris' | 'doctor' | 'quarry'; activeGameId?: string };
+  return { id: snapshot.id, ...snapshot.data() } as { id: string; hostUid: string; status: 'lobby' | 'active'; ruleset: 'tetris' | 'doctor' | 'quarry' | 'canopy'; activeGameId?: string };
 }
 
-export async function updateRoomRuleset(code: string, ruleset: 'tetris' | 'doctor' | 'quarry') {
+export async function updateRoomRuleset(code: string, ruleset: 'tetris' | 'doctor' | 'quarry' | 'canopy') {
   await updateDoc(await roomRefForCode(code), { ruleset });
 }
 
@@ -98,8 +98,8 @@ export function subscribeRoomPlayers(roomId: string, receive: (players: RoomPlay
     (snapshot) => receive(snapshot.docs.map((entry) => entry.data() as RoomPlayer)), fail);
 }
 
-export function subscribeRoom(roomId: string, receive: (room: { status: 'lobby' | 'active'; ruleset: 'tetris' | 'doctor' | 'quarry'; activeGameId?: string }) => void, fail: (error: Error) => void): Unsubscribe {
+export function subscribeRoom(roomId: string, receive: (room: { status: 'lobby' | 'active'; ruleset: 'tetris' | 'doctor' | 'quarry' | 'canopy'; activeGameId?: string }) => void, fail: (error: Error) => void): Unsubscribe {
   if (!firestore) throw new Error('Firebase is not configured.');
   return onSnapshot(doc(firestore, 'rooms', roomId),
-    (snapshot) => { if (snapshot.exists()) receive(snapshot.data() as { status: 'lobby' | 'active'; ruleset: 'tetris' | 'doctor' | 'quarry'; activeGameId?: string }); }, fail);
+    (snapshot) => { if (snapshot.exists()) receive(snapshot.data() as { status: 'lobby' | 'active'; ruleset: 'tetris' | 'doctor' | 'quarry' | 'canopy'; activeGameId?: string }); }, fail);
 }

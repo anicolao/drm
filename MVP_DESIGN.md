@@ -18,7 +18,7 @@ from immutable journals plus optional local caches.
 
 - Anonymous Firebase identities retained on each device.
 - Transactional short-code rooms, QR invitations, two-to-four-player rosters,
-  and host-selected Block Stack or Color Cure rules.
+  and host-selected Block Stack, Color Cure, Quarry Match, or Crystal Canopy rules.
 - Host-as-controller and host-as-TV modes.
 - Shared touch, keyboard, and standard browser gamepad controls.
 - Firestore lobby/configuration data and RTDB immutable game journals.
@@ -26,12 +26,12 @@ from immutable journals plus optional local caches.
   leases/takeover, local checkpoints, observer rewind/replay, and cast lag UI.
 - Responsive phone/tablet controllers, compact replayed opponents, shared display,
   music routing, persistent mute, results, readiness, and successor games.
-- Versioned `pill-bottle/3` and `tetris/1` engines with unit, Firebase Rules, and
+- Versioned `pill-bottle/3`, `tetris/1`, `quarry-match/1`, and `crystal-canopy/1` engines with unit, Firebase Rules, and
   emulator-backed browser coverage.
 - Static GitHub Pages production deploys and per-PR previews.
 
 The shipped MVP goes beyond the initial proposal in several areas: Color Cure
-has three-round scoring and rain attacks; both games share routes and most runtime
+has three-round scoring and rain attacks; all games share routes and runtime
 infrastructure; controllers support Bluetooth gamepads; and E2E screenshots use
 zero-pixel tolerance.
 
@@ -108,6 +108,12 @@ Block Stack ships the `tetris/1` baseline documented in
 next/ghost, gravity, bounded lock delay, basic line/drop scoring, levels, top-out,
 durable replay, cast, and one-round survivor lifecycle. Hold, advanced scoring,
 garbage, and multi-round formats remain follow-ons.
+
+Quarry Match and Crystal Canopy ship the related but distinct contracts in
+[QUARRY_RULES.md](QUARRY_RULES.md) and
+[CRYSTAL_CANOPY_RULES.md](CRYSTAL_CANOPY_RULES.md). Quarry adds horizontal
+cascades and multiplayer rain; Crystal Canopy keeps every surviving crystal at
+its ceiling position and scales puzzle size independently by player level.
 
 ## Security and deployment outcome
 

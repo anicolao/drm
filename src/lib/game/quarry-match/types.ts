@@ -2,7 +2,7 @@ export const QUARRY_WIDTH = 5;
 export const QUARRY_HEIGHT = 12;
 export type QuarryColor = "cyan" | "pink" | "yellow" | "green" | "purple";
 export interface QuarryState {
-  rulesVersion: "quarry-match/1";
+  rulesVersion: "quarry-match/1" | "crystal-canopy/1";
   tick: number;
   level: number;
   columns: QuarryColor[][];
@@ -10,6 +10,8 @@ export interface QuarryState {
   groupColor: QuarryColor | null;
   groupCount: 0 | 1 | 2;
   removed: number;
+  total: number;
+  groups: number;
   restarts: number;
   cascades: number;
   rainReceived: number;
