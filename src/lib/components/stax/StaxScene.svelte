@@ -1,15 +1,32 @@
 <script lang="ts">
- import{Canvas,T}from'@threlte/core';import{OrbitControls}from'@threlte/extras';import StaxPaddle from'./StaxPaddle.svelte';import StaxTile from'./StaxTile.svelte';import{staxLevelRules,type StaxState}from'$lib/game/stax';
+ import{Canvas,T}from'@threlte/core';import{OrbitControls}from'@threlte/extras';import StaxPaddle from'./StaxPaddle.svelte';import StaxTile from'./StaxTile.svelte';import{staxLevelRules,type StaxColor,type StaxState}from'$lib/game/stax';
  export let state:StaxState;export let compact=false;export let label='Stax ramp';export let selectLane:((lane:number)=>void)|undefined=undefined;
  let inspect=false;
  const x=(lane:number)=>(lane-2)*1.15;
  const rampAngle=.13,rampCenterY=.72,rampCenterZ=-.52,rampHalfThickness=.09;
- const farZ=-4.35,nearZ=3.55,catchY=.54,stackStep=.3;
+ const farZ=-4.35,nearZ=3.55,paddleZ=4.08,catchY=.2,stackStep=.42,binY=-.94,binZ=5.35;
  $: travel=staxLevelRules(state.level).travel;
  const rampSurface=(z:number)=>rampCenterY+rampHalfThickness/Math.cos(rampAngle)-(z-rampCenterZ)*Math.tan(rampAngle);
  const route=(progress:number,returning=false)=>{const t=Math.min(1,progress/(returning?360:travel)),towardPlayer=returning?1-t:t,z=farZ+towardPlayer*(nearZ-farZ),roll=(returning?-1:1)*progress*.06+rampAngle,clearance=.21*Math.abs(Math.cos(roll))+.47*Math.abs(Math.sin(roll));return{z,y:rampSurface(z)+clearance+.015,roll}};
+ type Visual={id:number;color:StaxColor;kind:'catch'|'miss'|'place';lane:number;column?:number;row?:number;startedTick:number;durationTicks:number;roll:number};
+ let visuals:Visual[]=[],seen=false,previousRamp=new Map<number,{color:StaxColor;lane:number;roll:number}>(),previousPaddle:Array<{id:number;color:StaxColor}>=[],previousCounts:number[]=[];
+ const normalRoll=(roll:number)=>Math.atan2(Math.sin(roll),Math.cos(roll));
+ const snapshot=()=>{previousRamp=new Map(state.ramp.map(tile=>[tile.id,{color:tile.color,lane:tile.lane,roll:route(tile.progress,tile.returning).roll}]));previousPaddle=state.paddle.map(tile=>({...tile}));previousCounts=state.columns.map(column=>column.length)};
+ function observe(){
+  if(!seen||state.phase==='countdown'){visuals=[];seen=true;snapshot();return}
+  visuals=visuals.filter(visual=>state.tick-visual.startedTick<visual.durationTicks);const paddleIds=new Set(state.paddle.map(tile=>tile.id));
+  for(const[id,tile]of previousRamp)if(!state.ramp.some(current=>current.id===id))visuals=[...visuals,{id,color:tile.color,kind:paddleIds.has(id)?'catch':'miss',lane:tile.lane,startedTick:state.tick,durationTicks:paddleIds.has(id)?25:54,roll:normalRoll(tile.roll)}];
+  const removed=previousPaddle.find(tile=>!state.paddle.some(current=>current.id===tile.id));
+  if(removed){const column=state.columns.findIndex((items,index)=>items.length>(previousCounts[index]??0));if(column>=0){const row=state.columns[column].length-1;visuals=[...visuals.filter(visual=>visual.id!==removed.id),{id:removed.id,color:removed.color,kind:'place',lane:state.paddleLane,column,row,startedTick:state.tick,durationTicks:41,roll:0}]}}
+  snapshot();
+ }
+ $: state,observe();
+ const activeVisual=(kind:Visual['kind'],id:number)=>visuals.some(visual=>visual.kind===kind&&visual.id===id);
+ const restingPaddleY=(count:number)=>count?catchY-.35-(count-1)*stackStep:catchY;
+ const paddleY=()=>{const landing=visuals.find(visual=>visual.kind==='catch');if(!landing)return restingPaddleY(state.paddle.length);const t=Math.max(0,Math.min(1,(state.tick-landing.startedTick)/landing.durationTicks)),push=Math.max(0,(t-.5)/.5);return restingPaddleY(Math.max(0,state.paddle.length-1))+(restingPaddleY(state.paddle.length)-restingPaddleY(Math.max(0,state.paddle.length-1)))*(1-Math.pow(1-push,3))};
+ const visualPose=(visual:Visual)=>{const t=Math.max(0,Math.min(1,(state.tick-visual.startedTick)/visual.durationTicks)),ease=1-Math.pow(1-t,3);if(visual.kind==='miss'){const start=route(travel);return{position:[x(visual.lane),start.y-4.8*t*t,start.z+2.8*t]as[number,number,number],rotation:[visual.roll+8*t,0,.7*t]as[number,number,number]}}if(visual.kind==='catch'){const start=route(travel),y=start.y+(catchY-start.y)*ease+.16*Math.sin(Math.PI*t);return{position:[x(visual.lane),y,start.z+(paddleZ-start.z)*ease]as[number,number,number],rotation:[visual.roll*(1-ease),0,0]as[number,number,number]}}const flipEnd=.46,column=visual.column??visual.lane,row=visual.row??0;if(t<flipEnd){const p=t/flipEnd;return{position:[x(visual.lane)+(x(column)-x(visual.lane))*p,catchY+.2*Math.sin(Math.PI*p),paddleZ+(binZ-paddleZ)*p]as[number,number,number],rotation:[Math.PI*p,0,0]as[number,number,number]}}const fall=(t-flipEnd)/(1-flipEnd),drop=fall*fall;return{position:[x(column),catchY+(binY+row*stackStep-catchY)*drop,binZ]as[number,number,number],rotation:[Math.PI,0,0]as[number,number,number]}};
 </script>
-<div class="scene" class:compact aria-label={label} data-tick={state.tick} data-phase={state.phase} data-paddle-lane={state.paddleLane} data-paddle-count={state.paddle.length} data-ramp-count={state.ramp.length} data-leading-progress={state.ramp[0]?.progress??''} data-leading-roll={state.ramp[0]?route(state.ramp[0].progress,state.ramp[0].returning).roll:''} data-column-counts={state.columns.map(column=>column.length).join(',')} data-score={state.score} data-ramp-direction="far-to-player" data-roll-direction="edge-over-edge-toward-player" data-paddle-position="player-edge" data-bin-position="below-paddle" data-bin-layout="vertical-stacks">
+<div class="scene" class:compact aria-label={label} data-tick={state.tick} data-phase={state.phase} data-paddle-lane={state.paddleLane} data-paddle-count={state.paddle.length} data-paddle-y={paddleY()} data-ramp-count={state.ramp.length} data-leading-lane={state.ramp[0]?.lane??''} data-leading-progress={state.ramp[0]?.progress??''} data-leading-roll={state.ramp[0]?route(state.ramp[0].progress,state.ramp[0].returning).roll:''} data-column-counts={state.columns.map(column=>column.length).join(',')} data-misses={state.misses} data-visual-transitions={visuals.map(visual=>visual.kind).join(',')} data-score={state.score} data-ramp-direction="far-to-player" data-roll-direction="edge-over-edge-toward-player" data-paddle-position="player-edge" data-bin-position="below-paddle" data-bin-layout="vertical-stacks">
  <Canvas dpr={[1,2]}>
   {#key inspect}<T.PerspectiveCamera makeDefault position={[0,8.9,11.8]} rotation={[-.65,0,0]} fov={43}/>{/key}{#if selectLane&&inspect}<OrbitControls enableDamping target={[0,.25,.4]}/>{/if}
   <T.Color attach="background" args={['#05050a']}/><T.AmbientLight intensity={.72}/><T.DirectionalLight position={[5,10,7]} intensity={4} color="#fff0dd" castShadow/><T.DirectionalLight position={[-8,5,-5]} intensity={3} color="#cceeff"/><T.SpotLight position={[0,8,-5]} intensity={10} color="#00ffcc" angle={.5} penumbra={.5} decay={0} distance={20}/>
@@ -19,9 +36,10 @@
   <T.Mesh position={[0,-.55,5.35]} receiveShadow><T.BoxGeometry args={[6.3,.18,1.45]}/><T.MeshStandardMaterial color="#0b1020" metalness={.22} roughness={.42}/></T.Mesh>
   {#each Array(6) as _,i}<T.Mesh position={[(i-2.5)*1.15,-.445,5.35]}><T.BoxGeometry args={[.025,.025,1.32]}/><T.MeshBasicMaterial color="#263d68"/></T.Mesh>{/each}
   <T.Mesh position={[0,-.445,4.68]}><T.BoxGeometry args={[5.75,.025,.035]}/><T.MeshBasicMaterial color="#263d68"/></T.Mesh><T.Mesh position={[0,-.445,6.02]}><T.BoxGeometry args={[5.75,.025,.035]}/><T.MeshBasicMaterial color="#263d68"/></T.Mesh>
-  {#each state.columns as column,c}{#each column as color,r}<StaxTile {color} position={[x(c),-.3+r*stackStep,5.35]} scale={[.9,.72,.58]} glow={state.lastClearCells.some(cell=>cell.column===c&&cell.row===r)?.65:.28}/>{/each}{/each}
-  <StaxPaddle position={[x(state.paddleLane),catchY-state.paddle.length*stackStep,4.08]}/>
-  {#each state.paddle as held,i}<StaxTile color={held.color} position={[x(state.paddleLane),catchY-(state.paddle.length-1-i)*stackStep,4.08]} scale={[.9,.72,.58]}/>{/each}
+  {#each state.columns as column,c}{#each column as color,r}{#if !visuals.some(visual=>visual.kind==='place'&&visual.column===c&&visual.row===r)}<StaxTile {color} position={[x(c),binY+r*stackStep,binZ]} glow={state.lastClearCells.some(cell=>cell.column===c&&cell.row===r)?.65:.28}/>{/if}{/each}{/each}
+  <StaxPaddle position={[x(state.paddleLane),paddleY(),paddleZ]}/>
+  {#each state.paddle as held,i}{#if !activeVisual('catch',held.id)}<StaxTile color={held.color} position={[x(state.paddleLane),catchY-(state.paddle.length-1-i)*stackStep,paddleZ]}/>{/if}{/each}
+  {#each visuals as visual(visual.kind+visual.id)}{@const pose=visualPose(visual)}<StaxTile color={visual.color} position={pose.position} rotation={pose.rotation}/>{/each}
  </Canvas>
  {#if selectLane&&!inspect}<div class="lanes">{#each Array(5) as _,lane}<button aria-label={`Catch lane ${lane+1}`} on:pointerdown|preventDefault={()=>selectLane?.(lane)}></button>{/each}</div>{/if}{#if selectLane}<button class="inspect" class:active={inspect} aria-label={inspect?'Exit orbit view':'Inspect scene in orbit view'} aria-pressed={inspect} on:click={()=>inspect=!inspect}>{inspect?'EXIT ORBIT':'ORBIT VIEW'}</button>{/if}{#if state.phase==='countdown'}<strong class="countdown">{Math.max(1,Math.ceil(state.countdown/60))}</strong>{/if}
 </div>
