@@ -18,7 +18,7 @@ from immutable journals plus optional local caches.
 
 - Anonymous Firebase identities retained on each device.
 - Transactional short-code rooms, QR invitations, two-to-four-player rosters,
-  and host-selected Block Stack, Color Cure, Quarry Match, or Crystal Canopy rules.
+  and host-selected Block Stack, Color Cure, Quarry Match, Crystal Canopy, or Stax rules.
 - Host-as-controller and host-as-TV modes.
 - Shared touch, keyboard, and standard browser gamepad controls.
 - Firestore lobby/configuration data and RTDB immutable game journals.
@@ -26,7 +26,7 @@ from immutable journals plus optional local caches.
   leases/takeover, local checkpoints, observer rewind/replay, and cast lag UI.
 - Responsive phone/tablet controllers, compact replayed opponents, shared display,
   music routing, persistent mute, results, readiness, and successor games.
-- Versioned `pill-bottle/3`, `tetris/1`, `quarry-match/1`, and `crystal-canopy/1` engines with unit, Firebase Rules, and
+- Versioned `pill-bottle/3`, `tetris/1`, `quarry-match/1`, `crystal-canopy/1`, and `stax/1` engines with unit, Firebase Rules, and
   emulator-backed browser coverage.
 - Static GitHub Pages production deploys and per-PR previews.
 
@@ -115,13 +115,17 @@ Quarry Match and Crystal Canopy ship the related but distinct contracts in
 cascades and multiplayer rain; Crystal Canopy keeps every surviving crystal at
 its ceiling position and scales puzzle size independently by player level.
 
+Stax ships the original contract in [STAX_RULES.md](STAX_RULES.md): a seeded
+five-lane 3D ramp, LIFO paddle, 5×5 placement bin, line and chain scoring,
+rotating objectives, independent levels, and three-round ranked points.
+
 ## Security and deployment outcome
 
 - Default-deny Firestore and RTDB rules are version-controlled.
 - Emulator tests cover authorization, record schemas, immutability, and rejection
   of materialized state.
-- CI runs Svelte/type checks, 65 unit tests, the production build, E2E convention
-  validation, and six real-emulator browser scenarios.
+- CI runs Svelte/type checks, 93 unit tests, the production build, E2E convention
+  validation, and eleven real-emulator browser scenarios.
 - The Pages workflow publishes `/drm/` from `main` and `/drm/prN/` previews.
 - Firebase Rules are deployed separately from the Pages workflow; a dedicated,
   repeatable rules deployment workflow remains future work.

@@ -5,7 +5,8 @@
 
 `drm` is a playable multiplayer puzzle-game collection for a room full of people.
 A room can use Block Stack (Tetris-style), Color Cure (Dr. Mario-style), Quarry
-Match's excavation-and-cascade rules, or Crystal Canopy's fixed stalactite puzzle and can be played in two
+Match's excavation-and-cascade rules, Crystal Canopy's fixed stalactite puzzle,
+or Stax's 3D ramp-and-paddle stacking rules and can be played in two
 ways:
 
 - each player uses a tablet as both controller and game board; or
@@ -16,7 +17,8 @@ See [VISION.md](VISION.md) for the intended experience, [MVP_DESIGN.md](MVP_DESI
 for the original MVP scope and current outcome, [PILL_BOTTLE.md](PILL_BOTTLE.md)
 for Color Cure's frozen rules, [QUARRY_RULES.md](QUARRY_RULES.md) for
 Quarry Match, [CRYSTAL_CANOPY_RULES.md](CRYSTAL_CANOPY_RULES.md) for Crystal
-Canopy, and [TETRIS_NEXT.md](TETRIS_NEXT.md) for the
+Canopy, [STAX_RULES.md](STAX_RULES.md) for Stax, and
+[TETRIS_NEXT.md](TETRIS_NEXT.md) for the
 remaining Block Stack backlog.
 
 ## Architecture
@@ -55,7 +57,10 @@ solver-verified seeded five-column puzzles, match-three shooting, restarts,
 first-clear race arbitration, first-to-three scoring, controller/cast replay,
 and its original Prismatic Descent score. Crystal Canopy uses independently
 level-scaled solver-proven ceiling puzzles, fixed crystal positions, no cascades,
-first-to-three rounds, and its Glacial Vault score and effects. Block Stack hold,
+first-to-three rounds, and its Glacial Vault score and effects. Stax uses a
+Threlte-rendered five-lane ramp, LIFO paddle, 5×5 line bin, seeded wave
+objectives, ranked three-round points, replayed controller/cast views, and its
+original fast-piano Ivory Avalanche score. Block Stack hold,
 advanced scoring, garbage attacks, and multi-round matches remain future work.
 
 The player route accepts touch and keyboard controls plus standard browser
@@ -63,7 +68,9 @@ gamepads. Falling-block games use the D-pad or primary stick for movement/drop,
 A for clockwise rotation, and B for counterclockwise rotation. Quarry Match and
 Crystal Canopy share one controller: touch beneath a column to move and fire,
 use horizontal movement plus any face button or D-pad up to fire, or use the
-left/right shoulder buttons to jump to the corresponding board edge.
+left/right shoulder buttons to jump to the corresponding board edge. Stax uses
+horizontal movement for its paddle, down/A to place, up/B to throw the newest
+paddle tile back up the ramp, and either shoulder to accelerate.
 
 ```sh
 nix develop
