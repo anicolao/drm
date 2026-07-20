@@ -33,6 +33,13 @@ export interface StaxClearCell {
   row: number;
   color: StaxColor;
 }
+export interface StaxPlacement {
+  id: number;
+  color: StaxColor;
+  column: number;
+  row: number;
+  placement: number;
+}
 export interface StaxClearWave {
   before: StaxColor[][];
   cells: StaxClearCell[];
@@ -62,6 +69,7 @@ export interface StaxState {
   throws: number;
   restarts: number;
   accelerating: boolean;
+  lastPlacement: StaxPlacement | null;
   lastClearCells: StaxClearCell[];
   lastClearWaves: StaxClearWave[];
   lastChainDepth: number;
