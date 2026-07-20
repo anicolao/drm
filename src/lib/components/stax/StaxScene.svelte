@@ -12,15 +12,15 @@
  type Resolution={startedTick:number;column:number;placedRow:number;waves:StaxState['lastClearWaves'];cued:number};
  type BoardTile={key:string;color:StaxColor;column:number;y:number;scale:number;glow:number};
  const PLACE_TICKS=41,SETTLE_TICKS=30,BURST_TICKS=24,FALL_TICKS=22;
- let visuals:Visual[]=[],resolution:Resolution|undefined,animatedPlacement=-1,animatedResolutionPlacement=-1,displayTick=0,lastStateTick=0,seen=false,previousRamp=new Map<number,{color:StaxColor;lane:number;roll:number}>(),previousPaddle:Array<{id:number;color:StaxColor}>=[],previousCounts:number[]=[],previousPlacements=0;
+ let visuals:Visual[]=[],resolution:Resolution|undefined,animatedPlacement=-1,animatedResolutionPlacement=-1,displayTick=0,seen=false,previousRamp=new Map<number,{color:StaxColor;lane:number;returning?:boolean}>(),previousPaddle:Array<{id:number;color:StaxColor}>=[],previousCounts:number[]=[],previousPlacements=0;
  const normalRoll=(roll:number)=>Math.atan2(Math.sin(roll),Math.cos(roll));
  const nextHorizontalRoll=(roll:number)=>roll+((Math.PI-((roll%Math.PI)+Math.PI)%Math.PI)%Math.PI);
- const snapshot=()=>{previousRamp=new Map(state.ramp.map(tile=>[tile.id,{color:tile.color,lane:tile.lane,roll:route(tile.progress,tile.returning).roll}]));previousPaddle=state.paddle.map(tile=>({...tile}));previousCounts=state.columns.map(column=>column.length);previousPlacements=state.placements};
+ const snapshot=()=>{previousRamp=new Map(state.ramp.map(tile=>[tile.id,{color:tile.color,lane:tile.lane,returning:tile.returning}]));previousPaddle=state.paddle.map(tile=>({...tile}));previousCounts=state.columns.map(column=>column.length);previousPlacements=state.placements};
  function observe(){
-  if(!seen||state.phase==='countdown'){visuals=[];resolution=undefined;animatedPlacement=-1;animatedResolutionPlacement=-1;displayTick=state.tick;lastStateTick=state.tick;seen=true;snapshot();return}
-  displayTick+=Math.min(1,Math.max(0,state.tick-lastStateTick));lastStateTick=state.tick;
+  if(!seen||state.phase==='countdown'){visuals=[];resolution=undefined;animatedPlacement=-1;animatedResolutionPlacement=-1;displayTick=state.tick;seen=true;snapshot();return}
+  displayTick=state.tick;
   visuals=visuals.filter(visual=>displayTick-visual.startedTick<visual.durationTicks);if(resolution){const elapsed=displayTick-resolution.startedTick,total=PLACE_TICKS+SETTLE_TICKS+resolution.waves.length*(BURST_TICKS+FALL_TICKS);if(elapsed>=total)resolution=undefined;else{const wave=Math.floor(Math.max(0,elapsed-PLACE_TICKS-SETTLE_TICKS)/(BURST_TICKS+FALL_TICKS));if(elapsed>=PLACE_TICKS+SETTLE_TICKS&&wave<resolution.waves.length&&wave>=resolution.cued){onChainCue?.();resolution.cued=wave+1}}}const paddleIds=new Set(state.paddle.map(tile=>tile.id));
-  for(const[id,tile]of previousRamp)if(!state.ramp.some(current=>current.id===id))visuals=[...visuals,{id,color:tile.color,kind:paddleIds.has(id)?'catch':'miss',lane:tile.lane,startedTick:displayTick,durationTicks:paddleIds.has(id)?25:54,roll:normalRoll(tile.roll)}];
+  for(const[id,tile]of previousRamp)if(!state.ramp.some(current=>current.id===id))visuals=[...visuals,{id,color:tile.color,kind:paddleIds.has(id)?'catch':'miss',lane:tile.lane,startedTick:displayTick,durationTicks:paddleIds.has(id)?25:54,roll:normalRoll(route(tile.returning?360:travel,tile.returning).roll)}];
   const placement=state.lastPlacement,freshPlacement=Boolean(placement&&placement.placement!==animatedPlacement);
   const freshResolution=state.lastClearWaves.length&&state.placements!==animatedResolutionPlacement;
   if(freshPlacement&&placement){visuals=[...visuals.filter(visual=>visual.id!==placement.id),{id:placement.id,color:placement.color,kind:'place',lane:placement.column,column:placement.column,row:placement.row,startedTick:displayTick,durationTicks:PLACE_TICKS,roll:0}];animatedPlacement=placement.placement}
