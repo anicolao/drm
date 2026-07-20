@@ -10,7 +10,7 @@
 - [x] Next queue and ghost placement are rendered locally
 - [x] Holding hard drop affects only one piece and a fresh press drops the next
 - [x] Movement and both SRS rotations are available
-- [x] Score and line count start from deterministic state
+- [x] Score and line count are driven to an exact deterministic state
 
 ---
 
