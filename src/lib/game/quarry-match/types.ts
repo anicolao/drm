@@ -12,7 +12,7 @@ export interface QuarryCascadeWave {
   after: QuarryColor[][];
 }
 export interface QuarryState {
-  rulesVersion: "quarry-match/2" | "crystal-canopy/1";
+  rulesVersion: "quarry-match/2" | "quarry-match/3" | "crystal-canopy/1";
   tick: number;
   level: number;
   columns: QuarryColor[][];

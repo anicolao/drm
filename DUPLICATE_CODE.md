@@ -63,7 +63,7 @@ Block Stack owns:
 
 Quarry Match owns:
 
-- `quarry-match/2` engine, generator/solver, state, hashing, and replay adapter;
+- `quarry-match/3` engine, level-scaled generator/solver, state, hashing, and replay adapter;
 - matching-group selection, first-clear claim, round-win score projection, and
   stone/cursor rendering;
 - Prismatic Descent music plus staged combo and clear cues.

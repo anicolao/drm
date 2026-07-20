@@ -10,7 +10,7 @@ import type { QuarryRecord } from "$lib/game/quarry-match";
 export interface QuarryStartRecord {
   type: "game/started";
   ruleset: "quarry-match" | "crystal-canopy";
-  rulesVersion: "quarry-match/2" | "crystal-canopy/1";
+  rulesVersion: "quarry-match/2" | "quarry-match/3" | "crystal-canopy/1";
   seed: number;
   tickRate: 60;
   round: number;
@@ -46,7 +46,7 @@ export function parseQuarryStart(value: unknown): QuarryStartRecord {
       "serverTime",
     ]) ||
     value.type !== "game/started" ||
-    !((value.ruleset === "quarry-match" && value.rulesVersion === "quarry-match/2") ||
+    !((value.ruleset === "quarry-match" && (value.rulesVersion === "quarry-match/2" || value.rulesVersion === "quarry-match/3")) ||
       (value.ruleset === "crystal-canopy" && value.rulesVersion === "crystal-canopy/1")) ||
     value.tickRate !== 60 ||
     !isInteger(value.seed, 0, 0xffffffff) ||
@@ -158,7 +158,7 @@ export function parseQuarryRecord(
     hasOnlyKeys(payload, ["phase", "stateHash"]) &&
     (payload.phase === "playing" || payload.phase === "cleared") &&
     typeof payload.stateHash === "string" &&
-    /^(q2|c1)-[0-9a-f]{8}$/.test(payload.stateHash)
+    /^(q2|q3|c1)-[0-9a-f]{8}$/.test(payload.stateHash)
   )
     return {
       commandId,

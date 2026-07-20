@@ -8,6 +8,7 @@ import {
   deriveQuarryLifecycle,
   generateQuarry,
   hashQuarry,
+  quarryLevelRules,
   replayQuarry,
   solveQuarry,
   QUARRY_HEIGHT,
@@ -18,13 +19,22 @@ import {
   parseQuarryRecord,
   parseQuarryStart,
 } from "../../src/lib/protocol/quarry-match.ts";
-test("seeded Quarry boards are full, balanced, deterministic, and solvable", () => {
-  for (const level of [0, 2, 4, 10]) {
+test("Quarry levels add rows before introducing the next color", () => {
+  const expected = [
+    [0, 2, 6], [1, 2, 9], [2, 2, 12],
+    [3, 3, 6], [5, 3, 12],
+    [6, 4, 6], [8, 4, 12],
+    [9, 5, 6], [11, 5, 12], [20, 5, 12],
+  ] as const;
+  for (const [level, colors, rows] of expected) {
+    assert.deepEqual(quarryLevelRules(level), { colors, rows });
     const a = generateQuarry(123456789, level),
       b = generateQuarry(123456789, level);
     assert.deepEqual(a, b);
     assert.equal(a.length, QUARRY_WIDTH);
-    assert.ok(a.every((column) => column.length === QUARRY_HEIGHT));
+    assert.ok(a.every((column) => column.length === rows));
+    assert.equal(a.flat().length, QUARRY_WIDTH * rows);
+    assert.equal(new Set(a.flat()).size, colors);
     assert.equal(solveQuarry(a), true);
     const counts = new Map<string, number>();
     a.flat().forEach((color) =>
@@ -32,6 +42,12 @@ test("seeded Quarry boards are full, balanced, deterministic, and solvable", () 
     );
     assert.ok([...counts.values()].every((count) => count % 3 === 0));
   }
+});
+test("quarry-match/2 replays retain the original full-height level rules", () => {
+  const columns = generateQuarry(123456789, 0, "quarry-match/2");
+  assert.ok(columns.every((column) => column.length === QUARRY_HEIGHT));
+  assert.equal(new Set(columns.flat()).size, 3);
+  assert.equal(createQuarry(123456789, 0, "quarry-match/2").total, 60);
 });
 test("shots require matching triples and shift the selected column", () => {
   const state = createQuarry(7);
@@ -41,7 +57,8 @@ test("shots require matching triples and shift the selected column", () => {
   state.cursor = 0;
   applyQuarryInput(state, { type: "input/fire", payload: {} });
   assert.equal(state.groupCount, 1);
-  const mismatch = state.columns.findIndex((column) => column[0] !== color);
+  const mismatch = 4;
+  state.columns[mismatch][0] = color === "cyan" ? "pink" : "cyan";
   state.cursor = mismatch;
   assert.equal(canFire(state), false);
   const removed = state.removed;
@@ -192,7 +209,7 @@ test("journal replay is deterministic", () => {
   const replayed = replayQuarry(initial, 10, records, 42);
   assert.ok(replayed.removed >= 1);
   assert.equal(replayed.groupCount, 1);
-  assert.match(hashQuarry(replayed), /^q2-[0-9a-f]{8}$/);
+  assert.match(hashQuarry(replayed), /^q3-[0-9a-f]{8}$/);
 });
 test("first-clear lifecycle carries wins and completes at three", () => {
   const round = deriveQuarryLifecycle(
@@ -211,7 +228,7 @@ test("Quarry protocol accepts only frozen starts and replay commands", () => {
   const start = {
     type: "game/started",
     ruleset: "quarry-match",
-    rulesVersion: "quarry-match/2",
+    rulesVersion: "quarry-match/3",
     seed: 1,
     tickRate: 60,
     round: 0,
@@ -226,6 +243,7 @@ test("Quarry protocol accepts only frozen starts and replay commands", () => {
     serverTime: 1,
   } as const;
   assert.equal(parseQuarryStart(start).scores?.p, 0);
+  assert.equal(parseQuarryStart({ ...start, rulesVersion: "quarry-match/2" }).rulesVersion, "quarry-match/2");
   assert.throws(() => parseQuarryStart({ ...start, rulesVersion: "quarry-match/1" }));
   assert.throws(() => parseQuarryStart({ ...start, board: [] }));
   assert.equal(

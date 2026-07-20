@@ -66,7 +66,7 @@ export interface QuarryControllerState {
 const parseStart = parseQuarryStart,
   parseRecord = parseQuarryRecord;
 const isCanopy=(value:{rulesVersion:string})=>value.rulesVersion==='crystal-canopy/1';
-const createPuzzle=(start:QuarryStartRecord,level:number)=>isCanopy(start)?createCanopy(start.seed,level):createQuarry(start.seed,level);
+const createPuzzle=(start:QuarryStartRecord,level:number)=>isCanopy(start)?createCanopy(start.seed,level):createQuarry(start.seed,level,start.rulesVersion as "quarry-match/2"|"quarry-match/3");
 const advancePuzzle=(state:QuarryState)=>isCanopy(state)?advanceCanopy(state):advanceQuarry(state);
 const applyPuzzle=(state:QuarryState,input:QuarryInput,seed:number)=>isCanopy(state)?applyCanopyInput(state,input,seed):applyQuarryInput(state,input,seed);
 const hashPuzzle=(state:QuarryState)=>isCanopy(state)?hashCanopy(state):hashQuarry(state);

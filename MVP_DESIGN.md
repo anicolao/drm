@@ -26,7 +26,7 @@ from immutable journals plus optional local caches.
   leases/takeover, local checkpoints, observer rewind/replay, and cast lag UI.
 - Responsive phone/tablet controllers, compact replayed opponents, shared display,
   music routing, persistent mute, results, readiness, and successor games.
-- Versioned `pill-bottle/3`, `tetris/1`, `quarry-match/2`, `crystal-canopy/1`, and `stax/1` engines with unit, Firebase Rules, and
+- Versioned `pill-bottle/3`, `tetris/1`, `quarry-match/3`, `crystal-canopy/1`, and `stax/1` engines with unit, Firebase Rules, and
   emulator-backed browser coverage.
 - Static GitHub Pages production deploys and per-PR previews.
 

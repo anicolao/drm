@@ -10,7 +10,7 @@ import {
 } from "./types.ts";
 
 export const QUARRY_RULES = Object.freeze({
-  version: "quarry-match/2" as const,
+  version: "quarry-match/3" as const,
   tickRate: 60,
   width: QUARRY_WIDTH,
   height: QUARRY_HEIGHT,
@@ -24,15 +24,29 @@ function nextRandom(seed: number) {
   x ^= x << 5;
   return x >>> 0 || 1;
 }
-function colorCount(level: number) {
-  return level < 2 ? 3 : level < 4 ? 4 : 5;
+export function quarryLevelRules(level: number) {
+  const stage = Math.max(0, Math.min(11, Math.trunc(level)));
+  return {
+    colors: Math.min(5, 2 + Math.floor(stage / 3)),
+    rows: [6, 9, 12][stage % 3],
+  } as const;
 }
 
-export function generateQuarry(seed: number, level: number) {
+function legacyLevelRules(level: number) {
+  return { colors: level < 2 ? 3 : level < 4 ? 4 : 5, rows: QUARRY_HEIGHT };
+}
+
+export function generateQuarry(
+  seed: number,
+  level: number,
+  rulesVersion: "quarry-match/2" | "quarry-match/3" = QUARRY_RULES.version,
+) {
   let rng = seed >>> 0 || 1;
-  const count = colorCount(level),
+  const levelRules = rulesVersion === "quarry-match/2" ? legacyLevelRules(level) : quarryLevelRules(level),
+    count = levelRules.colors,
     triples: QuarryColor[] = [];
-  for (let set = 0; set < 20; set++) triples.push(COLORS[set % count]);
+  for (let set = 0; set < QUARRY_WIDTH * levelRules.rows / 3; set++)
+    triples.push(COLORS[set % count]);
   for (let i = triples.length - 1; i > 0; i--) {
     rng = nextRandom(rng);
     const j = rng % (i + 1);
@@ -47,8 +61,8 @@ export function generateQuarry(seed: number, level: number) {
     for (let col = 0; col < QUARRY_WIDTH; col++)
       for (
         let weight =
-          columns[col].length < QUARRY_HEIGHT
-            ? QUARRY_HEIGHT - columns[col].length
+          columns[col].length < levelRules.rows
+            ? levelRules.rows - columns[col].length
             : 0;
         weight > 0;
         weight--
@@ -57,34 +71,39 @@ export function generateQuarry(seed: number, level: number) {
     const used = new Set<number>();
     for (let stone = 0; stone < 3; stone++) {
       const preferred = choices.filter(
-        (col) => columns[col].length < QUARRY_HEIGHT && !used.has(col),
+        (col) => columns[col].length < levelRules.rows && !used.has(col),
       );
       const available = preferred.length
         ? preferred
-        : choices.filter((col) => columns[col].length < QUARRY_HEIGHT);
+        : choices.filter((col) => columns[col].length < levelRules.rows);
       rng = nextRandom(rng);
       const col = available[rng % available.length];
       columns[col].push(color);
       used.add(col);
     }
   }
-  if (columns.some((column) => column.length !== QUARRY_HEIGHT))
+  if (columns.some((column) => column.length !== levelRules.rows))
     throw new Error("Quarry generator did not fill the board.");
-  if (!solveQuarry(columns)) return generateQuarry(nextRandom(rng), level);
+  if (!solveQuarry(columns)) return generateQuarry(nextRandom(rng), level, rulesVersion);
   return columns;
 }
 
-export function createQuarry(seed: number, level = 0): QuarryState {
+export function createQuarry(
+  seed: number,
+  level = 0,
+  rulesVersion: "quarry-match/2" | "quarry-match/3" = QUARRY_RULES.version,
+): QuarryState {
+  const columns = generateQuarry(seed, level, rulesVersion);
   return {
-    rulesVersion: "quarry-match/2",
+    rulesVersion,
     tick: 0,
     level,
-    columns: generateQuarry(seed, level),
+    columns,
     cursor: 2,
     groupColor: null,
     groupCount: 0,
     removed: 0,
-    total: 60,
+    total: columns.flat().length,
     groups: 0,
     restarts: 0,
     cascades: 0,
@@ -208,7 +227,7 @@ export function applyQuarryInput(
     if (seed === undefined) throw new Error("Restart requires the game seed.");
     const tick = state.tick,
       restarts = state.restarts + 1,
-      fresh = createQuarry(seed, state.level);
+      fresh = createQuarry(seed, state.level, state.rulesVersion as "quarry-match/2" | "quarry-match/3");
     Object.assign(state, fresh, { tick, restarts });
     return;
   }
@@ -267,7 +286,8 @@ export function hashQuarry(state: QuarryState) {
     hash ^= text.charCodeAt(i);
     hash = Math.imul(hash, 16777619);
   }
-  return `q2-${(hash >>> 0).toString(16).padStart(8, "0")}`;
+  const prefix = state.rulesVersion === "quarry-match/3" ? "q3" : "q2";
+  return `${prefix}-${(hash >>> 0).toString(16).padStart(8, "0")}`;
 }
 export function replayQuarry(
   initial: QuarryState,
