@@ -2,6 +2,7 @@ import { expect,test } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
 import { resetEmulators } from '../helpers/reset-emulators';
 import { advanceFrames, advanceToTick, gameTick } from '../helpers/deterministic-state';
+import { waitForGameSurface } from '../helpers/application-readiness';
 test.beforeEach(resetEmulators);
 
 test('US-005: Block Stack starts a deterministic playable controller',async({browser,page},testInfo)=>{
@@ -24,15 +25,15 @@ test('US-005: Block Stack starts a deterministic playable controller',async({bro
   await expect(page.getByText('Joined players · 2')).toBeVisible();
   await page.getByRole('button',{name:'Play',exact:true}).click();
   await expect(page).toHaveURL(/\/play\?code=TEST/);
+  const board=page.getByRole('img',{name:'Block Stack board',exact:true}),opponent=page.getByRole('img',{name:'Opponent Block Stack board'});
+  await waitForGameSurface(board);
+  await page.clock.pauseAt(Date.now());
   await expect(opponentPage.getByLabel('Block Stack controller')).toBeVisible();
   await opponentPage.clock.pauseAt(Date.now());
-  const board=page.getByRole('img',{name:'Block Stack board',exact:true}),opponent=page.getByRole('img',{name:'Opponent Block Stack board'});
-  await expect(board).toBeVisible();
   await expect(opponent).toBeVisible();
   expect(await gameTick(opponentPage)).toBeLessThan(96);
   await advanceToTick(opponentPage,96);
   await expect(board.locator('.filled')).not.toHaveCount(0);
-  await page.clock.pauseAt(Date.now());
   const spawnRow=await board.getAttribute('data-active-row');
   const initialTick=await gameTick(page);
   await advanceToTick(page,initialTick+((48-initialTick%48)%48||48));

@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { TestStepHelper } from "../helpers/test-step-helper";
 import { resetEmulators } from "../helpers/reset-emulators";
 import { advanceToTick, expectViewportFits } from "../helpers/deterministic-state";
+import { waitForGameSurface } from "../helpers/application-readiness";
 test.beforeEach(resetEmulators);
 test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
   page,
@@ -24,7 +25,7 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
   await page.getByRole("button", { name: /STAX/ }).click();
   await page.getByRole("button", { name: "Play", exact: true }).click();
   ramp = page.getByLabel("Stax ramp");
-  await expect(ramp).toBeVisible();
+  await waitForGameSurface(ramp);
   await expect(
     page.getByRole("button", { name: "Unmute game audio" }),
   ).toBeVisible();

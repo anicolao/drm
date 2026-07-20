@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
 import { resetEmulators } from '../helpers/reset-emulators';
 import { declareColorCureLoss } from '../helpers/firebase-fixtures';
+import { clickAndWaitForUrl } from '../helpers/application-readiness';
 test.beforeEach(resetEmulators);
 test('US-001: host creates and configures a real room', async ({ page }, testInfo) => {
   const tester = new TestStepHelper(page, testInfo); await page.goto('/');
@@ -34,8 +35,7 @@ test('US-001: host creates and configures a real room', async ({ page }, testInf
     { spec: 'Color Cure remains selected', check: async () => await expect(page.getByRole('button', { name: /COLOR CURE Dr\. Mario-style/ })).toHaveClass(/chosen/) },
     { spec: 'No match is represented', check: async () => await expect(page.getByText('Match in progress')).not.toBeVisible() }
   ]});
-  await page.getByRole('button', { name: 'Play', exact: true }).click();
-  await expect(page).toHaveURL(/\/play\?code=TEST$/);
+  await clickAndWaitForUrl(page, page.getByRole('button', { name: 'Play', exact: true }), /\/play\?code=TEST$/);
   await expect(page.getByLabel('Pill Bottle controller')).toBeVisible();
   await declareColorCureLoss(page);
   await expect(page.getByText('GAME OVER')).toBeVisible();
