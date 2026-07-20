@@ -287,7 +287,7 @@ export function createStaxController(
       suspended ||
       !ready ||
       !state ||
-      state.phase === "cleared" ||
+      state.phase === "cleared" ||state.phase==='lost'||
       lifecycle?.terminalPlayerIds.includes(playerId)
     )
       return;
@@ -296,7 +296,8 @@ export function createStaxController(
       tick = state.tick;
     }
     progress();
-    declareTerminal();
+    const nextPhase=(state as StaxState).phase;
+    if(nextPhase==='cleared'||nextPhase==='lost'){progress(true);publish();return}
     publish();
     frame = requestAnimationFrame(loop);
   };
@@ -380,9 +381,8 @@ export function createStaxController(
       applyPuzzle(state, input, start.seed);
       tick = state.tick;
       lastCommand = `${input.type} · tick ${tick}`;
-      if ((state as StaxState).phase === "cleared") {
+      if ((state as StaxState).phase === "cleared"||(state as StaxState).phase==='lost') {
         progress(true);
-        declareTerminal();
       }
       publish();
     },
@@ -420,6 +420,7 @@ export function createStaxController(
       outbox.destroy();
       void lease.release();
     },
+    finishPresentation(){declareTerminal()},
   };
 }
 

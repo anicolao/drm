@@ -48,3 +48,24 @@
 - [x] The previously placed tile remains rendered in its bin stack
 
 ---
+
+## The round-winning set settles visibly in the bin before its match effect begins
+
+![The round-winning set settles visibly in the bin before its match effect begins](./screenshots/004-stax-final-set.png)
+
+**Verifications:**
+- [x] The authoritative round is cleared but its presentation is still playing
+- [x] All three tiles in the final green set remain visible during the settle beat
+- [x] The round-complete overlay cannot cover the final set early
+
+---
+
+## Only after placement, settle, burst, and fall does Stax finalize the round
+
+![Only after placement, settle, burst, and fall does Stax finalize the round](./screenshots/005-stax-round-complete.png)
+
+**Verifications:**
+- [x] The complete final-set presentation ran before lifecycle finalization
+- [x] The next-round control appears after the scene finishes
+
+---
