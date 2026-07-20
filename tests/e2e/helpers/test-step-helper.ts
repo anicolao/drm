@@ -58,6 +58,11 @@ export class TestStepHelper {
             ));
         }
 
+        // A click that navigates can leave the pointer over an unrelated control
+        // on the next screen. Screenshots document the resting UI, so park it in
+        // a neutral corner before capturing to avoid accidental hover styling.
+        await this.page.mouse.move(0, 0);
+
         // 4. Capture & Verify (Zero-Pixel Tolerance)
         // This will check against the baseline in 'screenshots/{filename}'.
         // If the file doesn't exist, it will fail (unless --update-snapshots is used).
