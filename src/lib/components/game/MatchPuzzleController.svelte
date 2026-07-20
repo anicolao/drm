@@ -307,7 +307,8 @@
       </section>
       {:else}<button
         class="input-mode-toggle"
-        on:click={() => (gamepadActive = false)}>SHOW TOUCH CONTROLS</button
+        aria-label="Switch to touch controls"
+        on:click={() => (gamepadActive = false)}>⋯</button
       >{/if}<button class="restart" disabled={!actionEnabled} on:click={() => restart()}
       >RESTART · X</button>
   </main>{/if}
@@ -370,10 +371,18 @@
   }
   .input-mode-toggle {
     position: absolute;
-    left: 50%;
-    bottom: 0.5rem;
-    transform: translateX(-50%);
-    font-size: 0.5rem;
+    top: 0.55rem;
+    left: 0.55rem;
+    width: 1.15rem;
+    height: 1.15rem;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-size: 0.72rem;
+    opacity: 0.75;
+    line-height: 1;
   }
   .gamepad-mode .game :global(.quarry-shell) {
     width: min(58vw, 32dvh, 500px);
