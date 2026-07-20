@@ -13,7 +13,7 @@ test("US-008: shared Quarry Match display replays controller shots", async ({
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(
     page.getByRole("button", { name: "Play anonymously" }),
-  ).toBeEnabled({ timeout: 30000 });
+  ).toBeEnabled();
   await page.getByRole("button", { name: "Play anonymously" }).click();
   await page.getByRole("button", { name: "Create a room" }).click();
   const context = await browser.newContext({
@@ -23,19 +23,13 @@ test("US-008: shared Quarry Match display replays controller shots", async ({
   await controller.goto("/play?code=TEST");
   await controller.getByLabel("Player name").fill("Racer");
   await controller.getByRole("button", { name: "Join room" }).click();
-  await expect(page.getByText("Joined players · 2")).toBeVisible({
-    timeout: 10000,
-  });
+  await expect(page.getByText("Joined players · 2")).toBeVisible();
   await page.getByRole("button", { name: /QUARRY MATCH/ }).click();
   await page.getByRole("button", { name: "I am the TV" }).click();
-  await expect(page).toHaveURL(/\/cast\?code=TEST$/, { timeout: 10000 });
-  await expect(controller.getByLabel("Quarry Match controller")).toBeVisible({
-    timeout: 10000,
-  });
+  await expect(page).toHaveURL(/\/cast\?code=TEST$/);
+  await expect(controller.getByLabel("Quarry Match controller")).toBeVisible();
   const castBoard = page.getByLabel("Quarry Match board");
-  await expect(castBoard).toHaveAttribute("data-remaining", "60", {
-    timeout: 10000,
-  });
+  await expect(castBoard).toHaveAttribute("data-remaining", "60");
   const plan = await controller.evaluate(async () => {
     const game = (await (0, eval)(
       "import('/src/lib/game/quarry-match.ts')",
@@ -54,9 +48,7 @@ test("US-008: shared Quarry Match display replays controller shots", async ({
     }
     await controller.keyboard.press("ArrowUp");
   }
-  await expect(castBoard).toHaveAttribute("data-remaining", "36", {
-    timeout: 10000,
-  });
+  await expect(castBoard).toHaveAttribute("data-remaining", "36");
   await page.clock.pauseAt(Date.now());
   await controller.clock.pauseAt(Date.now());
   await tester.step("quarry-cast", {

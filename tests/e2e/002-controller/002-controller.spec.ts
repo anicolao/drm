@@ -1,17 +1,18 @@
 import { test, expect } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
 import { resetEmulators } from '../helpers/reset-emulators';
+import { advanceThroughTick, expectViewportFits, gameTick } from '../helpers/deterministic-state';
 test.beforeEach(resetEmulators);
 test('US-002: a second authenticated device joins the room', async ({ browser, page }, testInfo) => {
   test.setTimeout(120000);
-  await page.goto('/'); await page.getByLabel('Player name').fill('Alex'); await page.getByRole('button', { name: 'Continue' }).click(); await expect(page.getByRole('button', { name: 'Play anonymously' })).toBeEnabled({ timeout: 30000 }); await page.getByRole('button', { name: 'Play anonymously' }).click();
-  await expect(page.getByText('ANONYMOUS PLAYER READY')).toBeVisible({ timeout: 10000 });
-  await page.getByRole('button', { name: 'Create a room' }).click(); await expect(page).toHaveURL(/room\?code=TEST/, { timeout: 10000 });
+  await page.goto('/'); await page.getByLabel('Player name').fill('Alex'); await page.getByRole('button', { name: 'Continue' }).click(); await expect(page.getByRole('button', { name: 'Play anonymously' })).toBeEnabled(); await page.getByRole('button', { name: 'Play anonymously' }).click();
+  await expect(page.getByText('ANONYMOUS PLAYER READY')).toBeVisible();
+  await page.getByRole('button', { name: 'Create a room' }).click(); await expect(page).toHaveURL(/room\?code=TEST/);
   const context = await browser.newContext({ viewport: { width: 852, height: 393 } }); const playerPage = await context.newPage();
   const tester = new TestStepHelper(playerPage, testInfo); await playerPage.goto('/play?code=TEST');
-  await expect(playerPage.getByRole('heading', { name: 'WHAT SHOULD PLAYERS CALL YOU?' })).toBeVisible({ timeout: 10000 });
+  await expect(playerPage.getByRole('heading', { name: 'WHAT SHOULD PLAYERS CALL YOU?' })).toBeVisible();
   await playerPage.getByLabel('Player name').fill('Jo'); await playerPage.getByRole('button', { name: 'Join room' }).click();
-  await expect(playerPage.getByText('WAITING FOR HOST')).toBeVisible({ timeout: 10000 });
+  await expect(playerPage.getByText('WAITING FOR HOST')).toBeVisible();
   await playerPage.getByRole('button',{name:'Increase level'}).click();
   await playerPage.getByRole('button',{name:'Increase level'}).click();
   await tester.step('joined-room', { description: 'Second device joins and waits for a real start record', networkStatus: 'skip', verifications: [
@@ -20,52 +21,51 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
     { spec: 'UI waits for the host start record', check: async () => await expect(playerPage.getByText(/host gets the game ready/)).toBeVisible() },
     { spec: 'Waiting screen teaches keyboard and gamepad controls', check: async () => await expect(playerPage.getByText('A / R ↻')).toBeVisible() }
   ]});
-  await expect(page.getByText('Joined players · 2')).toBeVisible({ timeout: 10000 }); await expect(page.getByText('Jo', { exact: true })).toBeVisible();
+  await expect(page.getByText('Joined players · 2')).toBeVisible(); await expect(page.getByText('Jo', { exact: true })).toBeVisible();
   const returningContext = await browser.newContext({ viewport: { width: 393, height: 852 } });
   const returningPage = await returningContext.newPage();
   await returningPage.addInitScript(() => localStorage.setItem('drm-player-name', 'Sam'));
   await returningPage.goto('/room?code=TEST');
-  await expect(returningPage).toHaveURL(/\/play\?code=TEST$/, { timeout: 10000 });
-  await expect(returningPage.getByText('Joined room TEST')).toBeVisible({ timeout: 10000 });
+  await expect(returningPage).toHaveURL(/\/play\?code=TEST$/);
+  await expect(returningPage.getByText('Joined room TEST')).toBeVisible();
   await returningPage.keyboard.press('ArrowUp');
   await expect(returningPage.getByLabel('Starting level')).toContainText('1');
   await expect(returningPage.getByLabel('Player name')).not.toBeVisible();
-  await expect(page.getByText('Joined players · 3')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText('Joined players · 3')).toBeVisible();
   await expect(page.getByText('Sam', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /COLOR CURE Dr\. Mario-style/ }).click();
   await page.getByRole('button', { name: 'I am the TV' }).click();
-  await expect(page).toHaveURL(/\/cast\?code=TEST$/, { timeout: 10000 });
-  await expect(playerPage.getByLabel('Pill Bottle controller')).toBeVisible({ timeout: 10000 });
-  await expect(returningPage.getByLabel('Pill Bottle controller')).toBeVisible({ timeout: 10000 });
+  await expect(page).toHaveURL(/\/cast\?code=TEST$/);
+  await expect(playerPage.getByLabel('Pill Bottle controller')).toBeVisible();
+  await expect(returningPage.getByLabel('Pill Bottle controller')).toBeVisible();
   await returningPage.clock.pauseAt(Date.now());
-  await expect(playerPage.getByRole('button', { name: 'Move left' })).toBeEnabled({ timeout: 10000 });
+  await expect(playerPage.getByRole('button', { name: 'Move left' })).toBeEnabled();
   const duplicatePage = await context.newPage();
   await duplicatePage.goto('/play?code=TEST');
-  await expect(duplicatePage.getByText('This controller is already active in another tab.')).toBeVisible({ timeout: 10000 });
+  await expect(duplicatePage.getByText('This controller is already active in another tab.')).toBeVisible();
   await expect(duplicatePage.getByRole('button', { name: 'Take over on this device' })).toBeVisible();
   await duplicatePage.close();
   await playerPage.clock.pauseAt(Date.now());
   await returningPage.clock.runFor(4000);
   await playerPage.clock.runFor(4000);
-  const controllerTick = async (controller: typeof playerPage) => Number((await controller.locator('.tick').textContent())?.replace('tick ', ''));
   // Replay both clients to an absolute game tick before recording the drop.
   // The resulting bottle state is independent of controller mount speed.
   for (const controller of [playerPage, returningPage]) {
-    while (await controllerTick(controller) < 480) await controller.clock.runFor(100);
+    await advanceThroughTick(controller, 480);
   }
-  const samCommandTick = await controllerTick(returningPage);
+  const samCommandTick = await gameTick(returningPage);
   const initialSamPill = await returningPage.getByLabel('Pill bottle', { exact: true }).getAttribute('data-active-pill-id');
   await returningPage.getByRole('button', { name: 'Hard drop' }).dispatchEvent('pointerdown', { pointerId: 4 });
   await returningPage.clock.runFor(100);
   await expect(returningPage.getByLabel('Pill bottle', { exact: true })).not.toHaveAttribute('data-active-pill-id', initialSamPill!);
   const fixedSamPreview = await returningPage.getByLabel('Pill bottle', { exact: true }).getAttribute('data-next-colors');
   const replayTarget = samCommandTick + 6;
-  while (await controllerTick(playerPage) < replayTarget) await playerPage.clock.runFor(16);
-  await expect(playerPage.getByLabel('Sam opponent bottle')).toHaveAttribute('data-next-colors', fixedSamPreview!, { timeout: 10000 });
+  await advanceThroughTick(playerPage, replayTarget);
+  await expect(playerPage.getByLabel('Sam opponent bottle')).toHaveAttribute('data-next-colors', fixedSamPreview!);
   await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-cell-count', '128');
   await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '15');
   await expect(returningPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '10');
-  await expect(playerPage.getByLabel('Sam opponent bottle')).toBeVisible({ timeout: 10000 });
+  await expect(playerPage.getByLabel('Sam opponent bottle')).toBeVisible();
   await page.getByRole('button', { name: 'Audio settings' }).click();
   await expect(page.getByRole('region', { name: 'Audio settings' })).toBeVisible();
   await page.getByLabel('Music volume').fill('25');
@@ -81,29 +81,29 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await expect(page.getByRole('button', { name: 'Unmute game audio' })).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem('drm-audio-muted'))).toBe('true');
   await page.getByRole('button', { name: 'Unmute game audio' }).click();
-  await expect.poll(() => playerPage.evaluate(() => ({ width: document.documentElement.scrollWidth <= innerWidth, height: document.documentElement.scrollHeight <= innerHeight }))).toEqual({ width: true, height: true });
-  await expect(page.getByRole('heading', { name: 'Jo' })).toBeVisible({ timeout: 10000 });
+  await expectViewportFits(playerPage);
+  await expect(page.getByRole('heading', { name: 'Jo' })).toBeVisible();
   await expect(page.getByLabel('Pill bottle', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Replay hash mismatch')).not.toBeVisible();
-  await expect.poll(async () => Number((await playerPage.locator('.tick').textContent())?.replace('tick ', ''))).toBeGreaterThan(0);
+  await expect(playerPage.locator('.tick')).toHaveText(/tick [1-9]\d*/);
   await playerPage.getByRole('button', { name: 'Move left' }).dispatchEvent('pointerdown', { pointerId: 1 });
-  await expect(playerPage.getByText(/input\/move · tick/)).toBeVisible({ timeout: 10000 });
+  await expect(playerPage.getByText(/input\/move · tick/)).toBeVisible();
   await playerPage.getByRole('button', { name: 'Hard drop' }).dispatchEvent('pointerdown', { pointerId: 2 });
-  await expect(playerPage.getByText(/input\/hard-drop · tick/)).toBeVisible({ timeout: 10000 });
+  await expect(playerPage.getByText(/input\/hard-drop · tick/)).toBeVisible();
   await playerPage.getByRole('button', { name: 'Accelerate down' }).dispatchEvent('pointerdown', { pointerId: 3 });
   await playerPage.getByRole('button', { name: 'Accelerate down' }).dispatchEvent('pointerup', { pointerId: 3 });
-  await expect(playerPage.getByText(/input\/soft-drop-end · tick/)).toBeVisible({ timeout: 10000 });
+  await expect(playerPage.getByText(/input\/soft-drop-end · tick/)).toBeVisible();
   await playerPage.keyboard.press('r');
-  await expect(playerPage.getByText(/input\/rotate · tick/)).toBeVisible({ timeout: 10000 });
+  await expect(playerPage.getByText(/input\/rotate · tick/)).toBeVisible();
   await playerPage.keyboard.press('t');
   await playerPage.keyboard.press('ArrowLeft');
-  await expect(playerPage.getByText(/input\/move · tick/)).toBeVisible({ timeout: 10000 });
+  await expect(playerPage.getByText(/input\/move · tick/)).toBeVisible();
   await playerPage.keyboard.down('ArrowDown');
-  await expect(playerPage.getByText(/input\/soft-drop-start · tick/)).toBeVisible({ timeout: 10000 });
+  await expect(playerPage.getByText(/input\/soft-drop-start · tick/)).toBeVisible();
   await playerPage.keyboard.up('ArrowDown');
-  await expect(playerPage.getByText(/input\/soft-drop-end · tick/)).toBeVisible({ timeout: 10000 });
+  await expect(playerPage.getByText(/input\/soft-drop-end · tick/)).toBeVisible();
   await playerPage.keyboard.press('ArrowUp');
-  await expect(playerPage.getByText(/input\/hard-drop · tick/)).toBeVisible({ timeout: 10000 });
+  await expect(playerPage.getByText(/input\/hard-drop · tick/)).toBeVisible();
   await playerPage.locator('.tick').evaluate((element: HTMLElement) => { element.style.visibility = 'hidden'; });
   await tester.step('landscape-controller', { description: 'Landscape controller records tick-tagged input', networkStatus: 'skip', verifications: [
     { spec: 'D-pad exposes left, right, accelerate, and hard drop', check: async () => { await expect(playerPage.getByRole('button', { name: 'Move left' })).toBeVisible(); await expect(playerPage.getByRole('button', { name: 'Move right' })).toBeVisible(); await expect(playerPage.getByRole('button', { name: 'Accelerate down' })).toBeVisible(); await expect(playerPage.getByRole('button', { name: 'Hard drop' })).toBeVisible(); } },
@@ -116,7 +116,7 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
     { spec: 'The local bottle remains visible in portrait', check: async () => await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toBeVisible() },
     { spec: 'Movement and rotation controls remain available', check: async () => { await expect(playerPage.getByRole('button', { name: 'Move left' })).toBeVisible(); await expect(playerPage.getByRole('button', { name: 'Rotate clockwise' })).toBeVisible(); } },
     { spec: 'A compact replay-derived opponent bottle is visible', check: async () => await expect(playerPage.getByLabel('Sam opponent bottle')).toBeVisible() },
-    { spec: 'The portrait controller fits the viewport', check: async () => await expect.poll(() => playerPage.evaluate(() => ({ width: document.documentElement.scrollWidth <= innerWidth, height: document.documentElement.scrollHeight <= innerHeight }))).toEqual({ width: true, height: true }) }
+    { spec: 'The portrait controller fits the viewport', check: async () => await expectViewportFits(playerPage) }
   ]});
   await playerPage.clock.resume();
   await returningPage.clock.resume();
@@ -131,19 +131,19 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await fetch(`http://127.0.0.1:9000/games/${gameId}/terminals/${playerIds[0]}.json?ns=drm-e2e`, {
     method: 'PUT', headers: { authorization: 'Bearer owner', 'content-type': 'application/json' }, body: JSON.stringify({ type: 'player/terminal', playerId: playerIds[0], tick: 5, result: 'lost', stateHash: 'pb3-00000000', serverTime: Date.now() })
   });
-  await expect(playerPage.getByRole('button', { name: 'NEXT LEVEL' })).toBeVisible({ timeout: 10000 });
-  await expect(returningPage.getByRole('button', { name: 'NEXT LEVEL' })).toBeVisible({ timeout: 10000 });
+  await expect(playerPage.getByRole('button', { name: 'NEXT LEVEL' })).toBeVisible();
+  await expect(returningPage.getByRole('button', { name: 'NEXT LEVEL' })).toBeVisible();
   await playerPage.evaluate(()=>{const pad={id:'E2E gamepad',connected:true,buttons:Array.from({length:16},()=>({pressed:false})),axes:[0,0]};(window as typeof window&{e2ePad?:typeof pad}).e2ePad=pad;Object.defineProperty(navigator,'getGamepads',{configurable:true,value:()=>[pad]})});
   await playerPage.evaluate(()=>{(window as typeof window&{e2ePad:{buttons:Array<{pressed:boolean}>}}).e2ePad.buttons[12].pressed=true});
   await expect(playerPage.getByLabel('Starting level')).toContainText('4');
   await playerPage.evaluate(()=>{const pad=(window as typeof window&{e2ePad:{buttons:Array<{pressed:boolean}>}}).e2ePad;pad.buttons[12].pressed=false;pad.buttons[13].pressed=true});
   await expect(playerPage.getByLabel('Starting level')).toContainText('3');
   await playerPage.evaluate(()=>{const pad=(window as typeof window&{e2ePad:{buttons:Array<{pressed:boolean}>}}).e2ePad;pad.buttons[13].pressed=false;pad.buttons[5].pressed=true});
-  await expect(playerPage.getByRole('button', { name: 'NEXT LEVEL' })).toBeDisabled({timeout:10000});
+  await expect(playerPage.getByRole('button', { name: 'NEXT LEVEL' })).toBeDisabled();
   await playerPage.evaluate(()=>{(window as typeof window&{e2ePad:{buttons:Array<{pressed:boolean}>}}).e2ePad.buttons[5].pressed=false});
   await returningPage.getByRole('button', { name: 'NEXT LEVEL' }).click();
-  await expect(playerPage.getByRole('button', { name: 'NEXT LEVEL' })).not.toBeVisible({ timeout: 10000 });
-  await expect(returningPage.getByRole('button', { name: 'NEXT LEVEL' })).not.toBeVisible({ timeout: 10000 });
+  await expect(playerPage.getByRole('button', { name: 'NEXT LEVEL' })).not.toBeVisible();
+  await expect(returningPage.getByRole('button', { name: 'NEXT LEVEL' })).not.toBeVisible();
   await tester.step('both-ready', { description: 'Both ready controllers enter the next round regardless of click order', networkStatus: 'skip', verifications: [
     { spec: 'Each controller enters at its independently selected next level', check: async () => {await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '20');await expect(returningPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '15')} },
     { spec: 'D-pad changes level and any non-directional gamepad button activates the default action', check: async () => await expect(playerPage.getByRole('button', { name: 'NEXT LEVEL' })).not.toBeVisible() },
@@ -156,12 +156,12 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await fetch(`http://127.0.0.1:9000/games/${nextGameId}/terminals/${playerIds[1]}.json?ns=drm-e2e`, {
     method: 'PUT', headers: { authorization: 'Bearer owner', 'content-type': 'application/json' }, body: JSON.stringify({ type: 'player/terminal', playerId: playerIds[1], tick: 5, result: 'lost', stateHash: 'pb3-00000000', serverTime: Date.now() })
   });
-  await expect(playerPage.getByRole('button', { name: 'NEXT LEVEL' })).toBeVisible({ timeout: 10000 });
-  await expect(returningPage.getByRole('button', { name: 'NEXT LEVEL' })).toBeVisible({ timeout: 10000 });
+  await expect(playerPage.getByRole('button', { name: 'NEXT LEVEL' })).toBeVisible();
+  await expect(returningPage.getByRole('button', { name: 'NEXT LEVEL' })).toBeVisible();
   await returningPage.getByRole('button', { name: 'NEXT LEVEL' }).click();
   await playerPage.getByRole('button', { name: 'NEXT LEVEL' }).click();
-  await expect(playerPage.getByRole('button', { name: 'NEXT LEVEL' })).not.toBeVisible({ timeout: 10000 });
-  await expect(returningPage.getByRole('button', { name: 'NEXT LEVEL' })).not.toBeVisible({ timeout: 10000 });
+  await expect(playerPage.getByRole('button', { name: 'NEXT LEVEL' })).not.toBeVisible();
+  await expect(returningPage.getByRole('button', { name: 'NEXT LEVEL' })).not.toBeVisible();
   await tester.step('reverse-ready-order', { description: 'Reversing ready order starts the final round without a permission race', networkStatus: 'skip', verifications: [
     { spec: 'Both controllers reach round three at independent levels', check: async () => { await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '25'); await expect(returningPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '20'); } },
     { spec: 'Survivor points accumulate across rounds', check: async () => { await expect(playerPage.getByLabel('Scores')).toContainText('Jo 15'); await expect(playerPage.getByLabel('Scores')).toContainText('Sam 15'); } },
@@ -173,7 +173,7 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await fetch(`http://127.0.0.1:9000/games/${finalGameId}/terminals/${playerIds[0]}.json?ns=drm-e2e`,{
     method:'PUT',headers:{authorization:'Bearer owner','content-type':'application/json'},body:JSON.stringify({type:'player/terminal',playerId:playerIds[0],tick:5,result:'lost',stateHash:'pb3-00000000',serverTime:Date.now()})
   });
-  await expect(playerPage.getByRole('heading',{name:'MATCH COMPLETE'})).toBeVisible({timeout:10000});
+  await expect(playerPage.getByRole('heading',{name:'MATCH COMPLETE'})).toBeVisible();
   await tester.step('final-standings',{description:'Match complete centers the final standings for every player',networkStatus:'skip',verifications:[
     {spec:'Final standings appear directly under Match Complete',check:async()=>await expect(playerPage.getByLabel('Final standings')).toBeVisible()},
     {spec:'Players are ordered by accumulated points',check:async()=>{const rows=playerPage.getByLabel('Final standings').locator('li');await expect(rows.nth(0)).toContainText('Sam');await expect(rows.nth(0)).toContainText('40');await expect(rows.nth(1)).toContainText('Jo');await expect(rows.nth(1)).toContainText('15')}},

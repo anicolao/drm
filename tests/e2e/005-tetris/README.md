@@ -21,7 +21,7 @@
 **Verifications:**
 - [x] A real gamepad action switches the controller to gamepad mode
 - [x] Touch movement and rotation controls are hidden
-- [x] The local board grows while the compact opponent remains visible
+- [x] The local board keeps its size while the compact opponent remains visible
 - [x] The player can explicitly restore touch controls
 
 ---

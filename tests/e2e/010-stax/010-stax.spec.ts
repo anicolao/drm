@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { TestStepHelper } from "../helpers/test-step-helper";
 import { resetEmulators } from "../helpers/reset-emulators";
+import { advanceToTick, expectViewportFits } from "../helpers/deterministic-state";
 test.beforeEach(resetEmulators);
 test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
   page,
@@ -8,31 +9,14 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
   test.setTimeout(180000);
   const tester = new TestStepHelper(page, testInfo);
   let ramp: any;
-  const until = async (attribute: string, value: string) => {
-    for (let attempt = 0; attempt < 200; attempt++) {
-      if ((await ramp.getAttribute(attribute)) === value) return;
-      await page.clock.runFor(100);
-    }
-    throw new Error(`Timed out waiting for ${attribute}=${value}`);
-  };
-  const untilAtLeast = async (attribute: string, minimum: number) => {
-    for (let attempt = 0; attempt < 200; attempt++) {
-      if (Number(await ramp.getAttribute(attribute)) >= minimum) return;
-      await page.clock.runFor(100);
-    }
-    throw new Error(`Timed out waiting for ${attribute}>=${minimum}`);
-  };
   const tick = async () => Number(await ramp.getAttribute("data-tick"));
-  const advanceTo = async (target: number) => {
-    while ((await tick()) < target) await page.clock.runFor(16);
-  };
   await page.goto("/");
   await page.evaluate(() => localStorage.setItem("drm-audio-muted", "true"));
   await page.getByLabel("Player name").fill("Sasha");
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(
     page.getByRole("button", { name: "Play anonymously" }),
-  ).toBeEnabled({ timeout: 30000 });
+  ).toBeEnabled();
   await page.getByRole("button", { name: "Play anonymously" }).click();
   await expect(page.getByText("ANONYMOUS PLAYER READY")).toBeVisible();
   await page.getByRole("button", { name: "Create a room" }).click();
@@ -40,7 +24,7 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
   await page.getByRole("button", { name: /STAX/ }).click();
   await page.getByRole("button", { name: "Play", exact: true }).click();
   ramp = page.getByLabel("Stax ramp");
-  await expect(ramp).toBeVisible({ timeout: 15000 });
+  await expect(ramp).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Unmute game audio" }),
   ).toBeVisible();
@@ -48,7 +32,8 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
     name: "Inspect scene in orbit view",
   });
   await page.clock.pauseAt(Date.now());
-  await until("data-phase", "playing");
+  await page.clock.runFor(3_000);
+  await expect(ramp).toHaveAttribute("data-phase", "playing");
   await page.keyboard.press("r");
   await expect(ramp).toHaveAttribute("data-phase", "countdown");
   const restartTick = await tick();
@@ -104,16 +89,7 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
       },
       {
         spec: "The complete controller fits a phone viewport",
-        check: async () =>
-          await expect
-            .poll(() =>
-              page.evaluate(
-                () =>
-                  document.documentElement.scrollWidth <= innerWidth &&
-                  document.documentElement.scrollHeight <= innerHeight,
-              ),
-            )
-            .toBe(true),
+        check: async () => await expectViewportFits(page),
       },
     ],
   });
@@ -124,12 +100,12 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
   await expect(page.getByRole("button", { name: /Catch lane/ })).toHaveCount(0);
   await page.getByRole("button", { name: "Exit orbit view" }).click();
   await expect(page.getByRole("button", { name: /Catch lane/ })).toHaveCount(5);
-  await advanceTo(restartTick + 420);
+  await advanceToTick(page, restartTick + 420, ramp);
   await expect(ramp).toHaveAttribute("data-phase", "playing");
   await expect(ramp).toHaveAttribute("data-ramp-count", "1");
   const progress = Number(await ramp.getAttribute("data-leading-progress")),
     roll = Number(await ramp.getAttribute("data-leading-roll"));
-  await advanceTo(restartTick + 426);
+  await advanceToTick(page, restartTick + 426, ramp);
   expect(
     Number(await ramp.getAttribute("data-leading-progress")),
   ).toBeGreaterThan(progress);
@@ -138,7 +114,7 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
   );
   await page.keyboard.press("ArrowLeft");
   await expect(ramp).toHaveAttribute("data-paddle-lane", "1");
-  await advanceTo(restartTick + 966);
+  await advanceToTick(page, restartTick + 966, ramp);
   await expect(ramp).toHaveAttribute("data-paddle-count", "1");
   await tester.step("stax-catch", {
     description:
@@ -172,7 +148,7 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
   });
   await page.keyboard.press("Space");
   await expect(ramp).toHaveAttribute("data-column-counts", "0,1,0,0,0");
-  await advanceTo(restartTick + 972);
+  await advanceToTick(page, restartTick + 972, ramp);
   await tester.step("stax-place", {
     description:
       "The tile flips forward, then drops vertically into the lower bin",
@@ -215,9 +191,11 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
   for (let move = 0; move < Math.abs(target - current); move++)
     await page.keyboard.press(key);
   await expect(ramp).toHaveAttribute("data-paddle-lane", String(target));
-  await untilAtLeast("data-misses", 1);
-  while (Number(await ramp.getAttribute("data-visual-progress")) < 22)
-    await page.clock.runFor(16);
+  const beforeMissTick = await tick();
+  const remainingTravel = 540 - Number(await ramp.getAttribute("data-leading-progress"));
+  await advanceToTick(page, beforeMissTick + remainingTravel, ramp);
+  await expect(ramp).toHaveAttribute("data-misses", "1");
+  await advanceToTick(page, beforeMissTick + remainingTravel + 22, ramp);
   await tester.step("stax-miss", {
     description: "A missed tile tumbles beyond the ramp and falls out of sight",
     networkStatus: "skip",

@@ -10,9 +10,9 @@ test('US-006: shared Block Stack display replays controller gravity', async ({ b
   await page.goto('/');
   await page.getByLabel('Player name').fill('Host');
   await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(page.getByRole('button', { name: 'Play anonymously' })).toBeEnabled({ timeout: 30_000 });
+  await expect(page.getByRole('button', { name: 'Play anonymously' })).toBeEnabled();
   await page.getByRole('button', { name: 'Play anonymously' }).click();
-  await expect(page.getByText('ANONYMOUS PLAYER READY')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('ANONYMOUS PLAYER READY')).toBeVisible();
   await page.getByRole('button', { name: 'Create a room' }).click();
 
   const controllerContext = await browser.newContext({ viewport: { width: 393, height: 852 } });
@@ -20,17 +20,17 @@ test('US-006: shared Block Stack display replays controller gravity', async ({ b
   await controller.goto('/play?code=TEST');
   await controller.getByLabel('Player name').fill('Player');
   await controller.getByRole('button', { name: 'Join room' }).click();
-  await expect(page.getByText('Joined players · 2')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Joined players · 2')).toBeVisible();
 
   await page.getByRole('button', { name: 'I am the TV' }).click();
-  await expect(page).toHaveURL(/\/cast\?code=TEST$/, { timeout: 10_000 });
-  await expect(controller.getByLabel('Block Stack controller')).toBeVisible({ timeout: 10_000 });
+  await expect(page).toHaveURL(/\/cast\?code=TEST$/);
+  await expect(controller.getByLabel('Block Stack controller')).toBeVisible();
   const castBoard = page.getByRole('img', { name: 'Block Stack board' });
-  await expect(castBoard).toBeVisible({ timeout: 10_000 });
+  await expect(castBoard).toBeVisible();
   const filledPositions = () => castBoard.locator('i').evaluateAll((cells) => cells.flatMap((cell, index) => cell.classList.contains('filled') ? [index] : []));
   const initialPositions = await filledPositions();
-  await expect.poll(filledPositions, { timeout: 3_000 }).not.toEqual(initialPositions);
-  await expect(castBoard).toHaveAttribute('data-active-row', '3', { timeout: 5_000 });
+  await expect(castBoard).toHaveAttribute('data-active-row', '3');
+  expect(await filledPositions()).not.toEqual(initialPositions);
   await castBoard.evaluate((board) => board.replaceWith(board.cloneNode(true)));
 
   await tester.step('cast-gravity', {

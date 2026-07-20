@@ -42,24 +42,20 @@ export class TestStepHelper {
         // 3. Stabilization: Wait for Network Sync (if present)
         const networkStatus = this.page.locator('button[data-status]:visible');
         const expectedStatus = options.networkStatus ?? 'synced';
-        if (expectedStatus !== 'skip') {
-            const statusVisible = await networkStatus.first()
-                .waitFor({ state: 'visible', timeout: 5000 })
-                .then(() => true)
-                .catch(() => false);
-            if (statusVisible) {
-                await expect(networkStatus.first()).toHaveAttribute('data-status', expectedStatus, { timeout: 30000 });
-            }
+        if (expectedStatus !== 'skip' && await networkStatus.count() > 0) {
+            await expect(networkStatus.first()).toHaveAttribute('data-status', expectedStatus);
         }
 
         const toggleIcons = this.page.locator('img[alt="Toggle Details"]');
         if (await toggleIcons.count() > 0) {
-            await this.page.waitForFunction(() => {
-                const icons = Array.from(
-                    document.querySelectorAll<HTMLImageElement>('img[alt="Toggle Details"]')
-                );
-                return icons.every((img) => img.complete && img.naturalWidth > 0);
-            }, { timeout: 30000 });
+            await toggleIcons.evaluateAll((icons: HTMLImageElement[]) => Promise.all(
+                icons.map((icon) => icon.complete && icon.naturalWidth > 0
+                    ? Promise.resolve()
+                    : new Promise<void>((resolve, reject) => {
+                        icon.addEventListener('load', () => resolve(), { once: true });
+                        icon.addEventListener('error', () => reject(new Error(`Failed to load ${icon.src}`)), { once: true });
+                    }))
+            ));
         }
 
         // 4. Capture & Verify (Zero-Pixel Tolerance)
