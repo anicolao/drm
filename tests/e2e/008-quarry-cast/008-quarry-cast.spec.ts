@@ -57,6 +57,8 @@ test("US-008: shared Quarry Match display replays controller shots", async ({
   await expect(castBoard).toHaveAttribute("data-remaining", "36");
   await page.clock.pauseAt(Date.now());
   await finishStagedPresentation(page, castBoard, waveDuration);
+  // Lag is time-derived and covered independently; keep this replay snapshot deterministic.
+  await page.addStyleTag({ content: ".behind { display: none !important; }" });
   await tester.step("quarry-cast", {
     description:
       "The TV reconstructs Quarry Match shots and owns shared-display audio",
