@@ -3,6 +3,61 @@ import { TestStepHelper } from "../helpers/test-step-helper";
 import { resetEmulators } from "../helpers/reset-emulators";
 import { advanceToTick, advanceVisualTo, expectViewportFits } from "../helpers/deterministic-state";
 import { waitForGameSurface } from "../helpers/application-readiness";
+import {
+  advanceStax,
+  applyStaxInput,
+  createStax,
+  type StaxColor,
+} from "../../../src/lib/game/stax";
+
+type PlannedAction = { tick: number; key: "ArrowLeft" | "ArrowRight" | "Space" };
+
+function finalSetPlan(): PlannedAction[] {
+  const state = createStax(123456789);
+  const colorColumns: Record<StaxColor, number> = {
+    cyan: 0,
+    pink: 1,
+    yellow: 2,
+    green: 3,
+    purple: 4,
+    orange: 4,
+    blue: 4,
+    wild: 4,
+  };
+  const actions: PlannedAction[] = [];
+  let paddleCount = 0;
+  while (state.phase !== "cleared" && state.phase !== "lost") {
+    if (state.phase === "playing") {
+      const arriving = [...state.ramp]
+        .filter((tile) => !tile.returning)
+        .sort((a, b) => b.progress - a.progress)[0];
+      if (arriving?.progress === 539) {
+        while (state.paddleLane !== arriving.lane) {
+          const dx = arriving.lane > state.paddleLane ? 1 : -1;
+          applyStaxInput(state, { type: "input/move", payload: { dx } });
+          actions.push({ tick: state.tick, key: dx < 0 ? "ArrowLeft" : "ArrowRight" });
+        }
+      }
+    }
+    advanceStax(state);
+    if (state.paddle.length > paddleCount) {
+      const held = state.paddle.at(-1)!;
+      const target = colorColumns[held.color];
+      while (state.paddleLane !== target) {
+        const dx = target > state.paddleLane ? 1 : -1;
+        applyStaxInput(state, { type: "input/move", payload: { dx } });
+        actions.push({ tick: state.tick, key: dx < 0 ? "ArrowLeft" : "ArrowRight" });
+      }
+      applyStaxInput(state, { type: "input/place", payload: {} });
+      if ((state.phase as string) === "cleared") break;
+      actions.push({ tick: state.tick, key: "Space" });
+    }
+    paddleCount = state.paddle.length;
+  }
+  if (state.phase !== "cleared") throw new Error("Seeded Stax final-set plan did not clear.");
+  return actions;
+}
+
 test.beforeEach(resetEmulators);
 test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
   page,
@@ -232,5 +287,61 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
   });
   await page.keyboard.press("r");
   await expect(ramp).toHaveAttribute("data-phase", "countdown");
+  const finalRestartTick = await tick();
+  for (const action of finalSetPlan()) {
+    await advanceToTick(page, finalRestartTick + action.tick, ramp);
+    await page.keyboard.press(action.key);
+  }
+  await expect(ramp).toHaveAttribute("data-column-counts", "0,0,1,2,0");
+  await expect(ramp).toHaveAttribute("data-paddle-count", "1");
+  await page.keyboard.press("Space");
+  await expect(ramp).toHaveAttribute("data-phase", "cleared");
+  await expect(ramp).toHaveAttribute("data-terminal-presentation", "playing");
+  await expect(page.getByText("ROUND COMPLETE")).not.toBeVisible();
+  await page.clock.runFor(900);
+  await expect(ramp).toHaveAttribute("data-resolution-phase", "settled");
+  await tester.step("stax-final-set", {
+    description:
+      "The round-winning set settles visibly in the bin before its match effect begins",
+    networkStatus: "skip",
+    verifications: [
+      {
+        spec: "The authoritative round is cleared but its presentation is still playing",
+        check: async () => {
+          await expect(ramp).toHaveAttribute("data-phase", "cleared");
+          await expect(ramp).toHaveAttribute("data-terminal-presentation", "playing");
+        },
+      },
+      {
+        spec: "All three tiles in the final green set remain visible during the settle beat",
+        check: async () => {
+          await expect(ramp).toHaveAttribute("data-resolution-phase", "settled");
+          await expect(ramp).toHaveAttribute("data-rendered-board-count", "4");
+        },
+      },
+      {
+        spec: "The round-complete overlay cannot cover the final set early",
+        check: async () => await expect(page.getByText("ROUND COMPLETE")).not.toBeVisible(),
+      },
+    ],
+  });
+  await page.clock.runFor(1_500);
+  await expect(ramp).toHaveAttribute("data-terminal-presentation", "complete");
+  await tester.step("stax-round-complete", {
+    description:
+      "Only after placement, settle, burst, and fall does Stax finalize the round",
+    networkStatus: "skip",
+    verifications: [
+      {
+        spec: "The complete final-set presentation ran before lifecycle finalization",
+        check: async () =>
+          await expect(ramp).toHaveAttribute("data-terminal-presentation", "complete"),
+      },
+      {
+        spec: "The next-round control appears after the scene finishes",
+        check: async () => await expect(page.getByRole("button", { name: "NEXT ROUND" })).toBeEnabled(),
+      },
+    ],
+  });
   tester.generateDocs();
 });
