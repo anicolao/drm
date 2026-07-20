@@ -91,7 +91,7 @@
       } else if (e.key === "ArrowUp" || e.key === " ") {
         e.preventDefault();
         send({ type: "input/fire", payload: {} });
-      } else if (e.key.toLowerCase() === "r") {
+      } else if (e.key.toLowerCase() === "r" || e.key.toLowerCase() === "x") {
         e.preventDefault();
         restart();
       }
@@ -201,7 +201,7 @@
     gamepadName = active?.id ?? "";
     gamepadActive = gamepadLayoutMode(gamepadActive, Boolean(active), actions);
     if (movementEnabled) {
-      if (restartButton.sample(pads)) restart(false);
+      if (restartButton.sample(pads)) restart();
       for (const action of actions) gamepadInput(action);
     } else {
       gamepad.reset();
@@ -209,12 +209,8 @@
     }
     gamepadFrame = requestAnimationFrame(poll);
   }
-  function restart(confirmFirst = true) {
-    if (
-      !confirmFirst ||
-      confirm("Restart this puzzle? Your opponents will continue racing.")
-    )
-      send({ type: "input/restart", payload: {} });
+  function restart() {
+    send({ type: "input/restart", payload: {} });
   }
   async function chooseLevel(level: number) {
     selectedLevel = level;
