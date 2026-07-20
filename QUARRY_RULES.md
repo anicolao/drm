@@ -1,4 +1,4 @@
-# Quarry Match (`quarry-match/1`)
+# Quarry Match (`quarry-match/2`)
 
 ## Identity
 
@@ -18,18 +18,23 @@ horizontal cave-ins. Those cave-ins cascade and rain stones onto opponents.
 
 ## Cave-ins and cascades
 
-After every accepted bottom shot, the columns settle. The game then scans every
-row except the bottom firing row.
+After every accepted bottom shot, the fired column shifts down. That column is
+the cause of the first cave-in stage; unrelated matches elsewhere on the board
+do not clear.
 
-- Exactly three horizontally adjacent equal stones form a cave-in and clear at
-  once. A run of four or five clears only its leftmost three stones, leaving the
-  remaining one or two in place.
-- A line that already existed before the shot is not a cave-in: the shot must
-  bring the stones into alignment.
-- Columns settle after the simultaneous clear and the board is scanned again.
-  Newly formed lines also clear. This repeats until the quarry is stable.
-- Each exact group of three is one cascade group. Left-to-right selection is
-  frozen and deterministic so the engine, solver, controller, and cast agree.
+- Every horizontal group of three that intersects the fired column clears in
+  the first stage. Groups at different heights clear simultaneously.
+- A run of four or five still clears exactly three stones. The cleared group
+  must include the moved column and is centered on it when possible; at an edge
+  it clamps to the nearest valid group of three.
+- A line that already existed before a column moved is not a cave-in: the move
+  must bring the stones into alignment.
+- After a stage clears simultaneously, only the columns containing cleared
+  stones settle. Newly formed groups intersecting those moved columns form the
+  next stage. The engine finishes and displays that stage before considering
+  the following one, repeating until the quarry is stable.
+- Each exact group of three is one cascade group. Stage and cell selection are
+  frozen and deterministic so the solver, controller, replay, and cast agree.
 - Cascades do not alter the partially completed direct-shot group.
 
 ## Rain attacks
@@ -64,9 +69,9 @@ Cast and opponent views replay those records at 60 ticks per second and rewind
 when late commands arrive.
 
 The three held stones use the same shape, color, highlight, and depth treatment
-as stones in the quarry. Newly cleared cascade cells burst visibly, and every
-cascade event plays the sharp, non-melodic **Prismatic Descent Combo** impact
-over the running score on the device that owns game audio. The gamepad X button restarts the
+as stones in the quarry. Each cascade stage bursts and settles before the next
+stage appears, with a separate sharp, non-melodic **Prismatic Descent Combo**
+impact on the device that owns game audio. The gamepad X button restarts the
 current puzzle once per press; the visible Restart control remains available for
 touch and mouse input. Restart also plays the discordant **Prismatic Descent
 Reset** cue through the device that owns game audio.

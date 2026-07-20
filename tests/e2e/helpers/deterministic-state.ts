@@ -68,6 +68,19 @@ export async function advanceFrames(page: Page, frames: number): Promise<void> {
   for (let frame = 0; frame < frames; frame++) await page.clock.runFor(16);
 }
 
+/** Finish a finite, explicitly staged RAF presentation from its current stage. */
+export async function finishStagedPresentation(
+  page: Page,
+  surface: Locator,
+  stageDurationMs: number,
+): Promise<void> {
+  if ((await surface.getAttribute('data-terminal-presentation')) !== 'playing') return;
+  const stages = Number(await surface.getAttribute('data-cascade-stages'));
+  if (!Number.isInteger(stages) || stages < 1) throw new Error(`Invalid presentation stage count: ${stages}`);
+  await page.clock.runFor(stages * stageDurationMs + 16);
+  await expect(surface).toHaveAttribute('data-terminal-presentation', 'complete');
+}
+
 /** Drive a named visual transition to an exact frame from its observed start. */
 export async function advanceVisualTo(
   page: Page,

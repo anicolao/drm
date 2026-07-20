@@ -34,7 +34,7 @@ export function generateCanopy(seed:number,level:number){
   for(const group of [...plan].reverse())for(const column of group.columns)columns[column].push(group.color);
   return columns;
 }
-export function createCanopy(seed:number,level=0):CanopyState{return{rulesVersion:'crystal-canopy/1',tick:0,level,columns:generateCanopy(seed,level),cursor:2,groupColor:null,groupCount:0,removed:0,total:canopyStoneCount(level),groups:0,restarts:0,cascades:0,rainReceived:0,phase:'playing'}}
+export function createCanopy(seed:number,level=0):CanopyState{return{rulesVersion:'crystal-canopy/1',tick:0,level,columns:generateCanopy(seed,level),cursor:2,groupColor:null,groupCount:0,removed:0,total:canopyStoneCount(level),groups:0,restarts:0,cascades:0,rainReceived:0,phase:'playing',lastCascadeCells:[],lastCascadeWaves:[]}}
 export function advanceCanopy(state:CanopyState){if(state.phase==='playing')state.tick++}
 export function canFireCanopy(state:CanopyState){const color=state.columns[state.cursor].at(-1);return Boolean(color&&(!state.groupColor||state.groupColor===color))}
 export function applyCanopyInput(state:CanopyState,input:CanopyInput,seed?:number){

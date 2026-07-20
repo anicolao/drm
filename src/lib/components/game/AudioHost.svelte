@@ -151,7 +151,7 @@
 </script>
 
 {#if controlsVisible}
-  <div class="audio-controls" class:inline>
+  <div class="audio-controls" class:inline data-cue-signal={cueSignal}>
     <button class="mute" aria-label={masterMuted ? 'Unmute game audio' : 'Mute game audio'} aria-pressed={masterMuted} on:click={toggleMaster}>♫ <span>{masterMuted ? 'SOUND OFF' : 'SOUND ON'}</span></button>
     <button class="settings-toggle" aria-label="Audio settings" aria-expanded={settingsOpen} on:click={() => settingsOpen = !settingsOpen}>MIX</button>
     {#if enabled && needsActivation && !masterMuted}<button class="start" aria-label="Enable game audio" on:click={activate}>♪ <span>START</span></button>{/if}
