@@ -15,6 +15,13 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
     }
     throw new Error(`Timed out waiting for ${attribute}=${value}`);
   };
+  const untilAtLeast = async (attribute: string, minimum: number) => {
+    for (let attempt = 0; attempt < 200; attempt++) {
+      if (Number(await ramp.getAttribute(attribute)) >= minimum) return;
+      await page.clock.runFor(100);
+    }
+    throw new Error(`Timed out waiting for ${attribute}>=${minimum}`);
+  };
   const tick = async () => Number(await ramp.getAttribute("data-tick"));
   const advanceTo = async (target: number) => {
     while ((await tick()) < target) await page.clock.runFor(16);
@@ -207,7 +214,8 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
     key = target < current ? "ArrowLeft" : "ArrowRight";
   for (let move = 0; move < Math.abs(target - current); move++)
     await page.keyboard.press(key);
-  await until("data-misses", "1");
+  await expect(ramp).toHaveAttribute("data-paddle-lane", String(target));
+  await untilAtLeast("data-misses", 1);
   while (Number(await ramp.getAttribute("data-visual-progress")) < 22)
     await page.clock.runFor(16);
   await tester.step("stax-miss", {
