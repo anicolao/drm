@@ -54,6 +54,25 @@ test('US-005: Block Stack starts a deterministic playable controller',async({bro
   await expect(board).not.toHaveAttribute('data-active-id',afterHeldDrop!);
   await expect(board).toHaveAttribute('data-active-row','1');
   await expect(page.getByText(/input\/hard-drop · tick/)).toBeVisible();
+  const normalizationId=await board.getAttribute('data-active-id');
+  const normalizationRow=Number(await board.getAttribute('data-active-row'));
+  const normalizationGhostRow=Number(await board.getAttribute('data-ghost-row'));
+  const scoreBeforeNormalization=Number(await board.getAttribute('data-score'));
+  const exactScore=80;
+  const softDropRows=scoreBeforeNormalization+2*(normalizationGhostRow-normalizationRow)-exactScore;
+  expect(softDropRows).toBeGreaterThan(0);
+  expect(softDropRows).toBeLessThanOrEqual(normalizationGhostRow-normalizationRow);
+  const softDropStartTick=await gameTick(page);
+  const firstSoftDropTick=softDropStartTick+(2-softDropStartTick%2||2);
+  await page.keyboard.down('ArrowDown');
+  await advanceToTick(page,firstSoftDropTick+2*(softDropRows-1));
+  await page.keyboard.up('ArrowDown');
+  await expect(board).toHaveAttribute('data-active-row',String(normalizationRow+softDropRows));
+  await page.keyboard.press('ArrowUp');
+  await advanceFrames(page,2);
+  await expect(board).not.toHaveAttribute('data-active-id',normalizationId!);
+  await expect(board).toHaveAttribute('data-active-row','1');
+  await expect(board).toHaveAttribute('data-score',String(exactScore));
   await page.locator('.command-status').evaluate((element:HTMLElement)=>{element.style.visibility='hidden'});
   await page.locator('.tick').evaluate((element:HTMLElement)=>{element.style.visibility='hidden'});
   await tester.step('tetris-playing',{description:'Block Stack runs from a seeded immutable command journal with a compact in-viewport opponent board',networkStatus:'skip',verifications:[
@@ -62,7 +81,7 @@ test('US-005: Block Stack starts a deterministic playable controller',async({bro
     {spec:'Next queue and ghost placement are rendered locally',check:async()=>{await expect(page.getByLabel(/Next pieces/)).toBeVisible();await expect(board.locator('.ghost')).toHaveCount(4)}},
     {spec:'Holding hard drop affects only one piece and a fresh press drops the next',check:async()=>{expect(await board.getAttribute('data-active-id')).not.toBe(afterHeldDrop);await expect(page.getByRole('button',{name:'Hard drop'})).toBeEnabled()}},
     {spec:'Movement and both SRS rotations are available',check:async()=>{await expect(page.getByRole('button',{name:'Move left'})).toBeEnabled();await expect(page.getByRole('button',{name:'Rotate clockwise'})).toBeEnabled();await expect(page.getByRole('button',{name:'Rotate counterclockwise'})).toBeEnabled()}},
-    {spec:'Score and line count start from deterministic state',check:async()=>{await expect(board).toHaveAttribute('data-lines','0');await expect(board).toHaveAttribute('data-score',/\d+/)}}
+    {spec:'Score and line count are driven to an exact deterministic state',check:async()=>{await expect(board).toHaveAttribute('data-lines','0');await expect(board).toHaveAttribute('data-score','80')}}
   ]});
   const touchBoardBox=await board.boundingBox();
   await page.evaluate(()=>{
