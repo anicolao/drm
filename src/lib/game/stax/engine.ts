@@ -81,6 +81,7 @@ export function createStax(seed: number, level = 0): StaxState {
     throws: 0,
     restarts: 0,
     accelerating: false,
+    lastPlacement: null,
     lastClearCells: [],
     lastClearWaves: [],
     lastChainDepth: 0,
@@ -296,6 +297,13 @@ export function applyStaxInput(
   state.paddle.pop();
   column.push(held.color);
   state.placements++;
+  state.lastPlacement = {
+    id: held.id,
+    color: held.color,
+    column: state.paddleLane,
+    row: column.length - 1,
+    placement: state.placements,
+  };
   const lines = resolve(state);
   updateObjective(state, lines);
   if (

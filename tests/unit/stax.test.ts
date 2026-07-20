@@ -59,6 +59,13 @@ test("placing completes simultaneous lines and a gravity chain", () => {
   state.paddle = [{ id: 40, color: "yellow" }];
   state.paddleLane = 1;
   applyStaxInput(state, { type: "input/place", payload: {} });
+  assert.deepEqual(state.lastPlacement, {
+    id: 40,
+    color: "yellow",
+    column: 1,
+    row: 4,
+    placement: 1,
+  });
   assert.deepEqual(state.columns, [
     ["pink"],
     [],
