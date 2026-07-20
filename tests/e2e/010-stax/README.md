@@ -45,5 +45,6 @@
 - [x] The paddle is deliberately outside the incoming lane
 - [x] The miss remains visible as a falling transition after leaving the ramp
 - [x] The documented fall is captured at a deterministic replay offset
+- [x] The previously placed tile remains rendered in its bin stack
 
 ---

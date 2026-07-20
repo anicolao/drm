@@ -78,7 +78,9 @@ export async function advanceVisualTo(
   if (!Number.isInteger(current) || current < 0 || current > target) {
     throw new Error(`Cannot advance visual transition from ${current} to ${target}`);
   }
-  const tick = await gameTick(page, surface);
-  await advanceToTick(page, tick + target - current, surface);
+  let tick = await gameTick(page, surface);
+  for (let frame = current; frame < target; frame++) {
+    await advanceToTick(page, ++tick, surface);
+  }
   await expect(surface).toHaveAttribute('data-visual-progress', String(target));
 }

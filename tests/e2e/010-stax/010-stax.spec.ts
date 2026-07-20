@@ -186,6 +186,10 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
       },
     ],
   });
+  await advanceVisualTo(page, ramp, 40);
+  await advanceToTick(page, (await tick()) + 1, ramp);
+  await expect(ramp).not.toHaveAttribute("data-visual-transitions", /place/);
+  await expect(ramp).toHaveAttribute("data-rendered-board-count", "1");
   const incoming = Number(await ramp.getAttribute("data-leading-lane")),
     current = Number(await ramp.getAttribute("data-paddle-lane")),
     target = incoming === 0 ? 4 : 0,
@@ -218,6 +222,11 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
         spec: "The documented fall is captured at a deterministic replay offset",
         check: async () =>
           await expect(ramp).toHaveAttribute("data-visual-progress", "22"),
+      },
+      {
+        spec: "The previously placed tile remains rendered in its bin stack",
+        check: async () =>
+          await expect(ramp).toHaveAttribute("data-rendered-board-count", "1"),
       },
     ],
   });
