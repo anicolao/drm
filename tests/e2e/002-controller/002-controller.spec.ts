@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
 import { resetEmulators } from '../helpers/reset-emulators';
 import { advanceThroughTick, expectViewportFits, gameTick } from '../helpers/deterministic-state';
+import { navigateAndWaitForEvent } from '../helpers/application-readiness';
 test.beforeEach(resetEmulators);
 test('US-002: a second authenticated device joins the room', async ({ browser, page }, testInfo) => {
   test.setTimeout(120000);
@@ -41,7 +42,7 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await returningPage.clock.pauseAt(Date.now());
   await expect(playerPage.getByRole('button', { name: 'Move left' })).toBeEnabled();
   const duplicatePage = await context.newPage();
-  await duplicatePage.goto('/play?code=TEST');
+  expect(await navigateAndWaitForEvent<'conflict'>(duplicatePage, '/play?code=TEST', 'drm:writer-lease')).toBe('conflict');
   await expect(duplicatePage.getByText('This controller is already active in another tab.')).toBeVisible();
   await expect(duplicatePage.getByRole('button', { name: 'Take over on this device' })).toBeVisible();
   await duplicatePage.close();

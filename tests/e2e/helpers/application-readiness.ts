@@ -24,3 +24,34 @@ export async function waitForGameSurface(surface: Locator): Promise<void> {
   await surface.waitFor({ state: 'visible' });
   await expect(surface).toBeVisible();
 }
+
+/**
+ * Subscribe before navigation to an application lifecycle event that may fire
+ * before the destination document finishes loading.
+ */
+export async function navigateAndWaitForEvent<T>(
+  page: Page,
+  href: string,
+  eventName: string,
+): Promise<T> {
+  await page.addInitScript((name) => {
+    const target = window as typeof window & {
+      __drmLifecycleEvents?: Record<string, Promise<unknown>>;
+    };
+    target.__drmLifecycleEvents ??= {};
+    target.__drmLifecycleEvents[name] = new Promise((resolve) =>
+      window.addEventListener(
+        name,
+        (event) => resolve((event as CustomEvent).detail),
+        { once: true },
+      ),
+    );
+  }, eventName);
+  await page.goto(href);
+  return page.evaluate(async (name) => {
+    const target = window as typeof window & {
+      __drmLifecycleEvents?: Record<string, Promise<unknown>>;
+    };
+    return (await target.__drmLifecycleEvents?.[name]) as T;
+  }, eventName);
+}
