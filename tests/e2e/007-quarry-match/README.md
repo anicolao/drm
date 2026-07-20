@@ -28,6 +28,7 @@
 **Verifications:**
 - [x] The first stage is visibly bursting before its stones settle
 - [x] The authoritative result is final while the board still shows the first stage
+- [x] The player can aim during the cascade while another shot remains blocked
 
 ---
 

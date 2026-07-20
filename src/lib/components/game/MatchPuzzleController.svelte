@@ -57,12 +57,12 @@
       send({ type: "input/move", payload: { dx } }),
     ),
     fireGate = new HeldInputGate<string>();
-  $: enabled = Boolean(
+  $: movementEnabled = Boolean(
     state.ready &&
     state.state?.phase === "playing" &&
-    (variant === "canopy" || presentationComplete) &&
     !state.lifecycle?.finished,
   );
+  $: actionEnabled = movementEnabled && (variant === "canopy" || presentationComplete);
   $: audioPhase = state.state?.phase === "cleared" && presentationComplete ? "cleared" : "playing";
   $: standings = (state.lifecycle?.playerIds ?? [])
     .map((playerId, index) => ({
@@ -169,10 +169,11 @@
     });
   }
   function send(input: QuarryInput) {
-    if (enabled) controller?.command(input);
+    if (input.type === "input/move" ? movementEnabled : actionEnabled)
+      controller?.command(input);
   }
   function moveToColumn(column:number,fire=false){
-    if(!enabled||!state.state)return;
+    if(!movementEnabled||!state.state)return;
     for(const input of matchPuzzleColumnActions(state.state.cursor,column,fire))send(input);
   }
   function gamepadInput(action: GamepadControlAction) {
@@ -199,7 +200,7 @@
       actions = gamepad.sample(pads, now);
     gamepadName = active?.id ?? "";
     gamepadActive = gamepadLayoutMode(gamepadActive, Boolean(active), actions);
-    if (enabled) {
+    if (movementEnabled) {
       if (restartButton.sample(pads)) restart(false);
       for (const action of actions) gamepadInput(action);
     } else {
@@ -290,19 +291,19 @@
       >{/if}{#if !gamepadActive}<section class="controls">
         <button
           aria-label="Move left"
-          disabled={!enabled}
+          disabled={!movementEnabled}
           on:pointerdown={() => repeat.start(-1)}
           on:pointerup={() => repeat.stop()}
           on:pointercancel={() => repeat.stop()}>←</button
         ><button
           class="fire"
           aria-label="Fire"
-          disabled={!enabled}
+          disabled={!actionEnabled}
           on:pointerdown={() => send({ type: "input/fire", payload: {} })}
           >FIRE</button
         ><button
           aria-label="Move right"
-          disabled={!enabled}
+          disabled={!movementEnabled}
           on:pointerdown={() => repeat.start(1)}
           on:pointerup={() => repeat.stop()}
           on:pointercancel={() => repeat.stop()}>→</button
@@ -311,7 +312,7 @@
       {:else}<button
         class="input-mode-toggle"
         on:click={() => (gamepadActive = false)}>SHOW TOUCH CONTROLS</button
-      >{/if}<button class="restart" disabled={!enabled} on:click={() => restart()}
+      >{/if}<button class="restart" disabled={!actionEnabled} on:click={() => restart()}
       >RESTART · X</button>
   </main>{/if}
 
