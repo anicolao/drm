@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { resetEmulators } from '../helpers/reset-emulators';
 import { TestStepHelper } from '../helpers/test-step-helper';
-import { advanceToTick } from '../helpers/deterministic-state';
+import { advanceToTick, gameTick } from '../helpers/deterministic-state';
+import { PILL_BOTTLE_RULES } from '../../../src/lib/game/pill-bottle/rules';
 
 test.beforeEach(resetEmulators);
 
@@ -59,32 +60,23 @@ test('US-004: incoming rain waits, falls slowly, resolves, then yields to the ne
     { spec: 'The current pill remains active after the attack arrives', check: async () => await expect(bottle).toHaveAttribute('data-active-pill', 'true') },
     { spec: 'Rain is queued and not yet visible in the bottle', check: async () => { await expect(bottle).toHaveAttribute('data-pending-rain-count', '1'); await expect(bottle).toHaveAttribute('data-rain-rows', ''); } }
   ] });
-  await controller.clock.resume();
-
   await controller.getByRole('button', { name: 'Hard drop' }).dispatchEvent('pointerdown', { pointerId: 10 });
   await expect(bottle).toHaveAttribute('data-active-pill', 'false');
   await expect(bottle).toHaveAttribute('data-rain-rows', /\d/);
-  const rowDuration = await bottle.evaluate((canvas) => new Promise<number>((resolve) => {
-    const startedAt = performance.now();
-    const initial = canvas.getAttribute('data-rain-rows');
-    const observer = new MutationObserver(() => {
-      const current = canvas.getAttribute('data-rain-rows');
-      if (!current || current === initial) return;
-      observer.disconnect();
-      resolve(performance.now() - startedAt);
-    });
-    observer.observe(canvas, { attributes: true, attributeFilter: ['data-rain-rows'] });
-  }));
-  expect(rowDuration).toBeGreaterThan(150);
+  const rainStartedAt = await gameTick(controller);
+  const initialRainRows = await bottle.getAttribute('data-rain-rows');
+  await advanceToTick(controller, rainStartedAt + PILL_BOTTLE_RULES.rainGravityTicks - 1);
+  await expect(bottle).toHaveAttribute('data-rain-rows', initialRainRows!);
+  await advanceToTick(controller, rainStartedAt + PILL_BOTTLE_RULES.rainGravityTicks);
+  await expect(bottle).not.toHaveAttribute('data-rain-rows', initialRainRows!);
   await controller.locator('.command-status').evaluate((element: HTMLElement) => { element.style.visibility = 'hidden'; });
   await tester.step('rain-falling', { description: 'Rain falls slowly between pills', networkStatus: 'skip', verifications: [
     { spec: 'No player-controlled pill is active while rain falls', check: async () => await expect(bottle).toHaveAttribute('data-active-pill', 'false') },
     { spec: 'Two independent rain pieces are visible in the bottle', check: async () => await expect(bottle).toHaveAttribute('data-rain-rows', /^\d+,\d+$/) },
-    { spec: 'Observed row movement took at least 150ms', check: async () => expect(rowDuration).toBeGreaterThan(150) }
+    { spec: 'Rain waits exactly fifteen ticks before falling one row', check: async () => await expect(bottle).not.toHaveAttribute('data-rain-rows', initialRainRows!) }
   ] });
 
-  await controller.clock.pauseAt(await controller.evaluate(() => Date.now() + 1_000));
-  await controller.clock.runFor(3_500);
+  await advanceToTick(controller, rainStartedAt + PILL_BOTTLE_RULES.height * PILL_BOTTLE_RULES.rainGravityTicks);
   await expect(bottle).toHaveAttribute('data-rain-rows', '');
   await expect(bottle).toHaveAttribute('data-garbage-count', '2');
   await expect(bottle).toHaveAttribute('data-active-pill', 'true');
