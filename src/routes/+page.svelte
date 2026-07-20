@@ -3,6 +3,7 @@
   import { base } from '$app/paths';
   import { onMount } from 'svelte';
   import Logo from '$lib/components/Logo.svelte';
+  import AudioHost from '$lib/components/game/AudioHost.svelte';
   import { firebaseConfigured } from '$lib/firebase/config';
   import { createRoom, ensureAnonymousUser, roomExists } from '$lib/firebase/rooms';
   let code = '';
@@ -45,7 +46,7 @@
 
 <div class="shell">
   {#if hydrated && !nameConfirmed}<div class="name-gate"><form class="card" on:submit|preventDefault={saveName}><p class="eyebrow">Welcome to drm</p><h2>WHAT SHOULD PLAYERS CALL YOU?</h2><label>Player name<input aria-label="Player name" maxlength="24" autocomplete="nickname" bind:value={playerName} /></label><button>Continue</button>{#if error}<p role="alert">{error}</p>{/if}</form></div>{/if}
-  <nav><Logo /><span class="status">{firebaseConfigured ? 'FIREBASE READY' : 'CONFIGURATION REQUIRED'} <i></i></span></nav>
+  <nav><Logo /><div class="nav-tools"><AudioHost enabled={false} showControls inline /><span class="status">{firebaseConfigured ? 'FIREBASE READY' : 'CONFIGURATION REQUIRED'} <i></i></span></div></nav>
   <main>
     <section class="hero">
       <p class="eyebrow">Two games. One block party.</p>
@@ -65,7 +66,7 @@
 </div>
 
 <style>
-  .status { color: var(--muted); font-size: .7rem; } .status i { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--yellow); }
+  .nav-tools{display:flex;align-items:center;gap:.8rem}.status { color: var(--muted); font-size: .7rem; } .status i { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--yellow); }
   .name-gate{position:fixed;inset:0;z-index:10;background:rgba(7,8,12,.9);display:grid;place-items:center;padding:1rem}.name-gate form{width:min(100%,520px);display:grid;gap:1.3rem}.name-gate h2{font-size:1.5rem}.name-gate button{width:100%}
   main { min-height: 610px; display:grid; grid-template-columns: 1.1fr .9fr; align-items:center; gap:3rem; }
   h1 { font: 900 clamp(3.4rem, 8vw, 7.5rem)/.84 'Arial Black', sans-serif; letter-spacing:-.08em; margin:.3rem 0 1.5rem; } h1 span { color:var(--cyan); }
@@ -74,5 +75,5 @@
   .auth{display:flex;gap:1rem;margin-top:1rem}.auth .text{background:none;color:var(--muted);box-shadow:none;padding:.3rem;text-transform:none;font-size:.72rem}.auth .text:hover{transform:none;box-shadow:none;color:var(--text)}.auth-message{color:var(--cyan);font-size:.7rem}[role=alert]{color:var(--pink)}
   .principles{transform:rotate(1deg)}.principles h2{color:var(--cyan)}.principles p:last-child{color:var(--muted);line-height:1.7}
   .join { display:grid; grid-template-columns:1fr 1fr; align-items:center; margin-bottom:4rem; } h2 { margin:.3rem 0; } form { display:flex; gap:.7rem; } input { font-size:1.2rem; text-transform:uppercase; }
-  @media(max-width:760px){ main{grid-template-columns:1fr;padding:4rem 0}.principles{display:none}.join{grid-template-columns:1fr;gap:1rem}form{flex-direction:column} }
+  @media(max-width:760px){main{grid-template-columns:1fr;padding:4rem 0}.principles{display:none}.join{grid-template-columns:1fr;gap:1rem}form{flex-direction:column} }
 </style>

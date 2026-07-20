@@ -8,6 +8,7 @@
 - [x] Direct invitation URL joined the requested room
 - [x] The player can choose a starting level with pointer controls
 - [x] UI waits for the host start record
+- [x] Audio mix settings are available while waiting
 - [x] Waiting screen teaches keyboard and gamepad controls
 
 ---

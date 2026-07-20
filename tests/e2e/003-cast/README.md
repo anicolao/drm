@@ -10,5 +10,6 @@
 - [x] No invented game board is displayed
 - [x] Display states its command-replay dependency
 - [x] Display offers a scannable controller invitation
+- [x] Audio mix settings are available on the waiting display
 
 ---

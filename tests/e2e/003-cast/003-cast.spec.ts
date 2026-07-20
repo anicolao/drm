@@ -14,6 +14,7 @@ test('US-003: shared display reads real room configuration', async ({ page }, te
     { spec: 'Display loaded the persisted ruleset', check: async () => await expect(page.getByText('BLOCK STACK')).toBeVisible() },
     { spec: 'No invented game board is displayed', check: async () => await expect(page.locator('.board')).toHaveCount(0) },
     { spec: 'Display states its command-replay dependency', check: async () => await expect(page.getByText(/reconstructed from immutable controller commands/)).toBeVisible() },
-    { spec: 'Display offers a scannable controller invitation', check: async () => await expect(page.getByRole('img', { name: /Scan to join/ })).toBeVisible() }
+    { spec: 'Display offers a scannable controller invitation', check: async () => await expect(page.getByRole('img', { name: /Scan to join/ })).toBeVisible() },
+    { spec: 'Audio mix settings are available on the waiting display', check: async () => await expect(page.getByRole('button', { name: 'Audio settings' })).toBeVisible() }
   ]}); tester.generateDocs();
 });
