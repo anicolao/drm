@@ -41,6 +41,8 @@
     online = true,
     gamepadName = "",
     gamepadActive = false,
+    cascadeCueSignal = 0,
+    presentationComplete = true,
     selectedLevel = 0,
     roomPlayers: RoomPlayer[] = [];
   let controller: ReturnType<typeof createQuarryController> | undefined,
@@ -48,6 +50,7 @@
     stopRoom = () => {},
     stopPlayers = () => {},
     gamepadFrame = 0;
+  let audioPhase: "playing" | "cleared" = "playing";
   const gamepad = new StandardGamepadControls(),
     restartButton = new OneShotGamepadButton(),
     repeat = new HeldActionRepeater<-1 | 1>((dx) =>
@@ -57,8 +60,10 @@
   $: enabled = Boolean(
     state.ready &&
     state.state?.phase === "playing" &&
+    (variant === "canopy" || presentationComplete) &&
     !state.lifecycle?.finished,
   );
+  $: audioPhase = state.state?.phase === "cleared" && presentationComplete ? "cleared" : "playing";
   $: standings = (state.lifecycle?.playerIds ?? [])
     .map((playerId, index) => ({
       playerId,
@@ -157,6 +162,8 @@
     error = "";
     controller?.destroy();
     controller = createQuarryController(id, (next) => {
+      if (next.state && state.state && next.state.cascades > state.state.cascades && next.state.lastCascadeWaves.length)
+        presentationComplete = false;
       state = next;
       if (next.error) error = next.error;
     });
@@ -238,8 +245,8 @@
   >
     {#if variant==='canopy'}<CanopyAudio enabled={state.audioOutput === "controllers"} phase={state.state.phase} shotSignal={state.state.removed} tripleSignal={state.state.groups} resetSignal={state.state.restarts}/>{:else}<QuarryAudio
       enabled={state.audioOutput === "controllers"}
-      phase={state.state.phase}
-      cascadeSignal={state.state.cascades}
+      phase={audioPhase}
+      cascadeSignal={cascadeCueSignal}
       resetSignal={state.state.restarts}
     />{/if}<ControllerStatus
       {online}
@@ -248,7 +255,7 @@
       room={code}
     />
     <section class="game">
-      <strong>{name}</strong><QuarryBoard state={state.state} label={variant==='canopy'?'Crystal Canopy board':'Quarry Match board'} selectColumn={(column)=>moveToColumn(column,true)}/><span
+      <strong>{name}</strong><QuarryBoard state={state.state} label={variant==='canopy'?'Crystal Canopy board':'Quarry Match board'} selectColumn={(column)=>moveToColumn(column,true)} onCascadeCue={()=>cascadeCueSignal++} onPresentationChange={(complete)=>presentationComplete=complete}/><span
         >LEVEL {state.state.level} · {state.state.total - state.state.removed} STONES</span
       ><span
         >GROUP {state.state.groupCount}/3 · RESTARTS {state.state
@@ -264,7 +271,7 @@
         compact
       /><small>{(opponent as QuarryProgress).state.total - (opponent as QuarryProgress).state.removed} LEFT</small
       ></OpponentList
-    >{#if state.lifecycle?.finished}<MatchResult
+    >{#if state.lifecycle?.finished && presentationComplete}<MatchResult
         title={state.lifecycle.winnerId === state.playerId
           ? "ROUND WIN"
           : state.lifecycle.matchComplete

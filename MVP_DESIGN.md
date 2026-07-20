@@ -26,7 +26,7 @@ from immutable journals plus optional local caches.
   leases/takeover, local checkpoints, observer rewind/replay, and cast lag UI.
 - Responsive phone/tablet controllers, compact replayed opponents, shared display,
   music routing, persistent mute, results, readiness, and successor games.
-- Versioned `pill-bottle/3`, `tetris/1`, `quarry-match/1`, `crystal-canopy/1`, and `stax/1` engines with unit, Firebase Rules, and
+- Versioned `pill-bottle/3`, `tetris/1`, `quarry-match/2`, `crystal-canopy/1`, and `stax/1` engines with unit, Firebase Rules, and
   emulator-backed browser coverage.
 - Static GitHub Pages production deploys and per-PR previews.
 
@@ -111,9 +111,10 @@ garbage, and multi-round formats remain follow-ons.
 
 Quarry Match and Crystal Canopy ship the related but distinct contracts in
 [QUARRY_RULES.md](QUARRY_RULES.md) and
-[CRYSTAL_CANOPY_RULES.md](CRYSTAL_CANOPY_RULES.md). Quarry adds horizontal
-cascades and multiplayer rain; Crystal Canopy keeps every surviving crystal at
-its ceiling position and scales puzzle size independently by player level.
+[CRYSTAL_CANOPY_RULES.md](CRYSTAL_CANOPY_RULES.md). Quarry adds causal,
+moved-column cascade stages and multiplayer rain; Crystal Canopy keeps every
+surviving crystal at its ceiling position and scales puzzle size independently
+by player level.
 
 Stax ships the original contract in [STAX_RULES.md](STAX_RULES.md): a seeded
 five-lane 3D ramp, LIFO paddle, 5×5 placement bin, line and chain scoring,

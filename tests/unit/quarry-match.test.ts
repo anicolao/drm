@@ -75,7 +75,66 @@ test("a bottom shot creates a horizontal clear and attack", () => {
   assert.equal(state.cascades, 1);
   assert.equal(state.removed, 56);
 });
-test("a run of five clears only its leftmost group of three",()=>{const state=createQuarry(8);state.columns=Array.from({length:5},(_,column)=>[column===0?'pink':'purple','cyan']);state.cursor=0;state.groupColor='pink';state.groupCount=1;state.removed=50;const event=applyQuarryInput(state,{type:'input/fire',payload:{}});assert.equal(event?.cells.length,3);assert.deepEqual(state.columns.map(column=>column.at(-1)),['cyan','purple','purple','purple','cyan']);assert.equal(state.removed,54)});
+test("only triples intersecting the shot-shifted column clear", () => {
+  const state = createQuarry(8);
+  state.columns = [
+    ["pink", "green", "cyan"],
+    ["yellow", "cyan"],
+    ["green", "cyan", "purple"],
+    ["pink", "green", "purple"],
+    ["cyan", "yellow", "purple"],
+  ];
+  state.cursor = 0;
+  state.removed = 45;
+  const event = applyQuarryInput(state, { type: "input/fire", payload: {} });
+  assert.deepEqual(event?.cells.map(({ column, row }) => [column, row]), [
+    [0, 1], [1, 1], [2, 1],
+  ]);
+  assert.deepEqual(state.columns[2].at(-1), "purple");
+  assert.deepEqual(state.columns[3].at(-1), "purple");
+  assert.deepEqual(state.columns[4].at(-1), "purple");
+});
+test("all first-column triples clear together before adjacent-column cascades", () => {
+  const state = createQuarry(8);
+  state.columns = [
+    ["pink", "green", "cyan", "green", "yellow"],
+    ["pink", "cyan", "pink", "yellow", "purple"],
+    ["yellow", "cyan", "green", "yellow", "purple"],
+    ["green", "pink", "purple"],
+    ["cyan"],
+  ];
+  state.cursor = 0;
+  state.removed = 42;
+  const event = applyQuarryInput(state, { type: "input/fire", payload: {} });
+  assert.deepEqual(event?.colors, ["cyan", "yellow", "purple"]);
+  assert.equal(state.lastCascadeWaves.length, 2);
+  assert.deepEqual(state.lastCascadeWaves.map((wave) => wave.cells.length), [6, 3]);
+  assert.deepEqual(state.lastCascadeWaves[0].cells.map(({ column, row }) => [column, row]), [
+    [0, 1], [1, 1], [2, 1], [0, 3], [1, 3], [2, 3],
+  ]);
+  assert.deepEqual(state.lastCascadeWaves[1].cells.map(({ column, row }) => [column, row]), [
+    [1, 2], [2, 2], [3, 2],
+  ]);
+  assert.deepEqual(state.lastCascadeWaves[0].after, state.lastCascadeWaves[1].before);
+  assert.equal(state.cascades, 2);
+});
+test("a run of five centers three on the moved column and clamps at an edge", () => {
+  for (const [cursor, expected] of [
+    [2, [1, 2, 3]],
+    [0, [0, 1, 2]],
+    [4, [2, 3, 4]],
+  ] as const) {
+    const state = createQuarry(8);
+    state.columns = Array.from({ length: 5 }, () => ["pink", "cyan"]);
+    state.columns[cursor].unshift("yellow");
+    state.cursor = cursor;
+    state.removed = 49;
+    const event = applyQuarryInput(state, { type: "input/fire", payload: {} });
+    assert.equal(event?.cells.length, 3);
+    assert.deepEqual(event?.cells.map(({ column }) => column), expected);
+    assert.equal(state.removed, 53);
+  }
+});
 test("rain is replayed as colored stones at deterministic target columns", () => {
   const state = createQuarry(4);
   state.columns = state.columns.map((column) => column.slice(0, 10));
@@ -133,7 +192,7 @@ test("journal replay is deterministic", () => {
   const replayed = replayQuarry(initial, 10, records, 42);
   assert.ok(replayed.removed >= 1);
   assert.equal(replayed.groupCount, 1);
-  assert.match(hashQuarry(replayed), /^q1-[0-9a-f]{8}$/);
+  assert.match(hashQuarry(replayed), /^q2-[0-9a-f]{8}$/);
 });
 test("first-clear lifecycle carries wins and completes at three", () => {
   const round = deriveQuarryLifecycle(
@@ -152,7 +211,7 @@ test("Quarry protocol accepts only frozen starts and replay commands", () => {
   const start = {
     type: "game/started",
     ruleset: "quarry-match",
-    rulesVersion: "quarry-match/1",
+    rulesVersion: "quarry-match/2",
     seed: 1,
     tickRate: 60,
     round: 0,
@@ -167,6 +226,7 @@ test("Quarry protocol accepts only frozen starts and replay commands", () => {
     serverTime: 1,
   } as const;
   assert.equal(parseQuarryStart(start).scores?.p, 0);
+  assert.throws(() => parseQuarryStart({ ...start, rulesVersion: "quarry-match/1" }));
   assert.throws(() => parseQuarryStart({ ...start, board: [] }));
   assert.equal(
     parseQuarryRecord("id", {

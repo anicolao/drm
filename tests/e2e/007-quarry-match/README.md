@@ -21,19 +21,30 @@
 
 ---
 
-## Internal horizontal matches resolve as visible cascades
+## Every match intersecting the moved column explodes in one simultaneous stage
 
-![Internal horizontal matches resolve as visible cascades](./screenshots/002-quarry-cascade.png)
+![Every match intersecting the moved column explodes in one simultaneous stage](./screenshots/002-quarry-cascade-stage-one.png)
 
 **Verifications:**
-- [x] The opening group caused replay-derived cascade bursts
-- [x] Cascades removed stones beyond the three direct shots
+- [x] The first stage is visibly bursting before its stones settle
+- [x] The authoritative result is final while the board still shows the first stage
+
+---
+
+## Settled adjacent columns trigger a distinct follow-up combo stage
+
+![Settled adjacent columns trigger a distinct follow-up combo stage](./screenshots/003-quarry-cascade-stage-two.png)
+
+**Verifications:**
+- [x] The second stage waits for the first stage to finish
+- [x] The follow-up stage repeats the burst effect
+- [x] The follow-up stage triggers its own combo sound cue
 
 ---
 
 ## Direct shots and horizontal cascades empty the replayed board and claim the round
 
-![Direct shots and horizontal cascades empty the replayed board and claim the round](./screenshots/003-quarry-clear.png)
+![Direct shots and horizontal cascades empty the replayed board and claim the round](./screenshots/004-quarry-clear.png)
 
 **Verifications:**
 - [x] Every stone was removed in same-colour groups of three

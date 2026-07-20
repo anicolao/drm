@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { TestStepHelper } from "../helpers/test-step-helper";
 import { resetEmulators } from "../helpers/reset-emulators";
+import { finishStagedPresentation } from "../helpers/deterministic-state";
+import { QUARRY_PRESENTATION_MS } from "../../../src/lib/presentation/quarry";
 test.beforeEach(resetEmulators);
 test.use({ viewport: { width: 1280, height: 720 } });
 test("US-008: shared Quarry Match display replays controller shots", async ({
@@ -29,7 +31,9 @@ test("US-008: shared Quarry Match display replays controller shots", async ({
   await expect(page).toHaveURL(/\/cast\?code=TEST$/);
   await expect(controller.getByLabel("Quarry Match controller")).toBeVisible();
   const castBoard = page.getByLabel("Quarry Match board");
+  const controllerBoard = controller.getByLabel("Quarry Match board");
   await expect(castBoard).toHaveAttribute("data-remaining", "60");
+  await controller.clock.pauseAt(Date.now());
   const plan = await controller.evaluate(async () => {
     const game = (await (0, eval)(
       "import('/src/lib/game/quarry-match.ts')",
@@ -37,6 +41,7 @@ test("US-008: shared Quarry Match display replays controller shots", async ({
     return game.solveQuarryPlan(game.generateQuarry(123456789, 0))!;
   });
   let cursor = 2;
+  const waveDuration = QUARRY_PRESENTATION_MS.burst + QUARRY_PRESENTATION_MS.settle;
   for (const col of plan.slice(0, 3)) {
     while (cursor < col) {
       await controller.keyboard.press("ArrowRight");
@@ -47,10 +52,11 @@ test("US-008: shared Quarry Match display replays controller shots", async ({
       cursor--;
     }
     await controller.keyboard.press("ArrowUp");
+    await finishStagedPresentation(controller, controllerBoard, waveDuration);
   }
   await expect(castBoard).toHaveAttribute("data-remaining", "36");
   await page.clock.pauseAt(Date.now());
-  await controller.clock.pauseAt(Date.now());
+  await finishStagedPresentation(page, castBoard, waveDuration);
   await tester.step("quarry-cast", {
     description:
       "The TV reconstructs Quarry Match shots and owns shared-display audio",
@@ -65,7 +71,7 @@ test("US-008: shared Quarry Match display replays controller shots", async ({
         spec: "The controller and cast show the same remaining stone count",
         check: async () =>
           await expect(
-            controller.getByLabel("Quarry Match board"),
+            controllerBoard,
           ).toHaveAttribute("data-remaining", "36"),
       },
       {

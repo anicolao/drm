@@ -31,11 +31,13 @@
     shotSignal = 0,
     tripleSignal = 0,
     resetSignal = 0,
-    audioEnabled = false;
+    audioEnabled = false,
+    presentingPlayers = new Set<string>();
   const lag = new LagIndicator();
   let stop = () => {},
     stopPlayers = () => {},
     stopLife = () => {};
+  let audioPhase: "playing" | "cleared" = "playing";
   onMount(() => {
     void load();
     return () => {
@@ -58,15 +60,7 @@
         (await getQuarryStart(room.activeGameId)).audioOutput === "cast";
       stop = subscribeQuarryProgress(
         room.activeGameId,
-        (p) =>
-          (progress = p.map((entry) => ({
-            ...entry,
-            displayLag: lag.sample(
-              entry.playerId,
-              entry.lag,
-              performance.now(),
-            ),
-          }))),
+        receiveProgress,
         (e) => (error = e.message),
       );
       stopLife = subscribeQuarryLifecycle(
@@ -81,6 +75,28 @@
   function name(id: string) {
     return players.find((p) => p.uid === id)?.displayName ?? "Player";
   }
+  function receiveProgress(next: QuarryProgress[]) {
+    const previous = new Map(progress.map((player) => [player.playerId, player.state.cascades])),
+      presenting = new Set(presentingPlayers);
+    for (const player of next)
+      if (
+        previous.has(player.playerId) &&
+        player.state.cascades > (previous.get(player.playerId) ?? 0) &&
+        player.state.lastCascadeWaves.length
+      )
+        presenting.add(player.playerId);
+    presentingPlayers = presenting;
+    progress = next.map((entry) => ({
+      ...entry,
+      displayLag: lag.sample(entry.playerId, entry.lag, performance.now()),
+    }));
+  }
+  function presentationChanged(playerId: string, complete: boolean) {
+    const next = new Set(presentingPlayers);
+    if (complete) next.delete(playerId);
+    else next.add(playerId);
+    presentingPlayers = next;
+  }
   $: standings = (lifecycle?.playerIds ?? [])
     .map((playerId) => ({
       playerId,
@@ -91,13 +107,13 @@
   $: phase = progress.some((player) => player.state.phase === "cleared")
     ? "cleared"
     : "playing";
-  $: cascadeSignal = progress.reduce((total, player) => total + player.state.cascades, 0);
+  $: audioPhase = phase === "cleared" && presentingPlayers.size === 0 ? "cleared" : "playing";
   $: resetSignal = progress.reduce((total, player) => total + player.state.restarts, 0);
   $: shotSignal = progress.reduce((total, player) => total + player.state.removed, 0);
   $: tripleSignal = progress.reduce((total, player) => total + player.state.groups, 0);
 </script>
 
-{#if variant==='canopy'}<CanopyAudio enabled={audioEnabled} {phase} {shotSignal} {tripleSignal} {resetSignal}/>{:else}<QuarryAudio enabled={audioEnabled} {phase} {cascadeSignal} {resetSignal} />{/if}
+{#if variant==='canopy'}<CanopyAudio enabled={audioEnabled} {phase} {shotSignal} {tripleSignal} {resetSignal}/>{:else}<QuarryAudio enabled={audioEnabled} phase={audioPhase} {cascadeSignal} {resetSignal} />{/if}
 <main>
   <header>{variant==='canopy'?'CRYSTAL CANOPY':'QUARRY MATCH'} · ROOM {code}</header>
   {#if error}<h1 role="alert">{error}</h1>{:else}<section>
@@ -106,7 +122,7 @@
           lost={false}
           lag={player.displayLag}
           hashMatches={player.hashMatches}
-          ><QuarryBoard state={player.state} label={variant==='canopy'?'Crystal Canopy board':'Quarry Match board'}/>
+          ><QuarryBoard state={player.state} label={variant==='canopy'?'Crystal Canopy board':'Quarry Match board'} onCascadeCue={()=>cascadeSignal++} onPresentationChange={(complete)=>presentationChanged(player.playerId,complete)}/>
           <p>
             {player.state.total - player.state.removed} STONES · GROUP {player.state
               .groupCount}/3
@@ -116,7 +132,7 @@
           </p></CastPlayerFrame
         >{/each}
     </section>
-    {#if lifecycle?.finished}<MatchResult
+    {#if lifecycle?.finished && presentingPlayers.size===0}<MatchResult
         title={lifecycle.matchComplete
           ? `${name(lifecycle.winnerId ?? "")} WINS THE MATCH`
           : `${name(lifecycle.winnerId ?? "")} WINS THE ROUND`}

@@ -2,6 +2,7 @@ import {
   QUARRY_HEIGHT,
   QUARRY_WIDTH,
   type QuarryCascadeEvent,
+  type QuarryCascadeWave,
   type QuarryColor,
   type QuarryInput,
   type QuarryRecord,
@@ -9,7 +10,7 @@ import {
 } from "./types.ts";
 
 export const QUARRY_RULES = Object.freeze({
-  version: "quarry-match/1" as const,
+  version: "quarry-match/2" as const,
   tickRate: 60,
   width: QUARRY_WIDTH,
   height: QUARRY_HEIGHT,
@@ -75,7 +76,7 @@ export function generateQuarry(seed: number, level: number) {
 
 export function createQuarry(seed: number, level = 0): QuarryState {
   return {
-    rulesVersion: "quarry-match/1",
+    rulesVersion: "quarry-match/2",
     tick: 0,
     level,
     columns: generateQuarry(seed, level),
@@ -89,6 +90,8 @@ export function createQuarry(seed: number, level = 0): QuarryState {
     cascades: 0,
     rainReceived: 0,
     phase: "playing",
+    lastCascadeCells: [],
+    lastCascadeWaves: [],
   };
 }
 export function advanceQuarry(state: QuarryState) {
@@ -98,19 +101,95 @@ export function canFire(state: QuarryState) {
   const color = state.columns[state.cursor][0];
   return Boolean(color && (!state.groupColor || state.groupColor === color));
 }
-function cascadeRuns(state:QuarryState){const runs:{key:string;color:QuarryColor;row:number;start:number;end:number}[]=[];for(let row=1;row<QUARRY_HEIGHT;row++)for(let start=0;start<QUARRY_WIDTH;){const color=state.columns[start][row];if(!color){start++;continue}let runEnd=start+1;while(runEnd<QUARRY_WIDTH&&state.columns[runEnd][row]===color)runEnd++;if(runEnd-start>=3){const end=start+3;runs.push({key:`${row}:${start}:${end}:${color}`,color,row,start,end})}start=runEnd}return runs}
-function clearCascadeWave(state: QuarryState, excluded=new Set<string>()) {
+type CascadeRun = {
+  key: string;
+  color: QuarryColor;
+  row: number;
+  start: number;
+  end: number;
+};
+function cascadeRuns(state: Pick<QuarryState, "columns">) {
+  const runs: CascadeRun[] = [];
+  for (let row = 1; row < QUARRY_HEIGHT; row++)
+    for (let start = 0; start < QUARRY_WIDTH; ) {
+      const color = state.columns[start][row];
+      if (!color) {
+        start++;
+        continue;
+      }
+      let end = start + 1;
+      while (end < QUARRY_WIDTH && state.columns[end][row] === color) end++;
+      if (end - start >= 3)
+        runs.push({ key: `${row}:${start}:${end}:${color}`, color, row, start, end });
+      start = end;
+    }
+  return runs;
+}
+function intersectingRuns(
+  state: Pick<QuarryState, "columns">,
+  movedColumns: Set<number>,
+  excluded: Set<string>,
+) {
+  return cascadeRuns(state).flatMap((run) => {
+    if (excluded.has(run.key)) return [];
+    const center = (run.start + run.end - 1) / 2,
+      anchors = [...movedColumns]
+        .filter((column) => column >= run.start && column < run.end)
+        .sort((a, b) => Math.abs(a - center) - Math.abs(b - center) || a - b);
+    if (!anchors.length) return [];
+    const anchor = anchors[0],
+      start = Math.max(run.start, Math.min(run.end - 3, anchor - 1));
+    return [{ ...run, start, end: start + 3 }];
+  });
+}
+function clearCascadeWave(
+  state: QuarryState,
+  runs: CascadeRun[],
+): QuarryCascadeWave & { colors: QuarryColor[] } {
+  const before = state.columns.map((column) => [...column]);
   const cells = new Set<string>(),
-    colors: QuarryColor[] = [],cleared:{column:number;row:number;color:QuarryColor}[]=[];
-  for(const run of cascadeRuns(state)){if(excluded.has(run.key))continue;colors.push(run.color);for(let col=run.start;col<run.end;col++)cells.add(`${col}:${run.row}`)}
-  if (!cells.size) return {colors,cleared};
-  for(const key of cells){const[column,row]=key.split(':').map(Number);cleared.push({column,row,color:state.columns[column][row]})}
+    colors: QuarryColor[] = [],
+    cleared: QuarryCascadeWave["cells"] = [];
+  for (const run of runs) {
+    colors.push(run.color);
+    for (let col = run.start; col < run.end; col++) cells.add(`${col}:${run.row}`);
+  }
+  for (const key of cells) {
+    const [column, row] = key.split(":").map(Number);
+    cleared.push({ column, row, color: state.columns[column][row] });
+  }
   for (let col = 0; col < QUARRY_WIDTH; col++)
     state.columns[col] = state.columns[col].filter(
       (_, row) => !cells.has(`${col}:${row}`),
     );
   state.removed += cells.size;
-  return {colors,cleared};
+  return {
+    colors,
+    cells: cleared,
+    before,
+    after: state.columns.map((column) => [...column]),
+  };
+}
+function resolveCascades(
+  state: QuarryState,
+  firstMovedColumn: number,
+  existingRuns: Set<string>,
+) {
+  const waves: QuarryCascadeWave[] = [],
+    colors: QuarryColor[] = [];
+  let movedColumns = new Set([firstMovedColumn]),
+    excluded = existingRuns;
+  for (;;) {
+    const runs = intersectingRuns(state, movedColumns, excluded);
+    if (!runs.length) break;
+    const runsBeforeClear = new Set(cascadeRuns(state).map((run) => run.key)),
+      wave = clearCascadeWave(state, runs);
+    waves.push({ before: wave.before, cells: wave.cells, after: wave.after });
+    colors.push(...wave.colors);
+    movedColumns = new Set(wave.cells.map((cell) => cell.column));
+    excluded = runsBeforeClear;
+  }
+  return { waves, colors };
 }
 export function applyQuarryInput(
   state: QuarryState,
@@ -150,7 +229,8 @@ export function applyQuarryInput(
     return;
   }
   if (!canFire(state)) return;
-  const existingRuns=new Set(cascadeRuns(state).map(run=>run.key));
+  const existingRuns = new Set(cascadeRuns(state).map((run) => run.key)),
+    movedColumn = state.cursor;
   const color = state.columns[state.cursor].shift()!;
   state.removed++;
   if (state.groupCount === 0) {
@@ -162,21 +242,21 @@ export function applyQuarryInput(
     state.groupCount = 0;
     state.groups++;
   }
-  const cascadeColors: QuarryColor[] = [],cascadeCells:{column:number;row:number;color:QuarryColor}[]=[];
-  for (let waveIndex=0;;waveIndex++) {
-    const wave = clearCascadeWave(state,waveIndex===0?existingRuns:undefined);
-    if (!wave.colors.length) break;
-    state.cascades++;
-    cascadeColors.push(...wave.colors);cascadeCells.push(...wave.cleared);
-  }
+  state.lastCascadeCells = [];
+  state.lastCascadeWaves = [];
+  const resolution = resolveCascades(state, movedColumn, existingRuns),
+    cascadeCells = resolution.waves.flatMap((wave) => wave.cells);
+  state.cascades += resolution.waves.length;
+  state.lastCascadeCells = cascadeCells;
+  state.lastCascadeWaves = resolution.waves;
   if (state.columns.every((column) => column.length === 0))
     state.phase = "cleared";
-  if (cascadeColors.length){state.lastCascadeCells=cascadeCells;
+  if (resolution.colors.length) {
     return {
       tick: state.tick,
       chain: state.cascades,
-      colors: cascadeColors.slice(0, 4),
-      cells:cascadeCells,
+      colors: resolution.colors.slice(0, 4),
+      cells: cascadeCells,
     };
   }
 }
@@ -187,7 +267,7 @@ export function hashQuarry(state: QuarryState) {
     hash ^= text.charCodeAt(i);
     hash = Math.imul(hash, 16777619);
   }
-  return `q1-${(hash >>> 0).toString(16).padStart(8, "0")}`;
+  return `q2-${(hash >>> 0).toString(16).padStart(8, "0")}`;
 }
 export function replayQuarry(
   initial: QuarryState,
@@ -222,9 +302,10 @@ export function solveQuarryPlan(columns: QuarryColor[][]) {
       const color = stacks[col][0];
       if (!color || (group && color !== group)) continue;
       const next = stacks.map((s) => [...s]);
-      const shell={columns:next} as QuarryState,existing=new Set(cascadeRuns(shell).map(run=>run.key));
+      const shell = { columns: next, removed: 0 } as QuarryState,
+        existing = new Set(cascadeRuns(shell).map((run) => run.key));
       next[col].shift();
-      for(let wave=0;;wave++){const cleared=clearCascadeWave(shell,wave===0?existing:undefined);if(!cleared.colors.length)break}
+      resolveCascades(shell, col, existing);
       const nextCount = (count === 2 ? 0 : count + 1) as 0 | 1 | 2,
         tail = solve(next, nextCount === 0 ? null : color, nextCount);
       if (tail) return [col, ...tail];

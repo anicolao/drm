@@ -53,9 +53,10 @@ scoring, next-level/rematch voting, next-pill previews, and deterministic rain
 attacks. Block Stack uses `tetris/1` with a seeded seven-bag, SRS rotation, ghost
 and next pieces, gravity, lock delay, line scoring, top-out, multiplayer
 last-survivor results, controller replay, and cast replay. Quarry Match uses
-solver-verified seeded five-column puzzles, match-three shooting, restarts,
-first-clear race arbitration, first-to-three scoring, controller/cast replay,
-and its original Prismatic Descent score. Crystal Canopy uses independently
+solver-verified seeded five-column puzzles, moved-column match-three cascade
+stages, restarts, first-clear race arbitration, first-to-three scoring,
+controller/cast replay, and its original Prismatic Descent score and combo
+effects. Crystal Canopy uses independently
 level-scaled solver-proven ceiling puzzles, fixed crystal positions, no cascades,
 first-to-three rounds, and its Glacial Vault score and effects. Stax uses a
 Threlte-rendered five-lane ramp, LIFO paddle, 5×5 line bin, seeded wave
