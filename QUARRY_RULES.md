@@ -1,4 +1,4 @@
-# Quarry Match (`quarry-match/2`)
+# Quarry Match (`quarry-match/3`)
 
 ## Identity
 
@@ -8,7 +8,8 @@ horizontal cave-ins. Those cave-ins cascade and rain stones onto opponents.
 
 ## Board and direct shots
 
-- The quarry is five columns by twelve rows. Columns are bottom-aligned stacks.
+- The quarry is rendered as five columns by twelve rows. Smaller starting
+  puzzles remain bottom-aligned, leaving the unused rows empty at the top.
 - Move beneath a column and fire to remove its bottom stone.
 - The first shot starts a three-stone group. The next two accepted shots must be
   the same color; a different color or an empty column rejects the shot.
@@ -55,8 +56,20 @@ network interaction.
 
 The first player to empty their quarry wins the round; the match is first to
 three round wins. Left/right moves, Fire shoots, and Restart reconstructs the
-seeded puzzle without rewinding the controller tick. Levels increase the color
-vocabulary from three to five.
+seeded puzzle without rewinding the controller tick.
+
+Levels introduce board depth before adding another color:
+
+| Levels | Colors | Rows | Stones |
+| --- | ---: | ---: | ---: |
+| 0, 3, 6, 9 | 2, 3, 4, 5 respectively | 6 | 30 |
+| 1, 4, 7, 10 | 2, 3, 4, 5 respectively | 9 | 45 |
+| 2, 5, 8, 11 | 2, 3, 4, 5 respectively | 12 | 60 |
+| 12–20 | 5 | 12 | 60 |
+
+Every generated puzzle remains deterministic and solver-proven. The preceding
+`quarry-match/2` rules remain readable for deterministic replay of existing
+games.
 
 On touch controllers, tapping the launcher beneath a column moves directly to
 that column and fires as one gesture. On gamepads, the left and right shoulder

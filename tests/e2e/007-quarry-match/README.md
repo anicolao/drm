@@ -1,11 +1,11 @@
 # Test: US-007: Quarry Match plays a solver-backed puzzle race
 
-## Quarry Match starts a seeded solver-backed puzzle in a phone-safe controller
+## Level-zero Quarry Match starts with a half-height solver-backed puzzle
 
-![Quarry Match starts a seeded solver-backed puzzle in a phone-safe controller](./screenshots/000-quarry-start.png)
+![Level-zero Quarry Match starts with a half-height solver-backed puzzle](./screenshots/000-quarry-start.png)
 
 **Verifications:**
-- [x] The board contains five full columns and sixty stones
+- [x] The fixed twelve-row board contains thirty bottom-aligned stones
 - [x] Fire and horizontal controls are available
 - [x] The controller fits the phone viewport
 
@@ -17,7 +17,7 @@
 
 **Verifications:**
 - [x] One held stone has the same occupied stone treatment as the board
-- [x] Restart remains visible beside the controller
+- [x] Restart remains visible but waits for the cave-in to finish
 
 ---
 

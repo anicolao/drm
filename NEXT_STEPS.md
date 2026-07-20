@@ -37,7 +37,7 @@ The architectural constraints remain non-negotiable:
 - `tetris/1`: 10×20 visible board plus two hidden rows, seeded seven-bag, SRS,
   next queue, ghost, gravity, lock delay/reset cap, basic scoring/levels, top-out,
   durable journals, replay, cast, and single-round survivor result.
-- `quarry-match/2`: seeded solver-verified five-column puzzles, causal
+- `quarry-match/3`: level-scaled, seeded solver-verified five-column puzzles, causal
   moved-column triples, staged adjacent-column cascades with repeated effects,
   manual restart, shared race boards, first-clear arbitration, first-to-three
   scoring, routed original music, responsive controllers, compact opponents,

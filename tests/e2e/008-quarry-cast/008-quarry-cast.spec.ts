@@ -32,7 +32,7 @@ test("US-008: shared Quarry Match display replays controller shots", async ({
   await expect(controller.getByLabel("Quarry Match controller")).toBeVisible();
   const castBoard = page.getByLabel("Quarry Match board");
   const controllerBoard = controller.getByLabel("Quarry Match board");
-  await expect(castBoard).toHaveAttribute("data-remaining", "60");
+  await expect(castBoard).toHaveAttribute("data-remaining", "30");
   await controller.clock.pauseAt(Date.now());
   const plan = await controller.evaluate(async () => {
     const game = (await (0, eval)(
@@ -54,7 +54,7 @@ test("US-008: shared Quarry Match display replays controller shots", async ({
     await controller.keyboard.press("ArrowUp");
     await finishStagedPresentation(controller, controllerBoard, waveDuration);
   }
-  await expect(castBoard).toHaveAttribute("data-remaining", "36");
+  await expect(castBoard).toHaveAttribute("data-remaining", "18");
   await page.clock.pauseAt(Date.now());
   await finishStagedPresentation(page, castBoard, waveDuration);
   // Lag is time-derived and covered independently; keep this replay snapshot deterministic.
@@ -67,14 +67,14 @@ test("US-008: shared Quarry Match display replays controller shots", async ({
       {
         spec: "The cast replayed the controller triple without receiving board state",
         check: async () =>
-          await expect(castBoard).toHaveAttribute("data-remaining", "36"),
+          await expect(castBoard).toHaveAttribute("data-remaining", "18"),
       },
       {
         spec: "The controller and cast show the same remaining stone count",
         check: async () =>
           await expect(
             controllerBoard,
-          ).toHaveAttribute("data-remaining", "36"),
+          ).toHaveAttribute("data-remaining", "18"),
       },
       {
         spec: "Audio controls are on the TV and not the controller",

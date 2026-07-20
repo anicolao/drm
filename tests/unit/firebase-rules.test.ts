@@ -12,11 +12,13 @@ test('Realtime Database exposes only the unified controller record journal', () 
   assert.ok(rules.rules.games.$gameId.winner);
   assert.match(rules.rules.games.$gameId.start['.validate'], /quarry-match\/1/);
   assert.match(rules.rules.games.$gameId.start['.validate'], /quarry-match\/2/);
+  assert.match(rules.rules.games.$gameId.start['.validate'], /quarry-match\/3/);
   assert.match(rules.rules.games.$gameId.start['.validate'], /crystal-canopy\/1/);
   assert.match(rules.rules.games.$gameId.start['.validate'], /stax\/1/);
   assert.match(playerRules.records.$recordId['.validate'], /c1-/);
   assert.match(playerRules.records.$recordId['.validate'], /q1-/);
   assert.match(playerRules.records.$recordId['.validate'], /q2-/);
+  assert.match(playerRules.records.$recordId['.validate'], /q3-/);
   assert.match(playerRules.records.$recordId['.validate'], /input\/fire/);
   assert.match(playerRules.records.$recordId['.validate'], /input\/throw-back/);
   assert.match(playerRules.records.$recordId['.validate'], /s1-/);

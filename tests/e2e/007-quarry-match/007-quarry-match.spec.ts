@@ -25,21 +25,21 @@ test("US-007: Quarry Match plays a solver-backed puzzle race", async ({
   await page.getByRole("button", { name: "Play", exact: true }).click();
   await expect(page.getByLabel("Quarry Match controller")).toBeVisible();
   const board = page.getByLabel("Quarry Match board");
-  await expect(board).toHaveAttribute("data-remaining", "60");
+  await expect(board).toHaveAttribute("data-remaining", "30");
   await page.clock.pauseAt(Date.now());
   await page
     .locator(".tick")
     .evaluate((element: HTMLElement) => (element.style.visibility = "hidden"));
   await tester.step("quarry-start", {
     description:
-      "Quarry Match starts a seeded solver-backed puzzle in a phone-safe controller",
+      "Level-zero Quarry Match starts with a half-height solver-backed puzzle",
     networkStatus: "skip",
     verifications: [
       {
-        spec: "The board contains five full columns and sixty stones",
+        spec: "The fixed twelve-row board contains thirty bottom-aligned stones",
         check: async () => {
-          await expect(board).toHaveAttribute("data-remaining", "60");
-          await expect(board.locator(".occupied")).toHaveCount(60);
+          await expect(board).toHaveAttribute("data-remaining", "30");
+          await expect(board.locator(".occupied")).toHaveCount(30);
         },
       },
       {
@@ -91,24 +91,24 @@ test("US-007: Quarry Match plays a solver-backed puzzle race", async ({
       await finishStagedPresentation(page, board, waveDuration);
     }
   };
-  await playAndPresent(plan.slice(0, 1));
+  await play(plan.slice(0, 1));
   await page.locator(".command-status").evaluate((element:HTMLElement)=>element.style.visibility="hidden");
-  await tester.step("quarry-held-stone",{description:"The current shot group uses full Quarry stone renders",networkStatus:"skip",verifications:[{spec:"One held stone has the same occupied stone treatment as the board",check:async()=>{await expect(page.getByLabel("Current match group").locator(".stone")).toHaveCount(1);await expect(page.getByText("GROUP 1/3")).toBeVisible()}},{spec:"Restart remains visible beside the controller",check:async()=>await expect(page.getByRole("button",{name:"RESTART · X"})).toBeEnabled()}]});
-  await playAndPresent(plan.slice(1, 2));
-  await play(plan.slice(2, 3));
-  await expect(board).toHaveAttribute("data-remaining", "36");
-  await expect(page.getByText("GROUP 0/3")).toBeVisible();
+  await tester.step("quarry-held-stone",{description:"The current shot group uses full Quarry stone renders",networkStatus:"skip",verifications:[{spec:"One held stone has the same occupied stone treatment as the board",check:async()=>{await expect(page.getByLabel("Current match group").locator(".stone")).toHaveCount(1);await expect(page.getByText("GROUP 1/3")).toBeVisible()}},{spec:"Restart remains visible but waits for the cave-in to finish",check:async()=>await expect(page.getByRole("button",{name:"RESTART · X"})).toBeDisabled()}]});
+  await expect(board).toHaveAttribute("data-remaining", "23");
   await expect(board).toHaveAttribute("data-cascade-stage", "1");
   await expect(board).toHaveAttribute("data-cascade-stages", "2");
   await expect(board).toHaveAttribute("data-cascade-phase", "burst");
   const firstStageCue = Number(await page.locator(".audio-controls").getAttribute("data-cue-signal"));
-  await tester.step("quarry-cascade-stage-one",{description:"Every match intersecting the moved column explodes in one simultaneous stage",networkStatus:"skip",verifications:[{spec:"The first stage is visibly bursting before its stones settle",check:async()=>{await expect(board).toHaveAttribute("data-cascade-stage","1");await expect(board).toHaveAttribute("data-cascade-phase","burst");await expect(board.locator(".burst")).toHaveCount(3)}},{spec:"The authoritative result is final while the board still shows the first stage",check:async()=>{await expect(board).toHaveAttribute("data-remaining","36");await expect(board).toHaveAttribute("data-rendered-remaining","42")}},{spec:"The player can aim during the cascade while another shot remains blocked",check:async()=>{const direction=cursor===4?-1:1;await expect(page.getByRole("button",{name:direction<0?"Move left":"Move right"})).toBeEnabled();await expect(page.getByRole("button",{name:"Fire"})).toBeDisabled();await page.keyboard.press(direction<0?"ArrowLeft":"ArrowRight");cursor+=direction;await expect(board).toHaveAttribute("data-cursor",String(cursor));await page.keyboard.press("ArrowUp");await expect(page.getByText("GROUP 0/3")).toBeVisible();await expect(board).toHaveAttribute("data-remaining","36")}}]});
+  await tester.step("quarry-cascade-stage-one",{description:"Every match intersecting the moved column explodes in one simultaneous stage",networkStatus:"skip",verifications:[{spec:"The first stage is visibly bursting before its stones settle",check:async()=>{await expect(board).toHaveAttribute("data-cascade-stage","1");await expect(board).toHaveAttribute("data-cascade-phase","burst");await expect(board.locator(".burst")).toHaveCount(3)}},{spec:"The authoritative result is final while the board still shows the first stage",check:async()=>{await expect(board).toHaveAttribute("data-remaining","23");await expect(board).toHaveAttribute("data-rendered-remaining","29")}},{spec:"The player can aim during the cascade while another shot remains blocked",check:async()=>{const direction=cursor===4?-1:1;await expect(page.getByRole("button",{name:direction<0?"Move left":"Move right"})).toBeEnabled();await expect(page.getByRole("button",{name:"Fire"})).toBeDisabled();await page.keyboard.press(direction<0?"ArrowLeft":"ArrowRight");cursor+=direction;await expect(board).toHaveAttribute("data-cursor",String(cursor));await page.keyboard.press("ArrowUp");await expect(page.getByText("GROUP 1/3")).toBeVisible();await expect(board).toHaveAttribute("data-remaining","23")}}]});
   await page.clock.runFor(waveDuration + 16);
   await expect(board).toHaveAttribute("data-cascade-stage", "2");
   await expect(board).toHaveAttribute("data-cascade-phase", "burst");
   await tester.step("quarry-cascade-stage-two",{description:"Settled adjacent columns trigger a distinct follow-up combo stage",networkStatus:"skip",verifications:[{spec:"The second stage waits for the first stage to finish",check:async()=>{await expect(board).toHaveAttribute("data-cascade-stage","2");await expect(board).toHaveAttribute("data-cascade-stages","2")}},{spec:"The follow-up stage repeats the burst effect",check:async()=>await expect(board.locator(".burst")).toHaveCount(3)},{spec:"The follow-up stage triggers its own combo sound cue",check:async()=>await expect(page.locator(".audio-controls")).toHaveAttribute("data-cue-signal",String(firstStageCue+1))}]});
   await page.clock.runFor(waveDuration + 16);
   await expect(board).toHaveAttribute("data-terminal-presentation", "complete");
+  await playAndPresent(plan.slice(1, 3));
+  await expect(board).toHaveAttribute("data-remaining", "18");
+  await expect(page.getByText("GROUP 0/3")).toBeVisible();
   await playAndPresent(plan.slice(3));
   await expect(page.getByText("ROUND WIN")).toBeVisible();
   await page.clock.pauseAt(Date.now());
