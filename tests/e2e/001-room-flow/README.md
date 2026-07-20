@@ -6,6 +6,7 @@
 
 **Verifications:**
 - [x] Firebase is configured
+- [x] Audio mix settings are available before entering a room
 - [x] Deterministic E2E build identifier is visible
 - [x] UI does not render a fabricated game board
 
@@ -17,6 +18,7 @@
 
 **Verifications:**
 - [x] Room code contains exactly four letters
+- [x] Audio mix settings remain available while configuring the room
 - [x] Exactly one named host membership exists
 - [x] Block Stack can start locally while TV mode still requires a controller
 

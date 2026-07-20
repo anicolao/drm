@@ -20,6 +20,7 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
     { spec: 'Direct invitation URL joined the requested room', check: async () => await expect(playerPage.getByText('Joined room TEST')).toBeVisible() },
     { spec: 'The player can choose a starting level with pointer controls', check: async () => await expect(playerPage.getByLabel('Starting level')).toContainText('2') },
     { spec: 'UI waits for the host start record', check: async () => await expect(playerPage.getByText(/host gets the game ready/)).toBeVisible() },
+    { spec: 'Audio mix settings are available while waiting', check: async () => await expect(playerPage.getByRole('button', { name: 'Audio settings' })).toBeVisible() },
     { spec: 'Waiting screen teaches keyboard and gamepad controls', check: async () => await expect(playerPage.getByText('A / R ↻')).toBeVisible() }
   ]});
   await expect(page.getByText('Joined players · 2')).toBeVisible(); await expect(page.getByText('Jo', { exact: true })).toBeVisible();

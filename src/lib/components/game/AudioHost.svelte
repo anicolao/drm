@@ -7,6 +7,8 @@
   import { onDestroy, onMount } from 'svelte';
 
   export let enabled = false;
+  export let showControls: boolean | undefined = undefined;
+  export let inline = false;
   export let loopUrl: string | undefined = undefined;
   export let loopKey = '';
   export let cueUrl: string | undefined = undefined;
@@ -25,6 +27,7 @@
   let playingKey = '';
   let observedCue = 0;
   let mounted = false;
+  $: controlsVisible = showControls ?? enabled;
 
   function stop(audio: HTMLAudioElement | undefined) {
     if (!audio) return;
@@ -147,10 +150,11 @@
   });
 </script>
 
-{#if enabled}
-  <div class="audio-controls">
-    <button class="mute" aria-label={masterMuted ? 'Unmute game audio' : 'Mute game audio'} aria-pressed={masterMuted} on:click={toggleMaster}>♫ {masterMuted ? 'SOUND OFF' : 'SOUND ON'}</button>
+{#if controlsVisible}
+  <div class="audio-controls" class:inline>
+    <button class="mute" aria-label={masterMuted ? 'Unmute game audio' : 'Mute game audio'} aria-pressed={masterMuted} on:click={toggleMaster}>♫ <span>{masterMuted ? 'SOUND OFF' : 'SOUND ON'}</span></button>
     <button class="settings-toggle" aria-label="Audio settings" aria-expanded={settingsOpen} on:click={() => settingsOpen = !settingsOpen}>MIX</button>
+    {#if enabled && needsActivation && !masterMuted}<button class="start" aria-label="Enable game audio" on:click={activate}>♪ <span>START</span></button>{/if}
     {#if settingsOpen}
       <section class="mixer" aria-label="Audio settings">
         <div><strong>MUSIC</strong><button aria-label={musicMuted ? 'Unmute music' : 'Mute music'} aria-pressed={musicMuted} on:click={() => { musicMuted = !musicMuted; changeSettings(); }}>{musicMuted ? 'OFF' : 'ON'}</button></div>
@@ -161,8 +165,8 @@
     {/if}
   </div>
 {/if}
-{#if enabled && needsActivation && !masterMuted}<button class="start" aria-label="Enable game audio" on:click={activate}>♪ TAP FOR SOUND</button>{/if}
 
 <style>
-  .audio-controls{position:fixed;z-index:20;top:max(.55rem,env(safe-area-inset-top));left:50%;transform:translateX(-50%);display:flex;gap:.25rem;align-items:start}.mute,.settings-toggle,.start{background:#08090ddd;border:1px solid #4a4d60;color:var(--text);font-size:.55rem;padding:.42rem .55rem;box-shadow:2px 2px 0 var(--ink);white-space:nowrap}.settings-toggle{color:var(--cyan)}.start{position:fixed;z-index:20;top:max(2.8rem,calc(env(safe-area-inset-top) + 2.25rem));left:50%;transform:translateX(-50%);background:var(--yellow);color:var(--ink);font-size:.65rem}.start:hover{transform:translateX(-50%)}.mixer{position:absolute;top:2.2rem;left:50%;transform:translateX(-50%);width:min(88vw,17rem);display:grid;gap:.55rem;padding:.7rem;background:#0d0f16f2;border:1px solid #4a4d60;box-shadow:4px 4px 0 var(--ink)}.mixer div{display:flex;align-items:center;justify-content:space-between;color:var(--yellow);font-size:.6rem}.mixer button{padding:.25rem .4rem;font-size:.5rem}.mixer label{gap:.25rem;font-size:.52rem}.mixer input{width:100%;accent-color:var(--cyan)}
+  .audio-controls{position:fixed;z-index:20;top:max(.55rem,env(safe-area-inset-top));right:max(.7rem,env(safe-area-inset-right));display:flex;gap:.25rem;align-items:start}.audio-controls.inline{position:relative;top:auto;right:auto;flex:none}.mute,.settings-toggle,.start{background:#08090ddd;border:1px solid #4a4d60;color:var(--text);font-size:.55rem;padding:.42rem .55rem;box-shadow:2px 2px 0 var(--ink);white-space:nowrap}.settings-toggle{color:var(--cyan)}.start{background:var(--yellow);color:var(--ink)}.mixer{position:absolute;top:2.2rem;right:0;width:min(88vw,17rem);display:grid;gap:.55rem;padding:.7rem;background:#0d0f16f2;border:1px solid #4a4d60;box-shadow:4px 4px 0 var(--ink)}.mixer div{display:flex;align-items:center;justify-content:space-between;color:var(--yellow);font-size:.6rem}.mixer button{padding:.25rem .4rem;font-size:.5rem}.mixer label{gap:.25rem;font-size:.52rem}.mixer input{width:100%;accent-color:var(--cyan)}
+  @media(max-width:600px){.audio-controls .mute span,.audio-controls .start span{display:none}.audio-controls .mute,.audio-controls .settings-toggle,.audio-controls .start{min-width:2rem;padding:.42rem .4rem}}
 </style>
