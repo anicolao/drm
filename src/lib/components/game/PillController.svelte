@@ -19,6 +19,7 @@
 
   let code=''; let joined=false; let joining=false; let needsName=false; let playerName=''; let error='';
   let roomId=''; let activeGameId=''; let controller: ReturnType<typeof createPillBottleController> | undefined;
+  let writerLeaseStatus:'pending'|'owned'|'conflict'='pending';
   let roomUnsubscribe=()=>{}; let playersUnsubscribe=()=>{}; let players:RoomPlayer[]=[]; let state: ControllerState={tick:0,ready:false}; let downHeld=false;
   let gamepadFrame=0; let gamepadConnected=false; let gamepadName=''; let gamepadActive=false; let online=true; const gamepadControls=new StandardGamepadControls(); const dropSources=new Set<'pointer'|'keyboard'|'gamepad'>();
   let selectedLevel=0;
@@ -71,8 +72,8 @@
     playerName=name;localStorage.setItem('drm-player-name',name);await performJoin();
   }
   function startController(gameId:string){
-    if(controller&&activeGameId===gameId)return;controller?.destroy();activeGameId=gameId;state={tick:0,ready:false};error='';
-    controller=createPillBottleController(gameId,(next)=>{const justFinished=!state.lifecycle?.finished&&next.lifecycle?.finished;if(justFinished&&next.bottle)selectedLevel=next.lifecycle?.matchComplete?next.bottle.level:Math.min(20,next.bottle.level+1);state=next;if(next.error)error=next.error;});
+    if(controller&&activeGameId===gameId)return;controller?.destroy();activeGameId=gameId;state={tick:0,ready:false};error='';writerLeaseStatus='pending';
+    controller=createPillBottleController(gameId,(next)=>{const leaseStatus=next.ownershipConflict?'conflict':next.ready?'owned':'pending';if(leaseStatus!=='pending'&&leaseStatus!==writerLeaseStatus){writerLeaseStatus=leaseStatus;window.dispatchEvent(new CustomEvent('drm:writer-lease',{detail:leaseStatus}))}const justFinished=!state.lifecycle?.finished&&next.lifecycle?.finished;if(justFinished&&next.bottle)selectedLevel=next.lifecycle?.matchComplete?next.bottle.level:Math.min(20,next.bottle.level+1);state=next;if(next.error)error=next.error;});
   }
   function send(input:PillCommand){
     if(!controlsEnabled)return;
