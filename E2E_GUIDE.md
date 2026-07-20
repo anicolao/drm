@@ -35,11 +35,19 @@ Never use production Firebase credentials in E2E tests.
 ## Authoring rules
 
 - Assertions time out after at most 2000 ms.
-- Prefer observable UI/network state. A short `waitForTimeout` is permitted only
-  when elapsed time is itself the behavior under test (for example, proving a
-  held one-shot input does not fire again).
+- Wait for observable UI or network events with locator assertions. Do not use
+  `expect.poll`, `waitForFunction`, `waitForTimeout`, or loops that repeatedly
+  inspect page state. They hide which event a scenario needs and consume the
+  entire timeout when it never happens.
+- If elapsed time is itself the behavior under test, install the Playwright
+  clock and advance it by the exact duration. If a transition must be measured,
+  subscribe to its DOM event or observe the specific attribute with a
+  `MutationObserver` before triggering it.
 - Freeze or drive RAF-based gameplay to an explicit deterministic state before a
-  screenshot; hiding tick text alone does not stabilize a moving board.
+  screenshot; hiding tick text alone does not stabilize a moving board. Use the
+  shared clock helpers to advance to an absolute tick or a fixed number of
+  frames. These helpers may inspect the game tick while driving the frozen
+  clock; scenario code must not open-code a state-polling loop.
 - Add semantic assertions to every visual step.
 - Cover phone and cast/desktop viewports explicitly.
 - Call `generateDocs()` after the final step.

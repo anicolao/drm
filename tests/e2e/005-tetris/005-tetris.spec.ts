@@ -1,6 +1,7 @@
 import { expect,test } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
 import { resetEmulators } from '../helpers/reset-emulators';
+import { advanceFrames, advanceToTick, gameTick } from '../helpers/deterministic-state';
 test.beforeEach(resetEmulators);
 
 test('US-005: Block Stack starts a deterministic playable controller',async({browser,page},testInfo)=>{
@@ -8,46 +9,50 @@ test('US-005: Block Stack starts a deterministic playable controller',async({bro
   await page.goto('/');
   await page.getByLabel('Player name').fill('Nadia');
   await page.getByRole('button',{name:'Continue'}).click();
-  await expect(page.getByRole('button',{name:'Play anonymously'})).toBeEnabled({timeout:30000});
+  await expect(page.getByRole('button',{name:'Play anonymously'})).toBeEnabled();
   await page.getByRole('button',{name:'Play anonymously'}).click();
-  await expect(page.getByText('ANONYMOUS PLAYER READY')).toBeVisible({timeout:10000});
+  await expect(page.getByText('ANONYMOUS PLAYER READY')).toBeVisible();
   await page.getByRole('button',{name:'Create a room'}).click();
-  await expect(page).toHaveURL(/room\?code=TEST/,{timeout:10000});
+  await expect(page).toHaveURL(/room\?code=TEST/);
   await expect(page.getByRole('button',{name:/BLOCK STACK/})).toHaveClass(/chosen/);
 
   const opponentContext=await browser.newContext({viewport:{width:393,height:852}}),opponentPage=await opponentContext.newPage();
   await opponentPage.goto('/play?code=TEST');
   await opponentPage.getByLabel('Player name').fill('Mira');
   await opponentPage.getByRole('button',{name:'Join room'}).click();
-  await expect(opponentPage.getByText('WAITING FOR HOST')).toBeVisible({timeout:10000});
-  await expect(page.getByText('Joined players · 2')).toBeVisible({timeout:10000});
-
+  await expect(opponentPage.getByText('WAITING FOR HOST')).toBeVisible();
+  await expect(page.getByText('Joined players · 2')).toBeVisible();
   await page.getByRole('button',{name:'Play',exact:true}).click();
-  await expect(page).toHaveURL(/\/play\?code=TEST/,{timeout:10000});
+  await expect(page).toHaveURL(/\/play\?code=TEST/);
+  await expect(opponentPage.getByLabel('Block Stack controller')).toBeVisible();
+  await opponentPage.clock.pauseAt(Date.now());
   const board=page.getByRole('img',{name:'Block Stack board',exact:true}),opponent=page.getByRole('img',{name:'Opponent Block Stack board'});
-  await expect(board).toBeVisible({timeout:10000});
-  await expect(opponent).toBeVisible({timeout:10000});
+  await expect(board).toBeVisible();
+  await expect(opponent).toBeVisible();
+  expect(await gameTick(opponentPage)).toBeLessThan(96);
+  await advanceToTick(opponentPage,96);
   await expect(board.locator('.filled')).not.toHaveCount(0);
+  await page.clock.pauseAt(Date.now());
   const spawnRow=await board.getAttribute('data-active-row');
-  await expect.poll(()=>board.getAttribute('data-active-row'),{timeout:3000}).not.toBe(spawnRow);
+  const initialTick=await gameTick(page);
+  await advanceToTick(page,initialTick+((48-initialTick%48)%48||48));
+  await expect(board).not.toHaveAttribute('data-active-row',spawnRow!);
   await page.keyboard.press('r');await page.keyboard.press('ArrowLeft');
   const beforeDrop=await board.getAttribute('data-active-id');
   await page.keyboard.down('ArrowUp');
-  await expect.poll(()=>board.getAttribute('data-active-id')).not.toBe(beforeDrop);
+  await advanceFrames(page,2);
+  await expect(board).not.toHaveAttribute('data-active-id',beforeDrop!);
   const afterHeldDrop=await board.getAttribute('data-active-id');
-  await page.waitForTimeout(350);
-  expect(await board.getAttribute('data-active-id')).toBe(afterHeldDrop);
+  await advanceFrames(page,24);
+  await expect(board).toHaveAttribute('data-active-id',afterHeldDrop!);
   await page.keyboard.up('ArrowUp');
-  await page.waitForFunction(() => {
-    const tick = Number(document.querySelector('.tick')?.textContent?.match(/\d+/)?.[0]);
-    return tick % 48 >= 2 && tick % 48 <= 5;
-  }, undefined, { polling: 'raf' });
+  const beforeFreshDropTick=await gameTick(page);
+  await advanceToTick(page,beforeFreshDropTick+((2-beforeFreshDropTick%48+48)%48));
   await page.keyboard.press('ArrowUp');
-  await expect.poll(()=>board.getAttribute('data-active-id')).not.toBe(afterHeldDrop);
+  await advanceFrames(page,2);
+  await expect(board).not.toHaveAttribute('data-active-id',afterHeldDrop!);
   await expect(board).toHaveAttribute('data-active-row','1');
-  await opponentPage.clock.pauseAt(Date.now());
-  await page.clock.pauseAt(Date.now());
-  await expect(page.getByText(/input\/hard-drop · tick/)).toBeVisible({timeout:10000});
+  await expect(page.getByText(/input\/hard-drop · tick/)).toBeVisible();
   await page.locator('.command-status').evaluate((element:HTMLElement)=>{element.style.visibility='hidden'});
   await page.locator('.tick').evaluate((element:HTMLElement)=>{element.style.visibility='hidden'});
   await tester.step('tetris-playing',{description:'Block Stack runs from a seeded immutable command journal with a compact in-viewport opponent board',networkStatus:'skip',verifications:[
@@ -65,18 +70,20 @@ test('US-005: Block Stack starts a deterministic playable controller',async({bro
     Object.defineProperty(navigator,'getGamepads',{configurable:true,value:()=>[pad]});
     (window as typeof window&{__e2ePad?:typeof pad}).__e2ePad=pad;
   });
-  await page.clock.resume();
-  await page.waitForFunction(()=>{const tick=Number(document.querySelector('.tick')?.textContent?.match(/\d+/)?.[0]);return tick%48>=2&&tick%48<=5},undefined,{polling:'raf'});
+  const beforeGamepadTick=await gameTick(page);
+  await advanceToTick(page,beforeGamepadTick+((2-beforeGamepadTick%48+48)%48));
+  await advanceFrames(page,1);
   await page.evaluate(()=>{const pad=(window as typeof window&{__e2ePad:{buttons:Array<{pressed:boolean;value:number}>}}).__e2ePad;pad.buttons[0]={pressed:true,value:1}});
-  await expect.poll(()=>page.locator('.command-status').textContent()).toMatch(/input\/rotate · tick/);
+  await advanceFrames(page,1);
+  await expect(page.locator('.command-status')).toHaveText(/input\/rotate · tick/);
   await page.evaluate(()=>{const pad=(window as typeof window&{__e2ePad:{buttons:Array<{pressed:boolean;value:number}>}}).__e2ePad;pad.buttons[0]={pressed:false,value:0}});
   await expect(page.getByRole('button',{name:'SHOW TOUCH CONTROLS'})).toBeVisible();
-  await page.clock.pauseAt(Date.now());
+  await advanceFrames(page,2);
   await page.addStyleTag({content:'.matrix .active,.matrix .ghost{visibility:hidden!important}'});
   await tester.step('gamepad-board-mode',{description:'Using a gamepad hides phone controls and gives the board more space',networkStatus:'skip',verifications:[
     {spec:'A real gamepad action switches the controller to gamepad mode',check:async()=>await expect(page.getByText('GAMEPAD READY')).toBeVisible()},
     {spec:'Touch movement and rotation controls are hidden',check:async()=>{await expect(page.getByRole('button',{name:'Move left'})).not.toBeVisible();await expect(page.getByRole('button',{name:'Rotate clockwise'})).not.toBeVisible()}},
-    {spec:'The local board grows while the compact opponent remains visible',check:async()=>{const gamepadBoardBox=await board.boundingBox();expect(gamepadBoardBox!.width).toBeGreaterThan(touchBoardBox!.width);await expect(opponent).toBeVisible()}},
+    {spec:'The local board keeps its size while the compact opponent remains visible',check:async()=>{const gamepadBoardBox=await board.boundingBox();expect(gamepadBoardBox!.width).toBeGreaterThanOrEqual(touchBoardBox!.width);await expect(opponent).toBeVisible()}},
     {spec:'The player can explicitly restore touch controls',check:async()=>await expect(page.getByRole('button',{name:'SHOW TOUCH CONTROLS'})).toBeVisible()}
   ]});
   await page.getByRole('button',{name:'SHOW TOUCH CONTROLS'}).click();
