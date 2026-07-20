@@ -36,14 +36,37 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
           COMMIT_HASH: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Deploy production
-        if: github.event_name != 'pull_request'
+      - name: Assemble production and open previews
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PREVIEW_DIR: ${{ steps.base_path.outputs.dir }}
+        run: |
+          git clone --depth=1 --branch gh-pages \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" previous
+          mkdir site
+          rsync -a --exclude=.git previous/ site/
+
+          for preview in site/pr[0-9]*; do
+            [ -d "$preview" ] || continue
+            number="${preview##*/pr}"
+            state="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${number}" --jq .state 2>/dev/null || true)"
+            if [ "$state" != open ]; then rm -rf "$preview"; fi
+          done
+
+          if [ "${{ github.event_name }}" = pull_request ]; then
+            rm -rf "site/${PREVIEW_DIR}"
+            mkdir -p "site/${PREVIEW_DIR}"
+            rsync -a build/ "site/${PREVIEW_DIR}/"
+          else
+            for entry in site/* site/.[!.]* site/..?*; do
+              [ -e "$entry" ] || continue
+              case "${entry##*/}" in pr[0-9]*) ;; *) rm -rf "$entry" ;; esac
+            done
+            rsync -a build/ site/
+          fi
+      - name: Publish production and open previews
         uses: peaceiris/actions-gh-pages@v4
-        with: { github_token: "${{ secrets.GITHUB_TOKEN }}", publish_dir: build, keep_files: true }
-      - name: Deploy PR preview
-        if: github.event_name == 'pull_request'
-        uses: peaceiris/actions-gh-pages@v4
-        with: { github_token: "${{ secrets.GITHUB_TOKEN }}", publish_dir: build, destination_dir: "${{ steps.base_path.outputs.dir }}", keep_files: true }
+        with: { github_token: "${{ secrets.GITHUB_TOKEN }}", publish_dir: site, keep_files: false }
       - name: Comment preview URL
         if: github.event_name == 'pull_request'
         continue-on-error: true
