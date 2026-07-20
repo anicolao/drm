@@ -39,6 +39,11 @@ Never use production Firebase credentials in E2E tests.
   `expect.poll`, `waitForFunction`, `waitForTimeout`, or loops that repeatedly
   inspect page state. They hide which event a scenario needs and consume the
   entire timeout when it never happens.
+- Firebase-backed route transitions and game-surface mounts are application
+  lifecycle events, not gameplay assertions. Use the shared
+  `clickAndWaitForUrl` and `waitForGameSurface` helpers to subscribe to those
+  exact events, then make the usual short assertion. Do not add a longer
+  assertion timeout to a scenario.
 - If elapsed time is itself the behavior under test, install the Playwright
   clock and advance it by the exact duration. If a transition must be measured,
   subscribe to its DOM event or observe the specific attribute with a
