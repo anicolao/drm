@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { TestStepHelper } from "../helpers/test-step-helper";
 import { resetEmulators } from "../helpers/reset-emulators";
-import { advanceToTick, expectViewportFits } from "../helpers/deterministic-state";
+import { advanceToTick, advanceVisualTo, expectViewportFits } from "../helpers/deterministic-state";
 import { waitForGameSurface } from "../helpers/application-readiness";
 test.beforeEach(resetEmulators);
 test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
@@ -33,7 +33,7 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
     name: "Inspect scene in orbit view",
   });
   await page.clock.pauseAt(Date.now());
-  await page.clock.runFor(3_000);
+  await advanceToTick(page, (await tick()) + 180, ramp);
   await expect(ramp).toHaveAttribute("data-phase", "playing");
   await page.keyboard.press("r");
   await expect(ramp).toHaveAttribute("data-phase", "countdown");
@@ -115,8 +115,10 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
   );
   await page.keyboard.press("ArrowLeft");
   await expect(ramp).toHaveAttribute("data-paddle-lane", "1");
-  await advanceToTick(page, restartTick + 966, ramp);
+  await advanceToTick(page, restartTick + 958, ramp);
+  await advanceToTick(page, restartTick + 959, ramp);
   await expect(ramp).toHaveAttribute("data-paddle-count", "1");
+  await advanceVisualTo(page, ramp, 12);
   await tester.step("stax-catch", {
     description:
       "A seeded tile rotates into place while depressing the aligned paddle",
@@ -134,11 +136,10 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
       },
       {
         spec: "The catch is rendered as a settling transition rather than a resize",
-        check: async () =>
-          await expect(ramp).toHaveAttribute(
-            "data-visual-transitions",
-            /catch/,
-          ),
+        check: async () => {
+          await expect(ramp).toHaveAttribute("data-visual-transitions", /catch/);
+          await expect(ramp).toHaveAttribute("data-visual-progress", "12");
+        },
       },
       {
         spec: "No tile was missed while the paddle was aligned",
@@ -149,7 +150,7 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
   });
   await page.keyboard.press("Space");
   await expect(ramp).toHaveAttribute("data-column-counts", "0,1,0,0,0");
-  await advanceToTick(page, restartTick + 972, ramp);
+  await advanceVisualTo(page, ramp, 8);
   await tester.step("stax-place", {
     description:
       "The tile flips forward, then drops vertically into the lower bin",
@@ -196,7 +197,7 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
   const remainingTravel = 540 - Number(await ramp.getAttribute("data-leading-progress"));
   await advanceToTick(page, beforeMissTick + remainingTravel, ramp);
   await expect(ramp).toHaveAttribute("data-misses", "1");
-  await advanceToTick(page, beforeMissTick + remainingTravel + 22, ramp);
+  await advanceVisualTo(page, ramp, 22);
   await tester.step("stax-miss", {
     description: "A missed tile tumbles beyond the ramp and falls out of sight",
     networkStatus: "skip",

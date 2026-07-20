@@ -15,27 +15,70 @@ export async function gameTick(page: Page, tickLocator = page.locator('.tick')):
   return value;
 }
 
+const FAST_FORWARD_MS = 192;
+
+/**
+ * Jump close to an exact engine tick with one rendered frame per chunk. The
+ * production clock caps a frame to 250 ms of catch-up, so 192 ms remains below
+ * that cap and below the requested target; the final ticks are driven exactly.
+ */
+async function fastForwardNearTick(
+  page: Page,
+  current: number,
+  target: number,
+): Promise<void> {
+  const remaining = target - current;
+  if (remaining > 2) {
+    await page.clock.fastForward(Math.min(FAST_FORWARD_MS, (remaining - 1) * 16));
+  } else {
+    await page.clock.runFor(1);
+  }
+}
+
 /** Drive a frozen RAF loop to a named absolute tick, never an emergent condition. */
 export async function advanceToTick(page: Page, target: number, tickLocator = page.locator('.tick')): Promise<void> {
   const initial = await gameTick(page, tickLocator);
   if (initial > target) throw new Error(`Cannot rewind clock from tick ${initial} to ${target}`);
-  for (let current = initial; current < target; current = await gameTick(page, tickLocator)) {
-    await page.clock.runFor(target - current > 4 ? 16 : 1);
+  const maximumAttempts = (target - initial) * 2 + 32;
+  let current = initial;
+  for (let attempt = 0; current < target && attempt < maximumAttempts; attempt++) {
+    await fastForwardNearTick(page, current, target);
+    current = await gameTick(page, tickLocator);
+    if (current > target) throw new Error(`Clock advanced beyond tick ${target} to ${current}`);
   }
-  expect(await gameTick(page, tickLocator)).toBe(target);
+  expect(current).toBe(target);
 }
 
 /** Reach or pass a command tick when only replay eligibility, not a visual offset, matters. */
 export async function advanceThroughTick(page: Page, target: number, tickLocator = page.locator('.tick')): Promise<void> {
   const initial = await gameTick(page, tickLocator);
-  for (let current = initial; current < target; current = await gameTick(page, tickLocator)) {
-    await page.clock.runFor(16);
+  const maximumAttempts = (target - initial) * 2 + 32;
+  let current = initial;
+  for (let attempt = 0; current < target && attempt < maximumAttempts; attempt++) {
+    const remaining = target - current;
+    await page.clock.fastForward(Math.min(240, Math.max(16, remaining * 17)));
+    current = await gameTick(page, tickLocator);
   }
-  expect(await gameTick(page, tickLocator)).toBeGreaterThanOrEqual(target);
+  expect(current).toBeGreaterThanOrEqual(target);
 }
 
 /** Advance an exact number of rendered frames while the Playwright clock is frozen. */
 export async function advanceFrames(page: Page, frames: number): Promise<void> {
   if (!Number.isInteger(frames) || frames < 0) throw new Error(`Invalid frame count: ${frames}`);
   for (let frame = 0; frame < frames; frame++) await page.clock.runFor(16);
+}
+
+/** Drive a named visual transition to an exact frame from its observed start. */
+export async function advanceVisualTo(
+  page: Page,
+  surface: Locator,
+  target: number,
+): Promise<void> {
+  const current = Number(await surface.getAttribute('data-visual-progress'));
+  if (!Number.isInteger(current) || current < 0 || current > target) {
+    throw new Error(`Cannot advance visual transition from ${current} to ${target}`);
+  }
+  const tick = await gameTick(page, surface);
+  await advanceToTick(page, tick + target - current, surface);
+  await expect(surface).toHaveAttribute('data-visual-progress', String(target));
 }
