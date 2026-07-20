@@ -10,8 +10,8 @@
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test:unit": "node --experimental-strip-types --test tests/unit/*.test.ts",
-    "test:e2e": "playwright test",
-    "test:e2e:update-snapshots": "playwright test --update-snapshots",
+    "test:e2e": "svelte-kit sync && playwright test",
+    "test:e2e:update-snapshots": "svelte-kit sync && playwright test --update-snapshots",
     "check:e2e-conventions": "node scripts/check-e2e-conventions.mjs",
     "audio:generate": "node scripts/generate-chip-music.mjs"
   },
