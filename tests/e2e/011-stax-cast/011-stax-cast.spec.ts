@@ -33,14 +33,9 @@ test('US-011: Stax shared display reconstructs the controller ramp', async ({ br
   await controller.clock.pauseAt(Date.now());
   const localInitialPhase = await local.getAttribute('data-phase');
   expect(localInitialPhase).toMatch(/playing|countdown/);
-  if (localInitialPhase === 'playing') {
-    await controller.keyboard.press('r');
-    await expect(local).toHaveAttribute('data-phase', 'countdown');
-  }
+  await controller.keyboard.press('r');
+  await expect(local).toHaveAttribute('data-phase', 'countdown');
   await page.clock.pauseAt(Date.now());
-  if (localInitialPhase === 'countdown') {
-    await expect(local).toHaveAttribute('data-phase', 'countdown');
-  }
   await expect(local.getByText('3')).toBeVisible();
   const restartTick = Number(await local.getAttribute('data-tick'));
   const castTick = await gameTick(page, cast);
