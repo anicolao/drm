@@ -152,16 +152,16 @@ test("a run of five centers three on the moved column and clamps at an edge", ()
     assert.equal(state.removed, 53);
   }
 });
-test("rain is replayed as colored stones at deterministic target columns", () => {
+test("rain records are ignored for deterministic replay", () => {
   const state = createQuarry(4);
   state.columns = state.columns.map((column) => column.slice(0, 10));
+  const before = structuredClone(state.columns);
   applyQuarryInput(state, {
     type: "attack/rain",
     payload: { attackId: "a", colors: ["green", "purple"], columns: [1, 3] },
   });
-  assert.equal(state.columns[1].at(-1), "green");
-  assert.equal(state.columns[3].at(-1), "purple");
-  assert.equal(state.rainReceived, 2);
+  assert.deepEqual(state.columns, before);
+  assert.equal(state.rainReceived, 0);
 });
 test("restart reconstructs the seed without rewinding time", () => {
   const state = createQuarry(99, 4),
