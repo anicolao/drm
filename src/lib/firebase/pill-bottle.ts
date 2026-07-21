@@ -2,6 +2,7 @@ import { get, onChildAdded, onValue, push, ref, serverTimestamp, set, type Unsub
 import { auth, realtimeDatabase } from './config';
 import { FixedTickClock } from '$lib/runtime/fixed-tick-clock';
 import { requestRematchReady, startRematch } from '$lib/runtime/rematch';
+import { writeEpochCheckpoint } from '$lib/firebase/write-epoch';
 import { subscribeInteractions } from '$lib/runtime/interactions';
 import { WriterLease } from '$lib/runtime/writer-lease';
 import { DurableOutbox } from '$lib/runtime/durable-outbox';
@@ -523,10 +524,15 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
         catch { /* Replaying from the immutable journal remains valid. */ }
       }
 
-      await set(ref(realtimeDatabase!, `games/${gameId}/players/${playerId}/epochs/${epochId}`), {
-        clientId: lease.clientId, startedFromTick: tick, startedFromCommandSeq: clientSeq,
-        serverTime: serverTimestamp()
-      });
+      await writeEpochCheckpoint(
+        realtimeDatabase!,
+        gameId,
+        playerId,
+        epochId,
+        lease.clientId,
+        tick,
+        clientSeq,
+      );
       const interactions = ref(realtimeDatabase!, `games/${gameId}/interactions`);
       const existingInteractions = await get(interactions);
       const existingInteractionKeys = new Set<string>();

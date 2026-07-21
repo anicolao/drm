@@ -40,6 +40,7 @@ import {
 import { DurableOutbox } from "$lib/runtime/durable-outbox";
 import { WriterLease } from "$lib/runtime/writer-lease";
 import { requestRematchReady, startRematch } from "$lib/runtime/rematch";
+import { writeEpochCheckpoint } from "$lib/firebase/write-epoch";
 import {
   parseQuarryRecord,
   parseQuarryStart,
@@ -289,19 +290,7 @@ export function createQuarryController(
     outbox.enqueue(record);
     return record;
   };
-  const writeEpoch = async (epochId: string) => {
-    const epochRef = ref(
-      realtimeDatabase!,
-      `games/${gameId}/players/${playerId}/epochs/${epochId}`,
-    );
-    if ((await get(epochRef)).exists()) return;
-    await set(epochRef, {
-      clientId: lease.clientId,
-      startedFromTick: tick,
-      startedFromCommandSeq: seq,
-      serverTime: serverTimestamp(),
-    });
-  };
+  
   const progress = (force = false) => {
     if (!state || (!force && tick - lastProgress < 15)) return;
     write({
@@ -392,7 +381,15 @@ export function createQuarryController(
         );
         tick = state.tick;
         seq = Math.max(0, ...records.map((r) => r.clientSeq));
-        await writeEpoch(lease.epochId);
+        await writeEpochCheckpoint(
+          realtimeDatabase!,
+          gameId,
+          playerId,
+          lease.epochId,
+          lease.clientId,
+          tick,
+          seq,
+        );
         ready = true;
         stopInteractions();
         stopInteractions = onChildAdded(
