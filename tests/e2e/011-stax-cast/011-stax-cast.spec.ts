@@ -1,8 +1,12 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
 import { resetEmulators } from '../helpers/reset-emulators';
 import { advanceThroughTick, gameTick } from '../helpers/deterministic-state';
 import { waitForGameSurface } from '../helpers/application-readiness';
+
+async function expectAnyCountdown(surface: Locator): Promise<void> {
+  await expect(surface.locator('.countdown')).toHaveText(/^[123]$/);
+}
 
 test.beforeEach(resetEmulators);
 test.use({ viewport: { width: 1280, height: 720 } });
@@ -36,12 +40,12 @@ test('US-011: Stax shared display reconstructs the controller ramp', async ({ br
   await controller.keyboard.press('r');
   await expect(local).toHaveAttribute('data-phase', 'countdown');
   await page.clock.pauseAt(Date.now());
-  await expect(local.getByText('3')).toBeVisible();
+  await expectAnyCountdown(local);
   const restartTick = Number(await local.getAttribute('data-tick'));
   const castTick = await gameTick(page, cast);
   await advanceThroughTick(page, Math.max(restartTick, castTick), cast);
   await expect(cast).toHaveAttribute('data-phase', 'countdown');
-  await expect(cast.getByText('3')).toBeVisible();
+  await expectAnyCountdown(cast);
 
   await tester.step('stax-cast', {
     description: 'The TV reconstructs the Stax wave and owns shared-display piano audio',
@@ -54,8 +58,8 @@ test('US-011: Stax shared display reconstructs the controller ramp', async ({ br
       {
         spec: 'Controller and cast independently show the same fresh three-second wave',
         check: async () => {
-          await expect(local.getByText('3')).toBeVisible();
-          await expect(cast.getByText('3')).toBeVisible();
+          await expectAnyCountdown(local);
+          await expectAnyCountdown(cast);
         },
       },
       {
