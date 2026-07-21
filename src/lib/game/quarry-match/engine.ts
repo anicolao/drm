@@ -232,19 +232,6 @@ export function applyQuarryInput(
     return;
   }
   if (input.type === "attack/rain") {
-    if (input.payload.colors.length !== input.payload.columns.length) return;
-    input.payload.colors.forEach((color, index) => {
-      const column = input.payload.columns[index];
-      if (
-        column >= 0 &&
-        column < QUARRY_WIDTH &&
-        state.columns[column].length < QUARRY_HEIGHT
-      ) {
-        state.columns[column].push(color);
-        state.rainReceived++;
-        state.removed--;
-      }
-    });
     return;
   }
   if (!canFire(state)) return;
