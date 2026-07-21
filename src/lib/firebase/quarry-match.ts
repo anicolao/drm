@@ -289,6 +289,19 @@ export function createQuarryController(
     outbox.enqueue(record);
     return record;
   };
+  const writeEpoch = async (epochId: string) => {
+    const epochRef = ref(
+      realtimeDatabase!,
+      `games/${gameId}/players/${playerId}/epochs/${epochId}`,
+    );
+    if ((await get(epochRef)).exists()) return;
+    await set(epochRef, {
+      clientId: lease.clientId,
+      startedFromTick: tick,
+      startedFromCommandSeq: seq,
+      serverTime: serverTimestamp(),
+    });
+  };
   const progress = (force = false) => {
     if (!state || (!force && tick - lastProgress < 15)) return;
     write({
@@ -379,18 +392,7 @@ export function createQuarryController(
         );
         tick = state.tick;
         seq = Math.max(0, ...records.map((r) => r.clientSeq));
-        await set(
-          ref(
-            realtimeDatabase!,
-            `games/${gameId}/players/${playerId}/epochs/${lease.epochId}`,
-          ),
-          {
-            clientId: lease.clientId,
-            startedFromTick: tick,
-            startedFromCommandSeq: seq,
-            serverTime: serverTimestamp(),
-          },
-        );
+        await writeEpoch(lease.epochId);
         ready = true;
         stopInteractions();
         stopInteractions = onChildAdded(
