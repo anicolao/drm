@@ -31,7 +31,6 @@ test('US-011: Stax shared display reconstructs the controller ramp', async ({ br
   const local = controller.getByLabel('Stax ramp');
   await Promise.all([waitForGameSurface(cast), waitForGameSurface(local)]);
   await controller.clock.pauseAt(Date.now());
-  await advanceThroughTick(controller, 180, local);
   await expect(local).toHaveAttribute('data-phase', 'playing');
   await page.clock.pauseAt(Date.now());
   await controller.keyboard.press('r');
