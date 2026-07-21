@@ -33,6 +33,7 @@ import {
 import { DurableOutbox } from "$lib/runtime/durable-outbox";
 import { WriterLease } from "$lib/runtime/writer-lease";
 import { requestRematchReady, startRematch } from "$lib/runtime/rematch";
+import { writeEpochCheckpoint } from "$lib/firebase/write-epoch";
 import {
   parseStaxRecord,
   parseStaxStart,
@@ -348,17 +349,14 @@ export function createStaxController(
         );
         tick = state.tick;
         seq = Math.max(0, ...records.map((r) => r.clientSeq));
-        await set(
-          ref(
-            realtimeDatabase!,
-            `games/${gameId}/players/${playerId}/epochs/${lease.epochId}`,
-          ),
-          {
-            clientId: lease.clientId,
-            startedFromTick: tick,
-            startedFromCommandSeq: seq,
-            serverTime: serverTimestamp(),
-          },
+        await writeEpochCheckpoint(
+          realtimeDatabase!,
+          gameId,
+          playerId,
+          lease.epochId,
+          lease.clientId,
+          tick,
+          seq,
         );
         ready = true;
         void outbox.flush();
