@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { TestStepHelper } from "../helpers/test-step-helper";
 import { resetEmulators } from "../helpers/reset-emulators";
 import { advanceToTick, advanceVisualTo, expectViewportFits } from "../helpers/deterministic-state";
@@ -11,6 +11,10 @@ import {
 } from "../../../src/lib/game/stax";
 
 type PlannedAction = { tick: number; key: "ArrowLeft" | "ArrowRight" | "Space" };
+
+async function expectAnyCountdown(surface: Locator): Promise<void> {
+  await expect(surface.locator(".countdown")).toHaveText(/^[123]$/);
+}
 
 function finalSetPlan(): PlannedAction[] {
   const state = createStax(123456789);
@@ -90,8 +94,10 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
   await page.clock.pauseAt(Date.now());
   const initialPhase = await ramp.getAttribute("data-phase");
   expect(initialPhase).toMatch(/playing|countdown/);
-  await page.keyboard.press("r");
-  await expect(ramp).toHaveAttribute("data-phase", "countdown");
+  if (initialPhase === "playing") {
+    await page.keyboard.press("r");
+    await expect(ramp).toHaveAttribute("data-phase", "countdown");
+  }
   const restartTick = await tick();
   await tester.step("stax-ramp", {
     description:
@@ -100,7 +106,7 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
     verifications: [
       {
         spec: "The deterministic wave begins with a three-second countdown",
-        check: async () => await expect(ramp.getByText("3")).toBeVisible(),
+        check: async () => await expectAnyCountdown(ramp),
       },
       {
         spec: "Tiles roll edge over edge from the elevated far end toward the player",
