@@ -16,16 +16,20 @@ import {
   createQuarry,
   deriveQuarryLifecycle,
   hashQuarry,
-  quarryAttackColumns,
   replayQuarry,
   QUARRY_RULES,
-  type QuarryAttackInteraction,
   type QuarryInput,
   type QuarryLifecycleState,
   type QuarryRecord,
   type QuarryState,
 } from "$lib/game/quarry-match";
-import { advanceCanopy, applyCanopyInput, createCanopy, hashCanopy, replayCanopy } from "$lib/game/crystal-canopy";
+import {
+  advanceCanopy,
+  applyCanopyInput,
+  createCanopy,
+  hashCanopy,
+  replayCanopy,
+} from "$lib/game/crystal-canopy";
 import { FixedTickClock } from "$lib/runtime/fixed-tick-clock";
 import { ReplayObserver } from "$lib/runtime/replay-observer";
 import {
@@ -389,12 +393,26 @@ export function createQuarryController(
         );
         ready = true;
         stopInteractions();
-        stopInteractions = onChildAdded(ref(realtimeDatabase!, `games/${gameId}/interactions`), (child) => {
-          const value = child.val() as QuarryAttackInteraction;
-          if (isCanopy(start!) || value?.type !== "attack/generated" || !value.targetPlayerIds?.includes(playerId) || appliedAttacks.has(value.attackId)) return;
-          const input: QuarryInput = { type: "attack/rain", payload: { attackId: value.attackId, colors: value.colors, columns: quarryAttackColumns(value.attackId, value.colors.length) } };
-          appliedAttacks.add(value.attackId); write(input); applyPuzzle(state!, input, start!.seed); publish();
-        }, (e) => publish(e.message));
+        stopInteractions = onChildAdded(
+          ref(realtimeDatabase!, `games/${gameId}/interactions`),
+          (child) => {
+            const value = child.val() as {
+              type?: string;
+              attackId?: string;
+              targetPlayerIds?: string[];
+            };
+            if (
+              isCanopy(start!) ||
+              value?.type !== "attack/generated" ||
+              !value.attackId ||
+              !value.targetPlayerIds?.includes(playerId) ||
+              appliedAttacks.has(value.attackId)
+            )
+              return;
+            appliedAttacks.add(value.attackId);
+          },
+          (e) => publish(e.message),
+        );
         void outbox.flush();
         progress(true);
         publish();
@@ -420,14 +438,7 @@ export function createQuarryController(
         return;
       write(input);
       const cascade = applyPuzzle(state, input, start.seed);
-      if (cascade && start && !isCanopy(start)) {
-        const targetPlayerIds = Object.keys(start.players).filter((id) => id !== playerId);
-        if (targetPlayerIds.length) {
-          const attackId = `${playerId}-${lease.epochId}-${seq}-${cascade.tick}-${cascade.chain}`;
-          const item = push(ref(realtimeDatabase!, `games/${gameId}/interactions`));
-          void set(item, { type: "attack/generated", attackId, sourcePlayerId: playerId, sourceTick: cascade.tick, sourceChain: cascade.chain, targetPlayerIds, colors: cascade.colors, serverTime: serverTimestamp() }).catch((e) => publish(e.message));
-        }
-      }
+      void cascade;
       tick = state.tick;
       lastCommand = `${input.type} · tick ${tick}`;
       if ((state as QuarryState).phase === "cleared") {
