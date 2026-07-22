@@ -35,15 +35,24 @@ test('US-011: Stax shared display reconstructs the controller ramp', async ({ br
   const cast = page.getByLabel('Racer Stax ramp');
   const local = controller.getByLabel('Stax ramp');
   await Promise.all([waitForGameSurface(cast), waitForGameSurface(local)]);
-  await controller.clock.pauseAt(Date.now());
-  await controller.keyboard.press('r');
-  await expect(local).toHaveAttribute('data-phase', 'countdown');
   await page.clock.pauseAt(Date.now());
+  await controller.clock.pauseAt(Date.now());
+  const localPhase = await local.getAttribute('data-phase');
+  const castPhase = await cast.getAttribute('data-phase');
+  if (localPhase !== 'playing' || castPhase !== 'playing') {
+    await Promise.all([page.clock.runFor(3200), controller.clock.runFor(3200)]);
+    await expect(local).toHaveAttribute('data-phase', 'playing');
+    await expect(cast).toHaveAttribute('data-phase', 'playing');
+  }
+  await controller.keyboard.press('r');
   await expectFreshCountdown(local);
-  const restartTick = Number(await local.getAttribute('data-tick'));
+  const localTick = Number(await local.getAttribute('data-tick'));
   const castTick = await gameTick(page, cast);
-  await advanceThroughTick(page, Math.max(restartTick, castTick), cast);
-  await expect(cast).toHaveAttribute('data-phase', 'countdown');
+  await Promise.all([
+    advanceThroughTick(page, Math.max(localTick, castTick), cast),
+    advanceThroughTick(controller, Math.max(localTick, castTick), local),
+  ]);
+  await expectFreshCountdown(local);
   await expectFreshCountdown(cast);
 
   await tester.step('stax-cast', {
