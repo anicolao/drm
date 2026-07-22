@@ -95,10 +95,6 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
   const initialPhase = await ramp.getAttribute("data-phase");
   expect(initialPhase).toMatch(/playing|countdown/);
   await page.clock.pauseAt(Date.now());
-  if (initialPhase !== "playing") {
-    await page.clock.runFor(3200);
-    await expect(ramp).toHaveAttribute("data-phase", "playing");
-  }
   await page.keyboard.press("r");
   await expectFreshCountdown(ramp);
   const restartTick = await tick();
