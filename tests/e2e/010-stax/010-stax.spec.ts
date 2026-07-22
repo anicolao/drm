@@ -175,9 +175,14 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
   );
   await page.keyboard.press("ArrowLeft");
   await expect(ramp).toHaveAttribute("data-paddle-lane", "1");
-  await advanceToTick(page, restartTick + 958, ramp);
-  await advanceToTick(page, restartTick + 959, ramp);
+  const catchOriginProgress = Number(await ramp.getAttribute("data-leading-progress"));
+  const remainingToCatch = Number.isFinite(catchOriginProgress)
+    ? Math.max(1, 540 - catchOriginProgress)
+    : 1;
+  await advanceToTick(page, (await tick()) + remainingToCatch, ramp);
   await expect(ramp).toHaveAttribute("data-paddle-count", "1");
+  await expect(ramp).toHaveAttribute("data-visual-transitions", /catch/);
+  await expect(ramp).toHaveAttribute("data-visual-progress", "0");
   await advanceVisualTo(page, ramp, 12);
   await tester.step("stax-catch", {
     description:

@@ -28,10 +28,8 @@ async function fastForwardNearTick(
   target: number,
 ): Promise<void> {
   const remaining = target - current;
-  if (remaining > 2) {
-    await page.clock.fastForward(Math.min(FAST_FORWARD_MS, (remaining - 1) * 16));
-  } else {
-    await page.clock.runFor(1);
+  if (remaining > 0) {
+    await page.clock.fastForward(Math.min(FAST_FORWARD_MS, Math.max(16, (remaining - 1) * 16)));
   }
 }
 
