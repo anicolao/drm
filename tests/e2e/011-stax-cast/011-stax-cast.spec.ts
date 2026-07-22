@@ -2,7 +2,7 @@ import { expect, test, type Locator } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
 import { resetEmulators } from '../helpers/reset-emulators';
 import { advanceThroughTick, gameTick } from '../helpers/deterministic-state';
-import { waitForGameSurface } from '../helpers/application-readiness';
+import { clickAndWaitForUrl, waitForGameSurface } from '../helpers/application-readiness';
 
 async function expectFreshCountdown(surface: Locator): Promise<void> {
   await expect(surface).toHaveAttribute('data-phase', 'countdown');
@@ -29,8 +29,7 @@ test('US-011: Stax shared display reconstructs the controller ramp', async ({ br
   await controller.getByRole('button', { name: 'Join room' }).click();
   await expect(page.getByText('Joined players · 2')).toBeVisible();
   await page.getByRole('button', { name: /STAX/ }).click();
-  await page.getByRole('button', { name: 'I am the TV' }).click();
-  await expect(page).toHaveURL(/cast\?code=TEST$/);
+  await clickAndWaitForUrl(page, page.getByRole('button', { name: 'I am the TV' }), /cast\?code=TEST$/);
 
   const cast = page.getByLabel('Racer Stax ramp');
   const local = controller.getByLabel('Stax ramp');

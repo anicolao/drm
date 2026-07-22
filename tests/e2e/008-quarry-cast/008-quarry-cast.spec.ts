@@ -3,6 +3,7 @@ import { TestStepHelper } from "../helpers/test-step-helper";
 import { resetEmulators } from "../helpers/reset-emulators";
 import { finishStagedPresentation } from "../helpers/deterministic-state";
 import { QUARRY_PRESENTATION_MS } from "../../../src/lib/presentation/quarry";
+import { clickAndWaitForUrl } from "../helpers/application-readiness";
 test.beforeEach(resetEmulators);
 test.use({ viewport: { width: 1280, height: 720 } });
 test("US-008: shared Quarry Match display replays controller shots", async ({
@@ -27,8 +28,7 @@ test("US-008: shared Quarry Match display replays controller shots", async ({
   await controller.getByRole("button", { name: "Join room" }).click();
   await expect(page.getByText("Joined players · 2")).toBeVisible();
   await page.getByRole("button", { name: /QUARRY MATCH/ }).click();
-  await page.getByRole("button", { name: "I am the TV" }).click();
-  await expect(page).toHaveURL(/\/cast\?code=TEST$/);
+  await clickAndWaitForUrl(page, page.getByRole("button", { name: "I am the TV" }), /\/cast\?code=TEST$/);
   await expect(controller.getByLabel("Quarry Match controller")).toBeVisible();
   const castBoard = page.getByLabel("Quarry Match board");
   const controllerBoard = controller.getByLabel("Quarry Match board");
