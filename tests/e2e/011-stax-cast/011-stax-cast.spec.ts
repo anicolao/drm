@@ -4,8 +4,9 @@ import { resetEmulators } from '../helpers/reset-emulators';
 import { advanceThroughTick, gameTick } from '../helpers/deterministic-state';
 import { waitForGameSurface } from '../helpers/application-readiness';
 
-async function expectAnyCountdown(surface: Locator): Promise<void> {
-  await expect(surface.locator('.countdown')).toHaveText(/^[123]$/);
+async function expectFreshCountdown(surface: Locator): Promise<void> {
+  await expect(surface).toHaveAttribute('data-phase', 'countdown');
+  await expect(surface.locator('.countdown')).toHaveText('3');
 }
 
 test.beforeEach(resetEmulators);
@@ -35,17 +36,15 @@ test('US-011: Stax shared display reconstructs the controller ramp', async ({ br
   const local = controller.getByLabel('Stax ramp');
   await Promise.all([waitForGameSurface(cast), waitForGameSurface(local)]);
   await controller.clock.pauseAt(Date.now());
-  const localInitialPhase = await local.getAttribute('data-phase');
-  expect(localInitialPhase).toMatch(/playing|countdown/);
   await controller.keyboard.press('r');
   await expect(local).toHaveAttribute('data-phase', 'countdown');
   await page.clock.pauseAt(Date.now());
-  await expectAnyCountdown(local);
+  await expectFreshCountdown(local);
   const restartTick = Number(await local.getAttribute('data-tick'));
   const castTick = await gameTick(page, cast);
   await advanceThroughTick(page, Math.max(restartTick, castTick), cast);
   await expect(cast).toHaveAttribute('data-phase', 'countdown');
-  await expectAnyCountdown(cast);
+  await expectFreshCountdown(cast);
 
   await tester.step('stax-cast', {
     description: 'The TV reconstructs the Stax wave and owns shared-display piano audio',
@@ -58,8 +57,8 @@ test('US-011: Stax shared display reconstructs the controller ramp', async ({ br
       {
         spec: 'Controller and cast independently show the same fresh three-second wave',
         check: async () => {
-          await expectAnyCountdown(local);
-          await expectAnyCountdown(cast);
+          await expectFreshCountdown(local);
+          await expectFreshCountdown(cast);
         },
       },
       {

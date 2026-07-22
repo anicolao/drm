@@ -12,8 +12,9 @@ import {
 
 type PlannedAction = { tick: number; key: "ArrowLeft" | "ArrowRight" | "Space" };
 
-async function expectAnyCountdown(surface: Locator): Promise<void> {
-  await expect(surface.locator(".countdown")).toHaveText(/^[123]$/);
+async function expectFreshCountdown(surface: Locator): Promise<void> {
+  await expect(surface).toHaveAttribute("data-phase", "countdown");
+  await expect(surface.locator(".countdown")).toHaveText("3");
 }
 
 function finalSetPlan(): PlannedAction[] {
@@ -92,12 +93,8 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
     name: "Inspect scene in orbit view",
   });
   await page.clock.pauseAt(Date.now());
-  const initialPhase = await ramp.getAttribute("data-phase");
-  expect(initialPhase).toMatch(/playing|countdown/);
-  if (initialPhase === "playing") {
-    await page.keyboard.press("r");
-    await expect(ramp).toHaveAttribute("data-phase", "countdown");
-  }
+  await page.keyboard.press("r");
+  await expectFreshCountdown(ramp);
   const restartTick = await tick();
   await tester.step("stax-ramp", {
     description:
@@ -106,7 +103,7 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
     verifications: [
       {
         spec: "The deterministic wave begins with a three-second countdown",
-        check: async () => await expectAnyCountdown(ramp),
+        check: async () => await expectFreshCountdown(ramp),
       },
       {
         spec: "Tiles roll edge over edge from the elevated far end toward the player",
