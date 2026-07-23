@@ -14,6 +14,8 @@ export const STAX_RULES = Object.freeze({
   height: 5,
   matchRounds: 3,
 });
+export const STAX_ACCELERATION_STEP_TICKS = 30;
+export const STAX_MAX_CONVEYOR_STEP = 8;
 const COLORS: StaxColor[] = [
   "cyan",
   "pink",
@@ -81,6 +83,7 @@ export function createStax(seed: number, level = 0): StaxState {
     throws: 0,
     restarts: 0,
     accelerating: false,
+    accelerationTicks: 0,
     lastPlacement: null,
     lastClearCells: [],
     lastClearWaves: [],
@@ -114,9 +117,17 @@ export function advanceStax(state: StaxState) {
   state.spawnClock--;
   if (state.spawnClock <= 0 && state.ramp.length < rules.rampLimit)
     spawn(state);
+  const conveyorStep = state.accelerating
+    ? Math.min(
+        STAX_MAX_CONVEYOR_STEP,
+        1 + Math.floor(state.accelerationTicks / STAX_ACCELERATION_STEP_TICKS),
+      )
+    : 1;
+  if (state.accelerating && state.ramp.length > 0) state.accelerationTicks++;
+  else state.accelerationTicks = 0;
   const arrived: number[] = [];
   for (const tile of state.ramp) {
-    tile.progress += state.accelerating ? 2 : 1;
+    tile.progress += conveyorStep;
     if (tile.progress >= (tile.returning ? 360 : rules.travel))
       arrived.push(tile.id);
   }
@@ -126,13 +137,14 @@ export function advanceStax(state: StaxState) {
     if (!tile) continue;
     state.ramp.splice(index, 1);
     state.survived++;
-    if (
+    const caught =
       !tile.returning &&
       tile.lane === state.paddleLane &&
-      state.paddle.length < 5
-    )
+      state.paddle.length < 5;
+    if (caught) {
       state.paddle.push({ id: tile.id, color: tile.color });
-    else state.misses++;
+      state.accelerationTicks = 0;
+    } else state.misses++;
   }
   updateObjective(state, []);
   if (state.misses >= state.missLimit) state.phase = "lost";
@@ -270,11 +282,13 @@ export function applyStaxInput(
     return;
   }
   if (input.type === "input/accelerate-start") {
+    if (!state.accelerating) state.accelerationTicks = 0;
     state.accelerating = true;
     return;
   }
   if (input.type === "input/accelerate-end") {
     state.accelerating = false;
+    state.accelerationTicks = 0;
     return;
   }
   if (input.type === "input/throw-back") {

@@ -7,6 +7,8 @@ import {
   deriveStaxLifecycle,
   hashStax,
   replayStax,
+  STAX_ACCELERATION_STEP_TICKS,
+  STAX_MAX_CONVEYOR_STEP,
   staxLevelRules,
   type StaxInput,
   type StaxRecord,
@@ -105,16 +107,58 @@ test("thrown tiles rejoin the middle of the ramp and roll back to the paddle", (
   assert.deepEqual(state.paddle, [{ id: 37, color: "green" }]);
 });
 
-test("holding accelerate doubles conveyor progress until released", () => {
+test("holding accelerate ramps conveyor speed until released", () => {
   const state = playing();
   state.spawnClock = 10_000;
   state.ramp = [{ id: 12, color: "cyan", lane: 0, progress: 20 }];
   applyStaxInput(state, { type: "input/accelerate-start", payload: {} });
+  for (let i = 0; i < STAX_ACCELERATION_STEP_TICKS; i++) advanceStax(state);
+  assert.equal(state.ramp[0].progress, 20 + STAX_ACCELERATION_STEP_TICKS);
   advanceStax(state);
-  assert.equal(state.ramp[0].progress, 22);
+  assert.equal(state.ramp[0].progress, 20 + STAX_ACCELERATION_STEP_TICKS + 2);
+  state.accelerationTicks =
+    STAX_ACCELERATION_STEP_TICKS * (STAX_MAX_CONVEYOR_STEP + 2);
+  const progressAtMaximum = state.ramp[0].progress;
+  advanceStax(state);
+  assert.equal(state.ramp[0].progress, progressAtMaximum + STAX_MAX_CONVEYOR_STEP);
   applyStaxInput(state, { type: "input/accelerate-end", payload: {} });
   advanceStax(state);
-  assert.equal(state.ramp[0].progress, 23);
+  assert.equal(state.ramp[0].progress, progressAtMaximum + STAX_MAX_CONVEYOR_STEP + 1);
+  assert.equal(state.accelerationTicks, 0);
+});
+
+test("a paddle catch restarts held acceleration from normal speed", () => {
+  const state = playing();
+  state.spawnClock = 10_000;
+  const arrival = staxLevelRules(state.level).travel;
+  state.ramp = [
+    { id: 12, color: "cyan", lane: state.paddleLane, progress: arrival - 8 },
+    { id: 13, color: "pink", lane: 1, progress: 20 },
+  ];
+  applyStaxInput(state, { type: "input/accelerate-start", payload: {} });
+  state.accelerationTicks =
+    STAX_ACCELERATION_STEP_TICKS * (STAX_MAX_CONVEYOR_STEP - 1);
+  advanceStax(state);
+  assert.deepEqual(state.paddle, [{ id: 12, color: "cyan" }]);
+  assert.equal(state.accelerating, true);
+  assert.equal(state.accelerationTicks, 0);
+  const nextTileProgress = state.ramp[0].progress;
+  advanceStax(state);
+  assert.equal(state.ramp[0].progress, nextTileProgress + 1);
+  assert.equal(state.accelerationTicks, 1);
+});
+
+test("held acceleration does not charge while the ramp is empty", () => {
+  const state = playing();
+  state.spawnClock = 10_000;
+  applyStaxInput(state, { type: "input/accelerate-start", payload: {} });
+  for (let i = 0; i < STAX_ACCELERATION_STEP_TICKS * 2; i++)
+    advanceStax(state);
+  assert.equal(state.accelerationTicks, 0);
+  state.ramp = [{ id: 12, color: "cyan", lane: 0, progress: 20 }];
+  advanceStax(state);
+  assert.equal(state.ramp[0].progress, 21);
+  assert.equal(state.accelerationTicks, 1);
 });
 
 test("replay produces the controller state from commands only", () => {

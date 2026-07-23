@@ -161,6 +161,9 @@ Difficulty parameters:
 
 - colors: `min(8, 4 + floor(level / 4))`, with wild added separately at level 10;
 - base travel time: `max(300, 540 - 12 × level)` ticks from ramp top to paddle;
+- held acceleration starts at normal conveyor speed, increases by one progress
+  step every 30 ticks up to eight steps per tick, and resets to normal after a
+  successful paddle catch or release;
 - spawn interval: `max(120, 240 - 6 × level)` ticks, with seeded jitter of ±10%;
 - simultaneous ramp limit: 2 at levels 0–4, 3 at 5–9, 4 at 10–14, and 5 at
   15–20; and
