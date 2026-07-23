@@ -182,15 +182,16 @@ streams. It must not inspect player input to choose future colors or lanes.
   clear loses that player's wave.
 - Restart reconstructs the identical seeded wave at its current level without
   rewinding the controller tick or other players.
-- A multiplayer round ends when only one unfinished player remains or everyone
-  has finished. Players are ranked by: successful completion before failure,
-  completion tick ascending, score descending, misses ascending, then seat.
-- Round points for `N` players are `N - rank`; last place receives zero. A match
-  lasts three rounds, and total points determine the winner. Exact ties remain
-  ties rather than using arrival time from the network.
-- Between rounds, standings and per-player level controls use the shared game
-  lifecycle. All players ready the successor game through immutable readiness
-  records.
+- A wave ends after every player has either completed the objective or lost.
+  Completing a wave earns exactly one race point; losing earns none.
+- Each player who completes a wave advances one level for their next wave.
+  Players who lose retry the same level.
+- The first player to complete three waves wins immediately. If multiple third
+  completions have the same deterministic controller tick, the result remains
+  a tie.
+- Between waves, standings show completed waves out of three. All players ready
+  the successor game through immutable readiness records; levels are derived
+  from authoritative wave results rather than chosen on the result screen.
 
 There are no multiplayer garbage attacks in `stax/1`. The ramp already provides
 continuous time pressure, and attack tiles would make independently authoritative
@@ -222,5 +223,5 @@ The following choices are intentional but should be confirmed before freezing
 3. Use the proposed original scoring table instead of reproducing a particular
    historical port.
 4. Preserve throw-back as a core action that reinserts the tile at mid-ramp.
-5. Use three-round ranked points and no multiplayer attacks for the first rules
-   version.
+5. Use first-to-three completed-wave scoring with individual level advancement,
+   and no multiplayer attacks for the first rules version.

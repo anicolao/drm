@@ -19,7 +19,7 @@ export async function requestRematchReady(gameId:string,level:number) {
 
 export async function startRematch<Start extends RematchStart>(
   gameId:string, parse:(value:unknown)=>Start,
-  nextRound:(start:Start)=>{advance:boolean;settings?:Start['settings'];scores?:Record<string,number>}
+  nextRound:(start:Start)=>{advance:boolean;settings?:Start['settings'];scores?:Record<string,number>;levels?:Record<string,number>;round?:number}
 ) {
   if (!auth?.currentUser || !firestore || !realtimeDatabase) throw new Error('Firebase is unavailable.');
   const snapshot=await get(ref(realtimeDatabase,`games/${gameId}/start`));
@@ -34,13 +34,18 @@ export async function startRematch<Start extends RematchStart>(
   const nextGameId=claim.committed?claim.snapshot.val():(await get(reservation)).val();
   if(typeof nextGameId!=='string')throw new Error('Could not reserve the rematch.');
   const policy=nextRound(start),nextStart=ref(realtimeDatabase,`games/${nextGameId}/start`);
+  const nextLevel=(id:string)=>{
+    const level=policy.levels?.[id]??(start.ruleset==='quarry-match'?Math.max(...ready.values()):ready.get(id)!);
+    if(!Number.isInteger(level)||level<0||level>20)throw new Error('Successor level must be between 0 and 20.');
+    return level;
+  };
   try {
     await set(nextStart,{type:'game/started',roomId:start.roomId,ruleset:start.ruleset,rulesVersion:start.rulesVersion,
       seed:randomGameSeed(),tickRate:start.tickRate,hostUid:start.hostUid,members:start.members,
-      players:Object.fromEntries(Object.entries(start.players).map(([id,player])=>[id,{...player,level:start.ruleset==='quarry-match'?Math.max(...ready.values()):ready.get(id)!}])),
+      players:Object.fromEntries(Object.entries(start.players).map(([id,player])=>[id,{...player,level:nextLevel(id)}])),
       settings:policy.settings??start.settings,audioOutput:start.audioOutput,
       ...(policy.scores??start.scores?{scores:policy.scores??start.scores}:{}),
-      matchId:policy.advance?start.matchId:nextGameId,round:policy.advance?start.round+1:0,
+      matchId:policy.advance?start.matchId:nextGameId,round:policy.advance?(policy.round??start.round+1):0,
       previousGameId:gameId,serverTime:serverTimestamp()});
   } catch(cause) {
     const existing=await get(nextStart).catch(()=>undefined);

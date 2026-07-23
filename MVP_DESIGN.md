@@ -118,7 +118,8 @@ by player level.
 
 Stax ships the original contract in [STAX_RULES.md](STAX_RULES.md): a seeded
 five-lane 3D ramp, LIFO paddle, 5×5 placement bin, line and chain scoring,
-rotating objectives, independent levels, and three-round ranked points.
+rotating objectives, individual level advancement, and a race to three
+completed waves.
 
 ## Security and deployment outcome
 

@@ -8,6 +8,6 @@
 - [x] The cast replayed the controller restart without receiving ramp or bin state
 - [x] Controller and cast independently show the same three-second countdown
 - [x] Audio controls are on the TV and not the phone controller
-- [x] The shared display names the controller player and shows match points
+- [x] The shared display names the controller player and shows completed waves
 
 ---
