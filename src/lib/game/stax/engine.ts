@@ -284,8 +284,7 @@ export function applyStaxInput(
         id: held.id,
         color: held.color,
         lane: state.paddleLane,
-        progress: 0,
-        returning: true,
+        progress: Math.floor(staxLevelRules(state.level).travel / 2),
       });
       state.throws++;
     }
