@@ -10,12 +10,14 @@ function pad(pressedButtons: number[] = [], axes = [0, 0]): GamepadLike {
   };
 }
 
-test('standard gamepad buttons map to Color Cure controls once per press', () => {
+test('standard right-cluster positions map to Color Cure controls once per press', () => {
   const controls = new StandardGamepadControls();
   assert.deepEqual(controls.sample([pad([0, 1, 12])], 0), ['hard-drop', 'rotate-clockwise', 'rotate-counterclockwise']);
   assert.deepEqual(controls.sample([pad([0, 1, 12])], 16), []);
   assert.deepEqual(controls.sample([pad()], 32), []);
-  assert.deepEqual(controls.sample([pad([0])], 48), ['rotate-clockwise']);
+  assert.deepEqual(controls.sample([pad([0])], 48), ['rotate-counterclockwise']);
+  assert.deepEqual(controls.sample([pad()], 64), []);
+  assert.deepEqual(controls.sample([pad([1])], 80), ['rotate-clockwise']);
 });
 
 test('a dedicated X-button gate restarts Quarry only once per press',()=>{const restart=new OneShotGamepadButton();assert.equal(restart.sample([pad([2])]),true);assert.equal(restart.sample([pad([2])]),false);assert.equal(restart.sample([pad()]),false);assert.equal(restart.sample([pad([2])]),true);restart.reset();assert.equal(restart.sample([pad([2])]),true)});
