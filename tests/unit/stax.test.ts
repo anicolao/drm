@@ -87,16 +87,34 @@ test("placing completes simultaneous lines and a gravity chain", () => {
   assert.deepEqual(state.lastClearWaves.at(-1)?.after, state.columns);
 });
 
-test("thrown tiles take a fixed six seconds and cannot be caught", () => {
+test("thrown tiles rejoin the middle of the ramp and roll back to the paddle", () => {
   const state = playing();
+  state.spawnClock = 10_000;
   state.paddle = [{ id: 37, color: "green" }];
   applyStaxInput(state, { type: "input/throw-back", payload: {} });
-  for (let i = 0; i < 359; i++) advanceStax(state);
-  assert.equal(state.ramp.length, 1);
+  const progress = Math.floor(staxLevelRules(state.level).travel / 2);
+  assert.deepEqual(state.ramp, [
+    { id: 37, color: "green", lane: state.paddleLane, progress },
+  ]);
+  for (let i = progress; i < staxLevelRules(state.level).travel - 1; i++)
+    advanceStax(state);
+  assert.equal(state.ramp.some((tile) => tile.id === 37), true);
   advanceStax(state);
-  assert.equal(state.ramp.length, 0);
-  assert.equal(state.misses, 1);
-  assert.deepEqual(state.paddle, []);
+  assert.equal(state.ramp.some((tile) => tile.id === 37), false);
+  assert.equal(state.misses, 0);
+  assert.deepEqual(state.paddle, [{ id: 37, color: "green" }]);
+});
+
+test("holding accelerate doubles conveyor progress until released", () => {
+  const state = playing();
+  state.spawnClock = 10_000;
+  state.ramp = [{ id: 12, color: "cyan", lane: 0, progress: 20 }];
+  applyStaxInput(state, { type: "input/accelerate-start", payload: {} });
+  advanceStax(state);
+  assert.equal(state.ramp[0].progress, 22);
+  applyStaxInput(state, { type: "input/accelerate-end", payload: {} });
+  advanceStax(state);
+  assert.equal(state.ramp[0].progress, 23);
 });
 
 test("replay produces the controller state from commands only", () => {

@@ -67,9 +67,9 @@ are reconstructed by replay and never synchronized as materialized state.
 | Action | Keyboard | Gamepad | Touch |
 | --- | --- | --- | --- |
 | Move paddle | Left / Right | D-pad or primary stick | Left / right controls or tap a lane |
-| Place top tile | Down / Space | A or D-pad down | Tap the bin below a lane |
+| Place top tile | Space | A | Tap the bin below a lane |
 | Throw top tile back | Up | B or D-pad up | Throw-back control |
-| Accelerate ramp | Hold Shift | Hold either shoulder | Hold accelerate control |
+| Accelerate ramp | Hold Down / Shift | Hold D-pad down or either shoulder | Hold accelerate control |
 | Restart wave | R | X | Restart control |
 
 Moving never places a tile. A direct lane tap moves first and places only if the
@@ -81,9 +81,10 @@ fresh-press actions; holding either cannot affect successive tiles.
 - Catching pushes the arriving tile onto the paddle stack.
 - Placing pops the stack and appends that tile to the selected bin column. A
   placement into a full column is rejected without changing state.
-- Throw-back pops the stack and returns the tile to the top of its current ramp
-  lane with a fixed six-second (360-tick) journey. It retains its identity and
-  color and consumes no new random value.
+- Throw-back pops the stack and tosses the tile into the middle of its current
+  ramp lane. From there it rolls toward the paddle like any other ramp tile, so
+  it can be caught again. It retains its identity and color and consumes no new
+  random value.
 - Accelerate divides remaining movement intervals by two while held, with a
   minimum interval of one tick. Releasing it restores normal future intervals;
   it never rewinds progress.
@@ -217,6 +218,6 @@ The following choices are intentional but should be confirmed before freezing
 2. Include wild tiles at level 10 using the deterministic interpretation above.
 3. Use the proposed original scoring table instead of reproducing a particular
    historical port.
-4. Preserve throw-back as a core action with a fixed 360-tick return journey.
+4. Preserve throw-back as a core action that reinserts the tile at mid-ramp.
 5. Use three-round ranked points and no multiplayer attacks for the first rules
    version.

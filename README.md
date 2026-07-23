@@ -70,8 +70,8 @@ A for clockwise rotation, and B for counterclockwise rotation. Quarry Match and
 Crystal Canopy share one controller: touch beneath a column to move and fire,
 use horizontal movement plus any face button or D-pad up to fire, or use the
 left/right shoulder buttons to jump to the corresponding board edge. Stax uses
-horizontal movement for its paddle, down/A to place, up/B to throw the newest
-paddle tile back up the ramp, and either shoulder to accelerate.
+horizontal movement for its paddle, A/Space to place, up/B to throw the newest
+paddle tile to mid-ramp, and down or either shoulder to accelerate.
 
 ```sh
 nix develop
