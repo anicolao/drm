@@ -14,13 +14,13 @@ export class HeldInputGate<Key=string>{
   reset(){this.held.clear()}
 }
 
-export function commandForGamepadAction(action:GamepadControlAction):RealtimeGameInput{
+export function commandForGamepadAction(action:GamepadControlAction):RealtimeGameInput|undefined{
   if(action==='move-left')return{type:'input/move',payload:{dx:-1}};
   if(action==='move-right')return{type:'input/move',payload:{dx:1}};
-  if(action==='hard-drop')return{type:'input/hard-drop',payload:{}};
-  if(action==='rotate-clockwise')return{type:'input/rotate',payload:{direction:'clockwise'}};
-  if(action==='rotate-counterclockwise')return{type:'input/rotate',payload:{direction:'counterclockwise'}};
-  return{type:action==='soft-drop-start'?'input/soft-drop-start':'input/soft-drop-end',payload:{}};
+  if(action==='dpad-up')return{type:'input/hard-drop',payload:{}};
+  if(action==='face-right'||action==='face-top')return{type:'input/rotate',payload:{direction:'clockwise'}};
+  if(action==='face-bottom'||action==='face-left')return{type:'input/rotate',payload:{direction:'counterclockwise'}};
+  if(action==='dpad-down-start'||action==='dpad-down-end')return{type:action==='dpad-down-start'?'input/soft-drop-start':'input/soft-drop-end',payload:{}};
 }
 
 export function commandForKey(event:Pick<KeyboardEvent,'key'|'repeat'>):RealtimeGameInput|undefined{

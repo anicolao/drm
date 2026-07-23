@@ -67,7 +67,7 @@ are reconstructed by replay and never synchronized as materialized state.
 | Action | Keyboard | Gamepad | Touch |
 | --- | --- | --- | --- |
 | Move paddle | Left / Right | D-pad or primary stick | Left / right controls or tap a lane |
-| Place top tile | Space | A | Tap the bin below a lane |
+| Place top tile | Space | A or Y | Tap the bin below a lane |
 | Throw top tile back | Up | B or D-pad up | Throw-back control |
 | Accelerate ramp | Hold Down / Shift | Hold D-pad down or either shoulder | Hold accelerate control |
 | Restart wave | R | X | Restart control |

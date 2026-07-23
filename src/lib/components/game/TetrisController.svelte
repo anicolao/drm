@@ -32,7 +32,7 @@
   async function save(){if(!name.trim())return;localStorage.setItem('drm-player-name',name.trim());needsName=false;await join()}
   function start(id:string){if(id===gameId)return;gameId=id;error='';controller?.destroy();controller=createTetrisController(id,next=>{state=next;if(next.error)error=next.error})}
   function send(input:TetrisInput){if(enabled)controller?.command(input)}
-  function gamepadInput(action:GamepadControlAction){gamepadActive=true;send(commandForGamepadAction(action))}
+  function gamepadInput(action:GamepadControlAction){gamepadActive=true;const command=commandForGamepadAction(action);if(command)send(command)}
   function poll(now:number){const pads=typeof navigator.getGamepads==='function'?Array.from(navigator.getGamepads()):[],active=pads.find(p=>p?.connected),actions=gamepad.sample(pads,now);gamepadName=active?.id??'';gamepadActive=gamepadLayoutMode(gamepadActive,Boolean(active),actions);if(enabled)for(const action of actions)gamepadInput(action);else gamepad.reset();gamepadFrame=requestAnimationFrame(poll)}
   function touch(input:TetrisInput){gamepadActive=false;send(input)}
   async function chooseLevel(level:number){selectedLevel=level;if(roomId)await updatePlayerLevel(roomId,level).catch(e=>error=e instanceof Error?e.message:String(e))}

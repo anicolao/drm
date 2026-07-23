@@ -10,18 +10,25 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await expect(page.getByText('ANONYMOUS PLAYER READY')).toBeVisible();
   await page.getByRole('button', { name: 'Create a room' }).click(); await expect(page).toHaveURL(/room\?code=TEST/);
   const context = await browser.newContext({ viewport: { width: 852, height: 393 } }); const playerPage = await context.newPage();
+  await playerPage.addInitScript(()=>{const pad={id:'E2E waiting gamepad',connected:true,buttons:Array.from({length:16},()=>({pressed:false,value:0})),axes:[0,0]};(window as typeof window&{e2eWaitingPad?:typeof pad}).e2eWaitingPad=pad;Object.defineProperty(navigator,'getGamepads',{configurable:true,value:()=>[pad]})});
   const tester = new TestStepHelper(playerPage, testInfo); await playerPage.goto('/play?code=TEST');
   await expect(playerPage.getByRole('heading', { name: 'WHAT SHOULD PLAYERS CALL YOU?' })).toBeVisible();
   await playerPage.getByLabel('Player name').fill('Jo'); await playerPage.getByRole('button', { name: 'Join room' }).click();
   await expect(playerPage.getByText('WAITING FOR HOST')).toBeVisible();
   await playerPage.getByRole('button',{name:'Increase level'}).click();
   await playerPage.getByRole('button',{name:'Increase level'}).click();
+  const detector=playerPage.getByLabel('Gamepad detector');
+  await expect(detector).toHaveAttribute('data-connected','true');
+  await playerPage.evaluate(()=>{(window as typeof window&{e2eWaitingPad:{buttons:Array<{pressed:boolean;value:number}>}}).e2eWaitingPad.buttons[1]={pressed:true,value:1}});
+  await expect(detector).toHaveAttribute('data-pressed','1');
+  await playerPage.evaluate(()=>{(window as typeof window&{e2eWaitingPad:{buttons:Array<{pressed:boolean;value:number}>}}).e2eWaitingPad.buttons[1]={pressed:false,value:0}});
   await tester.step('joined-room', { description: 'Second device joins and waits for a real start record', networkStatus: 'skip', verifications: [
     { spec: 'Direct invitation URL joined the requested room', check: async () => await expect(playerPage.getByText('Joined room TEST')).toBeVisible() },
     { spec: 'The player can choose a starting level with pointer controls', check: async () => await expect(playerPage.getByLabel('Starting level')).toContainText('2') },
     { spec: 'UI waits for the host start record', check: async () => await expect(playerPage.getByText(/host gets the game ready/)).toBeVisible() },
     { spec: 'Audio mix settings are available while waiting', check: async () => await expect(playerPage.getByRole('button', { name: 'Audio settings' })).toBeVisible() },
-    { spec: 'Waiting screen teaches keyboard and gamepad controls', check: async () => await expect(playerPage.getByText('A / R ↻')).toBeVisible() }
+    { spec: 'Waiting screen teaches keyboard and Nintendo-labeled positional controls', check: async () => await expect(playerPage.getByText('A / X / R ↻')).toBeVisible() },
+    { spec: 'A detected controller is named and responds in the live diagram', check: async () => {await expect(detector).toContainText('CONTROLLER DETECTED');await expect(detector).toContainText('E2E waiting gamepad')} }
   ]});
   await expect(page.getByText('Joined players · 2')).toBeVisible(); await expect(page.getByText('Jo', { exact: true })).toBeVisible();
   const returningContext = await browser.newContext({ viewport: { width: 393, height: 852 } });

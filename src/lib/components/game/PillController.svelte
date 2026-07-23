@@ -98,7 +98,7 @@
   }
   function releasePointerDown(){endDown('pointer');}
   function gamepadAction(action:GamepadControlAction){
-    if(action==='soft-drop-start')beginDown('gamepad');else if(action==='soft-drop-end')endDown('gamepad');else send(commandForGamepadAction(action));
+    if(action==='dpad-down-start')beginDown('gamepad');else if(action==='dpad-down-end')endDown('gamepad');else{const command=commandForGamepadAction(action);if(command)send(command);}
   }
   function pollGamepads(now:number){
     const gamepads=typeof navigator.getGamepads==='function'?Array.from(navigator.getGamepads()):[];
@@ -128,7 +128,7 @@
 {#if needsName}<main class="join"><form class="card" on:submit|preventDefault={saveAndJoin}><p class="eyebrow">Joining room {code}</p><h1>WHAT SHOULD PLAYERS CALL YOU?</h1><label>Player name<input aria-label="Player name" maxlength="24" autocomplete="nickname" bind:value={playerName}/></label><button disabled={joining}>{joining?'Joining…':'Join room'}</button></form>{#if error}<p role="alert">{error}</p>{/if}</main>
 {:else if error}<main class="join"><p class="eyebrow">Controller error</p><h1>{error}</h1>{#if state.ownershipConflict}<button on:click={()=>controller?.takeOver()}>Take over on this device</button>{/if}</main>
 {:else if !joined}<main class="join"><p class="eyebrow">Joining room…</p></main>
-{:else if !activeGameId}<main class="join"><p class="eyebrow">Joined room {code}</p><h1>WAITING FOR HOST</h1><p role="status">You are in. Choose your level while the host gets the game ready.</p><LevelPicker level={selectedLevel} change={chooseLevel}/><div class="control-guide compact"><span>← → MOVE</span><span>↓ SOFT DROP</span><span>↑ HARD DROP</span><span>A / R ↻</span><span>B / T ↺</span></div></main>
+{:else if !activeGameId}<main class="join"><p class="eyebrow">Joined room {code}</p><h1>WAITING FOR HOST</h1><p role="status">You are in. Choose your level while the host gets the game ready.</p><LevelPicker level={selectedLevel} change={chooseLevel}/><div class="control-guide compact"><span>← → MOVE</span><span>↓ SOFT DROP</span><span>↑ HARD DROP</span><span>A / X / R ↻</span><span>B / Y / T ↺</span></div></main>
 {:else}<main class="landscape-controller" class:gamepad-mode={gamepadActive} aria-label="Pill Bottle controller"><GameAudio state={state.bottle} enabled={state.audioOutput==='controllers'} rainSignal={state.rainSignal??0}/>
   {#if state.lifecycle&&state.lifecycle.playerIds.length>1}<aside class="controller-scoreboard" aria-label="Scores"><strong>ROUND {state.lifecycle.round+1}/3</strong>{#each standings as player}<span class:you={player.playerId===state.playerId}>{player.name} <b>{player.score}</b>{#if player.roundPoints>0}<small>+{player.roundPoints}</small>{/if}</span>{/each}</aside>{/if}
   <OpponentList opponents={opponentDisplays} label="Opponent boards" let:opponent><strong>{(opponent as PlayerProgress&{name:string}).name}</strong><PillBottle state={(opponent as PlayerProgress).state} label={`${(opponent as PlayerProgress&{name:string}).name} opponent bottle`} showPreview={false}/><span>{(opponent as PlayerProgress).state.viruses} viruses</span></OpponentList>

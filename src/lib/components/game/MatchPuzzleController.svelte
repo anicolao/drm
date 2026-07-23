@@ -26,12 +26,12 @@
   import { HeldActionRepeater } from "$lib/input/held-repeat";
   import {
     gamepadLayoutMode,
-    OneShotGamepadButton,
     StandardGamepadControls,
     type GamepadControlAction,
   } from "$lib/input/gamepad";
   import { HeldInputGate } from "$lib/runtime/core-input";
   import { matchPuzzleColumnActions } from "$lib/input/match-puzzle";
+  import { matchPuzzleGamepadIntent } from "$lib/input/gamepad-bindings";
   export let variant:'quarry'|'canopy'='quarry';
   let code = "",
     name = "",
@@ -52,7 +52,6 @@
     gamepadFrame = 0;
   let audioPhase: "playing" | "cleared" = "playing";
   const gamepad = new StandardGamepadControls(),
-    restartButton = new OneShotGamepadButton(),
     repeat = new HeldActionRepeater<-1 | 1>((dx) =>
       send({ type: "input/move", payload: { dx } }),
     ),
@@ -178,18 +177,15 @@
   }
   function gamepadInput(action: GamepadControlAction) {
     gamepadActive = true;
-    if(action==="jump-left"||action==="jump-right")moveToColumn(action==="jump-left"?0:4);
-    else if (action === "move-left" || action === "move-right")
+    const intent=matchPuzzleGamepadIntent(action);
+    if(intent==="edge-left"||intent==="edge-right")moveToColumn(intent==="edge-left"?0:4);
+    else if (intent === "move-left" || intent === "move-right")
       send({
         type: "input/move",
-        payload: { dx: action === "move-left" ? -1 : 1 },
+        payload: { dx: intent === "move-left" ? -1 : 1 },
       });
-    else if (
-      action === "hard-drop" ||
-      action === "rotate-clockwise" ||
-      action === "rotate-counterclockwise"
-    )
-      send({ type: "input/fire", payload: {} });
+    else if (intent === "fire") send({ type: "input/fire", payload: {} });
+    else if(intent === "restart")restart();
   }
   function poll(now: number) {
     const pads =
@@ -201,11 +197,9 @@
     gamepadName = active?.id ?? "";
     gamepadActive = gamepadLayoutMode(gamepadActive, Boolean(active), actions);
     if (movementEnabled) {
-      if (restartButton.sample(pads)) restart();
       for (const action of actions) gamepadInput(action);
     } else {
       gamepad.reset();
-      restartButton.reset();
     }
     gamepadFrame = requestAnimationFrame(poll);
   }

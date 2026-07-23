@@ -72,8 +72,10 @@ Every generated puzzle remains deterministic and solver-proven. The preceding
 games.
 
 On touch controllers, tapping the launcher beneath a column moves directly to
-that column and fires as one gesture. On gamepads, the left and right shoulder
-buttons jump to the corresponding edge column.
+that column and fires as one gesture. On gamepads, A, B, Y, or D-pad up fires;
+X restarts; and the left and right shoulder buttons jump to the corresponding
+edge column. Letter names follow the Nintendo face layout while input is mapped
+by the standard Gamepad API positions.
 
 Each controller is authoritative for its own view. The network contains the
 immutable start, input/progress records, attack interactions, and lifecycle
