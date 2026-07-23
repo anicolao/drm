@@ -312,11 +312,11 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
   await expect(ramp).toHaveAttribute("data-resolution-phase", "settled");
   await tester.step("stax-final-set", {
     description:
-      "The round-winning set settles visibly in the bin before its match effect begins",
+      "The wave-completing set settles visibly in the bin before its result effect begins",
     networkStatus: "skip",
     verifications: [
       {
-        spec: "The authoritative round is cleared but its presentation is still playing",
+        spec: "The authoritative wave is cleared but its presentation is still playing",
         check: async () => {
           await expect(ramp).toHaveAttribute("data-phase", "cleared");
           await expect(ramp).toHaveAttribute("data-terminal-presentation", "playing");
@@ -330,8 +330,8 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
         },
       },
       {
-        spec: "The round-complete overlay cannot cover the final set early",
-        check: async () => await expect(page.getByText("ROUND COMPLETE")).not.toBeVisible(),
+        spec: "The wave-complete overlay cannot cover the final set early",
+        check: async () => await expect(page.getByText("WAVE COMPLETE")).not.toBeVisible(),
       },
     ],
   });
@@ -339,7 +339,7 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
   await expect(ramp).toHaveAttribute("data-terminal-presentation", "complete");
   await tester.step("stax-round-complete", {
     description:
-      "Only after placement, settle, burst, and fall does Stax finalize the round",
+      "Only after placement, settle, burst, and fall does Stax finalize the wave",
     networkStatus: "skip",
     verifications: [
       {
@@ -348,8 +348,29 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
           await expect(ramp).toHaveAttribute("data-terminal-presentation", "complete"),
       },
       {
-        spec: "The next-round control appears after the scene finishes",
-        check: async () => await expect(page.getByRole("button", { name: "NEXT ROUND" })).toBeEnabled(),
+        spec: "The next-wave control appears after the scene finishes",
+        check: async () => await expect(page.getByRole("button", { name: "NEXT WAVE" })).toBeEnabled(),
+      },
+    ],
+  });
+  await page.clock.resume();
+  await page.getByRole("button", { name: "NEXT WAVE" }).click();
+  await page.getByText("LEVEL 1").waitFor({ state: "visible" });
+  await tester.step("stax-next-level", {
+    description: "Completing a wave advances only that player to the next level",
+    networkStatus: "skip",
+    verifications: [
+      {
+        spec: "The completed wave remains credited in the race to three",
+        check: async () => await expect(page.getByText("WAVES 1/3")).toBeVisible(),
+      },
+      {
+        spec: "The successor wave starts one level higher",
+        check: async () => await expect(page.getByText("LEVEL 1")).toBeVisible(),
+      },
+      {
+        spec: "The next level starts as a fresh deterministic wave",
+        check: async () => await expectFreshCountdown(ramp),
       },
     ],
   });

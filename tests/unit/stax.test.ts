@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   advanceStax,
+  advanceStaxLevels,
   applyStaxInput,
   createStax,
   deriveStaxLifecycle,
@@ -276,9 +277,9 @@ test("Stax protocol accepts rules and commands but rejects materialized state", 
   );
 });
 
-test("three-round ranking awards N minus rank and preserves exact ties", () => {
+test("Stax is a race to three completed waves", () => {
   const ids = ["a", "b", "c"];
-  const round = deriveStaxLifecycle(
+  const partial = deriveStaxLifecycle(
     ids,
     { a: 0, b: 0, c: 0 },
     [
@@ -302,20 +303,49 @@ test("three-round ranking awards N minus rank and preserves exact ties", () => {
     [],
     0,
   );
-  assert.equal(round.finished, true);
-  assert.deepEqual(round.roundPoints, { a: 2, c: 1, b: 0 });
-  assert.equal(round.matchComplete, false);
-  const last = deriveStaxLifecycle(
+  assert.equal(partial.finished, false);
+  assert.deepEqual(partial.roundPoints, { a: 1, b: 0, c: 0 });
+  assert.deepEqual(partial.scores, { a: 1, b: 0, c: 0 });
+  const wave = deriveStaxLifecycle(
     ids,
-    { a: 2, b: 3, c: 0 },
+    { a: 1, b: 0, c: 0 },
     [
       { playerId: "a", result: "lost", tick: 50, score: 0, misses: 5, seat: 0 },
-      { playerId: "b", result: "lost", tick: 50, score: 0, misses: 5, seat: 0 },
+      { playerId: "b", result: "cleared", tick: 40, score: 500, misses: 1, seat: 1 },
+      { playerId: "c", result: "lost", tick: 55, score: 0, misses: 5, seat: 2 },
+    ],
+    [],
+    1,
+  );
+  assert.equal(wave.finished, true);
+  assert.equal(wave.matchComplete, false);
+  assert.deepEqual(wave.scores, { a: 1, b: 1, c: 0 });
+  const decisive = deriveStaxLifecycle(
+    ids,
+    { a: 2, b: 2, c: 0 },
+    [
+      { playerId: "a", result: "cleared", tick: 50, score: 500, misses: 1, seat: 0 },
+      { playerId: "b", result: "cleared", tick: 45, score: 500, misses: 1, seat: 1 },
     ],
     [],
     2,
   );
-  assert.equal(last.matchComplete, true);
-  assert.deepEqual(last.winnerIds, ["a", "b"]);
-  assert.equal(last.winnerId, undefined);
+  assert.equal(decisive.finished, true);
+  assert.equal(decisive.matchComplete, true);
+  assert.deepEqual(decisive.winnerIds, ["b"]);
+  assert.equal(decisive.winnerId, "b");
+});
+
+test("only players who complete a wave advance a level", () => {
+  assert.deepEqual(
+    advanceStaxLevels(
+      { a: { level: 4 }, b: { level: 7 }, c: { level: 20 } },
+      [
+        { playerId: "a", result: "cleared", tick: 40, score: 500, misses: 1, seat: 0 },
+        { playerId: "b", result: "lost", tick: 50, score: 0, misses: 5, seat: 1 },
+        { playerId: "c", result: "cleared", tick: 60, score: 500, misses: 1, seat: 2 },
+      ],
+    ),
+    { a: 5, b: 7, c: 20 },
+  );
 });

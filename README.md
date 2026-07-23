@@ -60,8 +60,9 @@ effects. Crystal Canopy uses independently
 level-scaled solver-proven ceiling puzzles, fixed crystal positions, no cascades,
 first-to-three rounds, and its Glacial Vault score and effects. Stax uses a
 Threlte-rendered five-lane ramp, LIFO paddle, 5×5 line bin, seeded wave
-objectives, ranked three-round points, replayed controller/cast views, and its
-original fast-piano Ivory Avalanche score. Block Stack hold,
+objectives, a first-to-three completed-wave race with individual level
+advancement, replayed controller/cast views, and its original fast-piano Ivory
+Avalanche score. Block Stack hold,
 advanced scoring, garbage attacks, and multi-round matches remain future work.
 
 The player route accepts touch and keyboard controls plus standard browser

@@ -1,8 +1,9 @@
 <script lang="ts">
   export let entries:Array<{playerId:string;name:string;score:number}>=[];
+  export let title='FINAL STANDINGS';
 </script>
-<section class="match-standings" aria-label="Final standings">
-  <h2>FINAL STANDINGS</h2>
+<section class="match-standings" aria-label={title}>
+  <h2>{title}</h2>
   <ol>{#each entries as entry,index}<li><span class="rank">{index+1}</span><strong>{entry.name}</strong><b>{entry.score}</b></li>{/each}</ol>
 </section>
 <style>

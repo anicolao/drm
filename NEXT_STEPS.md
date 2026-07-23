@@ -45,8 +45,9 @@ The architectural constraints remain non-negotiable:
 - `crystal-canopy/1`: solver-proven ceiling puzzles, fixed crystals, shared
   controls, original music/effects, cast replay, and first-to-three rounds.
 - `stax/1`: seeded five-lane waves, 3D Threlte ramp and paddle, line/chain
-  resolution, five rotating objectives, ranked three-round scoring, durable
-  replay, responsive controller/cast views, and original piano music/effects.
+  resolution, five rotating objectives, first-to-three completed-wave scoring,
+  individual level advancement, durable replay, responsive controller/cast
+  views, and original piano music/effects.
 
 ## Remaining project work
 

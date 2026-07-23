@@ -49,23 +49,34 @@
 
 ---
 
-## The round-winning set settles visibly in the bin before its match effect begins
+## The wave-completing set settles visibly in the bin before its result effect begins
 
-![The round-winning set settles visibly in the bin before its match effect begins](./screenshots/004-stax-final-set.png)
+![The wave-completing set settles visibly in the bin before its result effect begins](./screenshots/004-stax-final-set.png)
 
 **Verifications:**
-- [x] The authoritative round is cleared but its presentation is still playing
+- [x] The authoritative wave is cleared but its presentation is still playing
 - [x] All three tiles in the final green set remain visible during the settle beat
-- [x] The round-complete overlay cannot cover the final set early
+- [x] The wave-complete overlay cannot cover the final set early
 
 ---
 
-## Only after placement, settle, burst, and fall does Stax finalize the round
+## Only after placement, settle, burst, and fall does Stax finalize the wave
 
-![Only after placement, settle, burst, and fall does Stax finalize the round](./screenshots/005-stax-round-complete.png)
+![Only after placement, settle, burst, and fall does Stax finalize the wave](./screenshots/005-stax-round-complete.png)
 
 **Verifications:**
 - [x] The complete final-set presentation ran before lifecycle finalization
-- [x] The next-round control appears after the scene finishes
+- [x] The next-wave control appears after the scene finishes
+
+---
+
+## Completing a wave advances only that player to the next level
+
+![Completing a wave advances only that player to the next level](./screenshots/006-stax-next-level.png)
+
+**Verifications:**
+- [x] The completed wave remains credited in the race to three
+- [x] The successor wave starts one level higher
+- [x] The next level starts as a fresh deterministic wave
 
 ---
