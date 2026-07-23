@@ -66,12 +66,14 @@ advanced scoring, garbage attacks, and multi-round matches remain future work.
 
 The player route accepts touch and keyboard controls plus standard browser
 gamepads. Falling-block games use the D-pad or primary stick for movement/drop,
-A for clockwise rotation, and B for counterclockwise rotation. Quarry Match and
+A/X for clockwise rotation, and B/Y for counterclockwise rotation. Quarry Match and
 Crystal Canopy share one controller: touch beneath a column to move and fire,
-use horizontal movement plus any face button or D-pad up to fire, or use the
-left/right shoulder buttons to jump to the corresponding board edge. Stax uses
-horizontal movement for its paddle, A/Space to place, up/B to throw the newest
-paddle tile to mid-ramp, and down or either shoulder to accelerate.
+use horizontal movement plus A, B, Y, or D-pad up to fire, X to restart, or use
+the left/right shoulder buttons to jump to the corresponding board edge. Stax
+uses horizontal movement for its paddle, A/Y or Space to place, up/B to throw
+the newest paddle tile to mid-ramp, X to restart, and down or either shoulder
+to accelerate. Letter names follow the Nintendo face layout shown in the app;
+input handling itself uses the standard Gamepad API button positions.
 
 ```sh
 nix develop

@@ -9,7 +9,8 @@
 - [x] The player can choose a starting level with pointer controls
 - [x] UI waits for the host start record
 - [x] Audio mix settings are available while waiting
-- [x] Waiting screen teaches keyboard and gamepad controls
+- [x] Waiting screen teaches keyboard and Nintendo-labeled positional controls
+- [x] A detected controller is named and responds in the live diagram
 
 ---
 

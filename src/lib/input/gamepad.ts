@@ -1,13 +1,15 @@
 export type GamepadControlAction =
   | 'move-left'
   | 'move-right'
-  | 'jump-left'
-  | 'jump-right'
-  | 'hard-drop'
-  | 'soft-drop-start'
-  | 'soft-drop-end'
-  | 'rotate-clockwise'
-  | 'rotate-counterclockwise';
+  | 'shoulder-left'
+  | 'shoulder-right'
+  | 'dpad-up'
+  | 'dpad-down-start'
+  | 'dpad-down-end'
+  | 'face-bottom'
+  | 'face-right'
+  | 'face-left'
+  | 'face-top';
 export type MenuGamepadAction='level-up'|'level-down'|'activate';
 
 export interface GamepadLike {
@@ -20,8 +22,7 @@ export function gamepadLayoutMode(current: boolean, connected: boolean, actions:
   return connected && (current || actions.length > 0);
 }
 
-const BUTTON = Object.freeze({ bottom: 0, rightFace: 1, leftFace: 2, top: 3, leftShoulder: 4, rightShoulder: 5, up: 12, down: 13, left: 14, right: 15 });
-export class OneShotGamepadButton{private previous=false;private button:number;constructor(button=BUTTON.top){this.button=button}sample(gamepads:readonly(GamepadLike|null)[]){const current=pressed(gamepads,this.button),fired=current&&!this.previous;this.previous=current;return fired}reset(){this.previous=false}}
+export const STANDARD_GAMEPAD_BUTTON = Object.freeze({ bottom: 0, rightFace: 1, leftFace: 2, top: 3, leftShoulder: 4, rightShoulder: 5, leftTrigger: 6, rightTrigger: 7, centerLeft: 8, centerRight: 9, up: 12, down: 13, left: 14, right: 15 });
 const INITIAL_REPEAT_DELAY_MS = 220;
 const REPEAT_INTERVAL_MS = 90;
 const AXIS_THRESHOLD = 0.55;
@@ -32,10 +33,10 @@ function pressed(gamepads: readonly (GamepadLike | null)[], button: number) {
     if (gamepad.buttons[button]?.pressed || gamepad.buttons[button]?.value > 0.5) return true;
     const horizontal = gamepad.axes?.[0] ?? 0;
     const vertical = gamepad.axes?.[1] ?? 0;
-    return button === BUTTON.left ? horizontal < -AXIS_THRESHOLD
-      : button === BUTTON.right ? horizontal > AXIS_THRESHOLD
-      : button === BUTTON.up ? vertical < -AXIS_THRESHOLD
-      : button === BUTTON.down ? vertical > AXIS_THRESHOLD
+    return button === STANDARD_GAMEPAD_BUTTON.left ? horizontal < -AXIS_THRESHOLD
+      : button === STANDARD_GAMEPAD_BUTTON.right ? horizontal > AXIS_THRESHOLD
+      : button === STANDARD_GAMEPAD_BUTTON.up ? vertical < -AXIS_THRESHOLD
+      : button === STANDARD_GAMEPAD_BUTTON.down ? vertical > AXIS_THRESHOLD
       : false;
   });
 }
@@ -67,24 +68,26 @@ export class StandardGamepadControls {
       }
     };
 
-    repeat(BUTTON.left, 'move-left');
-    repeat(BUTTON.right, 'move-right');
-    onPress(BUTTON.leftShoulder, 'jump-left');
-    onPress(BUTTON.rightShoulder, 'jump-right');
-    onPress(BUTTON.up, 'hard-drop');
-    onPress(BUTTON.rightFace, 'rotate-clockwise');
-    onPress(BUTTON.bottom, 'rotate-counterclockwise');
-    if (current[BUTTON.down] && !this.previous[BUTTON.down]) actions.push('soft-drop-start');
-    if (!current[BUTTON.down] && this.previous[BUTTON.down]) actions.push('soft-drop-end');
+    repeat(STANDARD_GAMEPAD_BUTTON.left, 'move-left');
+    repeat(STANDARD_GAMEPAD_BUTTON.right, 'move-right');
+    onPress(STANDARD_GAMEPAD_BUTTON.leftShoulder, 'shoulder-left');
+    onPress(STANDARD_GAMEPAD_BUTTON.rightShoulder, 'shoulder-right');
+    onPress(STANDARD_GAMEPAD_BUTTON.up, 'dpad-up');
+    onPress(STANDARD_GAMEPAD_BUTTON.bottom, 'face-bottom');
+    onPress(STANDARD_GAMEPAD_BUTTON.rightFace, 'face-right');
+    onPress(STANDARD_GAMEPAD_BUTTON.leftFace, 'face-left');
+    onPress(STANDARD_GAMEPAD_BUTTON.top, 'face-top');
+    if (current[STANDARD_GAMEPAD_BUTTON.down] && !this.previous[STANDARD_GAMEPAD_BUTTON.down]) actions.push('dpad-down-start');
+    if (!current[STANDARD_GAMEPAD_BUTTON.down] && this.previous[STANDARD_GAMEPAD_BUTTON.down]) actions.push('dpad-down-end');
     this.previous = current;
     return actions;
   }
 
   reset() {
-    const wasSoftDropping = this.previous[BUTTON.down];
+    const wasSoftDropping = this.previous[STANDARD_GAMEPAD_BUTTON.down];
     this.previous.fill(false);
     this.nextRepeat.clear();
-    return wasSoftDropping ? ['soft-drop-end'] as GamepadControlAction[] : [];
+    return wasSoftDropping ? ['dpad-down-end'] as GamepadControlAction[] : [];
   }
 }
 
@@ -98,13 +101,13 @@ export class MenuGamepadControls{
     const connected=gamepads.filter((gamepad):gamepad is GamepadLike=>Boolean(gamepad?.connected));
     const buttonCount=Math.max(16,...connected.map(gamepad=>gamepad.buttons.length));
     const current=Array.from({length:buttonCount},(_,button)=>connected.some(gamepad=>Boolean(gamepad.buttons[button]?.pressed||gamepad.buttons[button]?.value>0.5)));
-    const vertical=pressed(gamepads,BUTTON.up)?-1:pressed(gamepads,BUTTON.down)?1:0;
+    const vertical=pressed(gamepads,STANDARD_GAMEPAD_BUTTON.up)?-1:pressed(gamepads,STANDARD_GAMEPAD_BUTTON.down)?1:0;
     if(!this.initialized){this.previous=current;this.vertical=vertical;this.nextRepeat=vertical?now+INITIAL_REPEAT_DELAY_MS:0;this.initialized=true;return[] as MenuGamepadAction[]}
     const actions:MenuGamepadAction[]=[];
     if(vertical===0){this.nextRepeat=0}
     else if(vertical!==this.vertical){actions.push(vertical<0?'level-up':'level-down');this.nextRepeat=now+INITIAL_REPEAT_DELAY_MS}
     else if(now>=this.nextRepeat){actions.push(vertical<0?'level-up':'level-down');this.nextRepeat=now+REPEAT_INTERVAL_MS}
-    const directions=new Set<number>([BUTTON.up,BUTTON.down,BUTTON.left,BUTTON.right]);
+    const directions=new Set<number>([STANDARD_GAMEPAD_BUTTON.up,STANDARD_GAMEPAD_BUTTON.down,STANDARD_GAMEPAD_BUTTON.left,STANDARD_GAMEPAD_BUTTON.right]);
     if(current.some((down,index)=>down&&!this.previous[index]&&!directions.has(index)))actions.push('activate');
     this.previous=current;this.vertical=vertical;
     return actions;

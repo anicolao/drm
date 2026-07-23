@@ -85,7 +85,9 @@ test('shared local storage safely versions controller data',()=>{
 
 test('shared semantic input maps keyboard and gamepad identically for every game',()=>{
   assert.deepEqual(commandForGamepadAction('move-left'),commandForKey({key:'ArrowLeft',repeat:false}));
-  assert.deepEqual(commandForGamepadAction('rotate-clockwise'),commandForKey({key:'r',repeat:false}));
+  assert.deepEqual(commandForGamepadAction('face-right'),commandForKey({key:'r',repeat:false}));
+  assert.deepEqual(commandForGamepadAction('face-top'),commandForKey({key:'r',repeat:false}));
+  assert.equal(commandForGamepadAction('shoulder-left'),undefined);
   assert.equal(commandForKey({key:'ArrowUp',repeat:true}),undefined);
 });
 
