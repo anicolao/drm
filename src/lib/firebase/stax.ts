@@ -11,7 +11,6 @@ import {
 import { auth, realtimeDatabase } from "./config";
 import {
   advanceStax,
-  advanceStaxLevels,
   applyStaxInput,
   createStax,
   deriveStaxLifecycle,
@@ -130,8 +129,8 @@ export function subscribeStaxLifecycle(
     .catch((e) => fail(e instanceof Error ? e : new Error(String(e))));
   return () => stops.forEach((stop) => stop());
 }
-export const requestStaxRematch = (gameId: string) =>
-  requestRematchReady(gameId, 0);
+export const requestStaxRematch = (gameId: string, level: number) =>
+  requestRematchReady(gameId, level);
 export async function startStaxRematch(gameId: string) {
   if (!realtimeDatabase) throw new Error("Firebase unavailable.");
   const [startSnap, terminalSnap] = await Promise.all([
@@ -149,7 +148,6 @@ export async function startStaxRematch(gameId: string) {
     const complete = lifecycle.matchComplete;
     return {
       advance: !complete,
-      levels: advanceStaxLevels(current.players, terminals),
       round: Math.min(2, current.round + 1),
       scores: complete
         ? Object.fromEntries(Object.keys(current.players).map((id) => [id, 0]))

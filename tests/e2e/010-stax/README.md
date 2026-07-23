@@ -67,16 +67,18 @@
 **Verifications:**
 - [x] The complete final-set presentation ran before lifecycle finalization
 - [x] The next-wave control appears after the scene finishes
+- [x] A completed wave defaults the next selection one level higher
+- [x] The player can still change the level before readying
 
 ---
 
-## Completing a wave advances only that player to the next level
+## A manual between-wave level selection starts the successor wave
 
-![Completing a wave advances only that player to the next level](./screenshots/006-stax-next-level.png)
+![A manual between-wave level selection starts the successor wave](./screenshots/006-stax-next-level.png)
 
 **Verifications:**
 - [x] The completed wave remains credited in the race to three
-- [x] The successor wave starts one level higher
+- [x] The successor wave uses the manually selected level
 - [x] The next level starts as a fresh deterministic wave
 
 ---
