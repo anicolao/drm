@@ -77,6 +77,8 @@
     if (!musicMuted && loopUrl) {
       if (playingKey !== loopKey || !loop) {
         releaseMusic();
+        stop(cue);
+        cue = undefined;
         loop = new Audio(loopUrl);
         loop.loop = true;
         loop.preload = 'auto';
