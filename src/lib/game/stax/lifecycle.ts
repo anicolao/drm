@@ -23,25 +23,11 @@ export interface StaxLifecycleState {
 
 export const STAX_WAVES_TO_WIN = 3;
 
-export function advanceStaxLevels(
-  players: Record<string, { level: number }>,
-  terminals: readonly StaxTerminal[],
+export function defaultStaxSuccessorLevel(
+  level: number,
+  result: "cleared" | "lost",
 ) {
-  const cleared = new Set(
-    terminals
-      .filter(
-        (terminal) =>
-          terminal.result === "cleared" &&
-          Object.hasOwn(players, terminal.playerId),
-      )
-      .map((terminal) => terminal.playerId),
-  );
-  return Object.fromEntries(
-    Object.entries(players).map(([id, player]) => [
-      id,
-      Math.min(20, player.level + (cleared.has(id) ? 1 : 0)),
-    ]),
-  );
+  return Math.min(20, level + (result === "cleared" ? 1 : 0));
 }
 
 export function deriveStaxLifecycle(

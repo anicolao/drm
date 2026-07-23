@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   advanceStax,
-  advanceStaxLevels,
   applyStaxInput,
   createStax,
+  defaultStaxSuccessorLevel,
   deriveStaxLifecycle,
   hashStax,
   replayStax,
@@ -337,15 +337,7 @@ test("Stax is a race to three completed waves", () => {
 });
 
 test("only players who complete a wave advance a level", () => {
-  assert.deepEqual(
-    advanceStaxLevels(
-      { a: { level: 4 }, b: { level: 7 }, c: { level: 20 } },
-      [
-        { playerId: "a", result: "cleared", tick: 40, score: 500, misses: 1, seat: 0 },
-        { playerId: "b", result: "lost", tick: 50, score: 0, misses: 5, seat: 1 },
-        { playerId: "c", result: "cleared", tick: 60, score: 500, misses: 1, seat: 2 },
-      ],
-    ),
-    { a: 5, b: 7, c: 20 },
-  );
+  assert.equal(defaultStaxSuccessorLevel(4, "cleared"), 5);
+  assert.equal(defaultStaxSuccessorLevel(7, "lost"), 7);
+  assert.equal(defaultStaxSuccessorLevel(20, "cleared"), 20);
 });

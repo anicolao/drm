@@ -190,8 +190,10 @@ streams. It must not inspect player input to choose future colors or lanes.
   completions have the same deterministic controller tick, the result remains
   a tie.
 - Between waves, standings show completed waves out of three. All players ready
-  the successor game through immutable readiness records; levels are derived
-  from authoritative wave results rather than chosen on the result screen.
+  the successor game through immutable readiness records. The result screen
+  defaults clearers to the next level and unsuccessful players to the same
+  level, while still allowing each player to adjust that selection before
+  readying.
 
 There are no multiplayer garbage attacks in `stax/1`. The ramp already provides
 continuous time pressure, and attack tiles would make independently authoritative

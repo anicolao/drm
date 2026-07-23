@@ -2,13 +2,13 @@
   import {onMount} from 'svelte';
   import LevelPicker from './LevelPicker.svelte';
   export let title='GAME OVER';export let action='PLAY AGAIN';export let ready=0;export let total=0;export let disabled=false;export let interactive=true;
-  export let level=0;export let changeLevel:(level:number)=>void=()=>{};export let showLevelPicker=true;
+  export let level=0;export let changeLevel:(level:number)=>void=()=>{};
   export let activate:()=>void=()=>{};
   onMount(()=>{const key=(event:KeyboardEvent)=>{if(!disabled&&event.key.toLowerCase()==='a'&&!event.repeat){event.preventDefault();activate()}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key)});
 </script>
 <div class="match-result" role="status" aria-live="polite">
   <h1>{title}</h1><slot/>
-  {#if interactive&&showLevelPicker}<LevelPicker {level} disabled={disabled} change={changeLevel} {activate}/>{/if}
+  {#if interactive}<LevelPicker {level} disabled={disabled} change={changeLevel} {activate}/>{/if}
   {#if interactive}<button on:click={activate} {disabled}>{action}</button>{/if}
   {#if total>0}<small>{ready}/{total} ready</small>{/if}
 </div>
