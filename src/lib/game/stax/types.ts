@@ -69,6 +69,7 @@ export interface StaxState {
   throws: number;
   restarts: number;
   accelerating: boolean;
+  accelerationTicks: number;
   lastPlacement: StaxPlacement | null;
   lastClearCells: StaxClearCell[];
   lastClearWaves: StaxClearWave[];
