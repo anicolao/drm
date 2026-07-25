@@ -77,10 +77,10 @@ test('US-011: Stax shared display reconstructs the controller ramp', async ({ br
         },
       },
       {
-        spec: 'The shared display names the controller player and shows completed waves',
+        spec: 'The shared display names the controller player and shows race wins',
         check: async () => {
           await expect(page.getByRole('heading', { name: 'Racer' })).toBeVisible();
-          await expect(page.getByText('WAVES 0/3')).toBeVisible();
+          await expect(page.getByText('WINS 0/3')).toBeVisible();
         },
       },
     ],
