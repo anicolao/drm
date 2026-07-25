@@ -72,6 +72,8 @@ export class StandardGamepadControls {
     repeat(STANDARD_GAMEPAD_BUTTON.right, 'move-right');
     onPress(STANDARD_GAMEPAD_BUTTON.leftShoulder, 'shoulder-left');
     onPress(STANDARD_GAMEPAD_BUTTON.rightShoulder, 'shoulder-right');
+    onPress(STANDARD_GAMEPAD_BUTTON.leftTrigger, 'shoulder-left');
+    onPress(STANDARD_GAMEPAD_BUTTON.rightTrigger, 'shoulder-right');
     onPress(STANDARD_GAMEPAD_BUTTON.up, 'dpad-up');
     onPress(STANDARD_GAMEPAD_BUTTON.bottom, 'face-bottom');
     onPress(STANDARD_GAMEPAD_BUTTON.rightFace, 'face-right');
