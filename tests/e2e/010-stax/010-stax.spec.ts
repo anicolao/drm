@@ -349,7 +349,7 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
       },
       {
         spec: "The next-wave control appears after the scene finishes",
-        check: async () => await expect(page.getByRole("button", { name: "NEXT WAVE" })).toBeEnabled(),
+        check: async () => await expect(page.getByRole("button", { name: "NEXT LEVEL" })).toBeEnabled(),
       },
       {
         spec: "A completed wave defaults the next selection one level higher",
@@ -364,15 +364,15 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
   await page.getByRole("button", { name: "Increase level" }).click();
   await expect(page.getByLabel("Starting level")).toContainText("2");
   await page.clock.resume();
-  await page.getByRole("button", { name: "NEXT WAVE" }).click();
+  await page.getByRole("button", { name: "NEXT LEVEL" }).click();
   await page.getByText("LEVEL 2").waitFor({ state: "visible" });
   await tester.step("stax-next-level", {
     description: "A manual between-wave level selection starts the successor wave",
     networkStatus: "skip",
     verifications: [
       {
-        spec: "The completed wave remains credited in the race to three",
-        check: async () => await expect(page.getByText("WINS 1/3")).toBeVisible(),
+        spec: "Solo progression starts without race standings",
+        check: async () => await expect(page.getByText(/WINS \d\/3/)).not.toBeVisible(),
       },
       {
         spec: "The successor wave uses the manually selected level",

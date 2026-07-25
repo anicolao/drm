@@ -34,6 +34,13 @@ test('single-player loss ends the game and simultaneous multiplayer loss is a dr
   assert.equal(draw.draw, true);
 });
 
+test('single-player clears remain level progression instead of a race', () => {
+  const level = derivePillMatchLifecycle(['solo'], [{ playerId: 'solo', result: 'cleared', tick: 1 }], []);
+  assert.equal(level.finished, true);
+  assert.equal(level.winnerId, 'solo');
+  assert.equal(level.matchComplete, false);
+});
+
 test('terminal and rematch records reject materialized or unknown state', () => {
   const terminal = {
     type: 'player/terminal', playerId: 'one', tick: 100, result: 'lost', stateHash: 'pb3-1234abcd', serverTime: 1

@@ -38,7 +38,7 @@ export function deriveTetrisLifecycle(
     terminalResults: Object.fromEntries([...byId].map(([playerId, terminal]) => [playerId, terminal.result])),
     terminalTicks: Object.fromEntries([...byId].map(([playerId, terminal]) => [playerId, terminal.tick])),
     round,
-    matchComplete: Boolean(winnerId && scores[winnerId] >= TETRIS_WINS_TO_MATCH),
+    matchComplete: Boolean(playerIds.length > 1 && winnerId && scores[winnerId] >= TETRIS_WINS_TO_MATCH),
     roundPoints,
     scores
   };

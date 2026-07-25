@@ -8,6 +8,6 @@
 - [x] The cast replayed the controller triple without receiving board state
 - [x] The controller and cast show the same remaining stone count
 - [x] Audio controls are on the TV and not the controller
-- [x] The shared display identifies the racer and round wins
+- [x] The shared display identifies the solo player without race standings
 
 ---

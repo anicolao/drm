@@ -29,6 +29,6 @@
 **Verifications:**
 - [x] Exactly twelve direct shots empty the level-zero puzzle
 - [x] No Quarry cascade was generated
-- [x] The shared round lifecycle declares the clear
+- [x] The solo lifecycle advances to the next level
 
 ---

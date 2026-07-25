@@ -224,6 +224,11 @@ test("first-clear lifecycle carries wins and completes at three", () => {
   assert.deepEqual(round.scores, { a: 3, b: 1 });
   assert.equal(round.allReady, true);
 });
+test("solo Quarry clears never complete a race", () => {
+  const level = deriveQuarryLifecycle(["solo"], { solo: 9 }, "solo", ["solo"], 4);
+  assert.equal(level.finished, true);
+  assert.equal(level.matchComplete, false);
+});
 test("Quarry protocol accepts only frozen starts and replay commands", () => {
   const start = {
     type: "game/started",

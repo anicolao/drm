@@ -104,6 +104,7 @@
       score: lifecycle?.scores[playerId] ?? 0,
     }))
     .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+  $: solo = lifecycle?.playerIds.length === 1;
   $: phase = progress.some((player) => player.state.phase === "cleared")
     ? "cleared"
     : "playing";
@@ -127,19 +128,21 @@
             {player.state.total - player.state.removed} STONES · GROUP {player.state
               .groupCount}/3
           </p>
-          <p>
+          {#if !solo}<p>
             ROUND WINS {lifecycle?.scores[player.playerId] ?? 0}
-          </p></CastPlayerFrame
+          </p>{/if}</CastPlayerFrame
         >{/each}
     </section>
     {#if lifecycle?.finished && presentingPlayers.size===0}<MatchResult
-        title={lifecycle.matchComplete
+        title={solo
+          ? "LEVEL COMPLETE"
+          : lifecycle.matchComplete
           ? `${name(lifecycle.winnerId ?? "")} WINS THE MATCH`
           : `${name(lifecycle.winnerId ?? "")} WINS THE ROUND`}
         interactive={false}
         ready={lifecycle.readyPlayerIds.length}
         total={lifecycle.playerIds.length}
-        >{#if standings.length > 0}<MatchStandings
+        >{#if !solo && standings.length > 0}<MatchStandings
             entries={standings}
           />{/if}</MatchResult
       >{/if}{/if}

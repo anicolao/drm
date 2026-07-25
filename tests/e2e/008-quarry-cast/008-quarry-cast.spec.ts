@@ -88,12 +88,12 @@ test("US-008: shared Quarry Match display replays controller shots", async ({
         },
       },
       {
-        spec: "The shared display identifies the racer and round wins",
+        spec: "The shared display identifies the solo player without race standings",
         check: async () => {
           await expect(
             page.getByRole("heading", { name: "Racer" }),
           ).toBeVisible();
-          await expect(page.getByText("ROUND WINS 0")).toBeVisible();
+          await expect(page.getByText(/ROUND WINS/)).not.toBeVisible();
         },
       },
     ],
