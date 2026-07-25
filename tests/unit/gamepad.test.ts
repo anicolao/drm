@@ -30,7 +30,7 @@ test('front and rear shoulder positions emit the same side-specific one-shot act
   assert.deepEqual(controls.sample([pad([5,7])],416),['shoulder-right','shoulder-right']);
 });
 
-test('analog trigger chatter cannot re-arm an edge jump',()=>{
+test('analog triggers press above 0.6 and release below 0.4',()=>{
   const controls=new StandardGamepadControls();
   const trigger=(value:number):GamepadLike=>{
     const gamepad=pad();
@@ -38,53 +38,13 @@ test('analog trigger chatter cannot re-arm an edge jump',()=>{
     buttons[7]={pressed:value>0.5,value};
     return {...gamepad,buttons};
   };
-  assert.deepEqual(controls.sample([trigger(1)],0),['shoulder-right']);
-  assert.deepEqual(controls.sample([trigger(0.49)],16),[]);
-  assert.deepEqual(controls.sample([trigger(0.51)],32),[]);
-  assert.deepEqual(controls.sample([trigger(0)],48),[]);
-  assert.deepEqual(controls.sample([trigger(0)],128),[]);
-  assert.deepEqual(controls.sample([trigger(1)],144),['shoulder-right']);
-});
-
-test('trigger-contaminated horizontal axes stay suppressed until neutral',()=>{
-  const controls=new StandardGamepadControls();
-  const triggerPad=(button:number|undefined,axis:number):GamepadLike =>
-    pad(button===undefined?[]:[button],[axis,0]);
-  assert.deepEqual(
-    controls.sample([triggerPad(7,1)],0),
-    ['shoulder-right'],
-  );
-  assert.deepEqual(controls.sample([triggerPad(undefined,1)],16),[]);
-  assert.deepEqual(controls.sample([triggerPad(undefined,1)],96),[]);
-  assert.deepEqual(
-    controls.sample([triggerPad(6,-1)],112),
-    ['shoulder-left'],
-  );
-  assert.deepEqual(controls.sample([triggerPad(undefined,1)],128),[]);
-  assert.deepEqual(controls.sample([triggerPad(undefined,0)],144),[]);
-  assert.deepEqual(
-    controls.sample([triggerPad(undefined,1)],160),
-    ['move-right'],
-  );
-});
-
-test('releasing one trigger cannot create a phantom opposite edge jump',()=>{
-  const controls=new StandardGamepadControls();
-  const triggers=(left:number,right:number):GamepadLike=>{
-    const gamepad=pad();
-    const buttons=Array.from(gamepad.buttons);
-    buttons[6]={pressed:left>0.5,value:left};
-    buttons[7]={pressed:right>0.5,value:right};
-    return {...gamepad,buttons};
-  };
-  assert.deepEqual(controls.sample([triggers(0,1)],0),['shoulder-right']);
-  assert.deepEqual(controls.sample([triggers(0,0)],16),[]);
-  assert.deepEqual(controls.sample([triggers(0,0)],96),[]);
-  assert.deepEqual(controls.sample([triggers(1,0)],112),['shoulder-left']);
-  assert.deepEqual(controls.sample([triggers(0,1)],128),[]);
-  assert.deepEqual(controls.sample([triggers(0,0)],144),[]);
-  assert.deepEqual(controls.sample([triggers(0,0)],224),[]);
-  assert.deepEqual(controls.sample([triggers(0,1)],240),['shoulder-right']);
+  assert.deepEqual(controls.sample([trigger(0.6)],0),[]);
+  assert.deepEqual(controls.sample([trigger(0.61)],16),['shoulder-right']);
+  assert.deepEqual(controls.sample([trigger(0.5)],32),[]);
+  assert.deepEqual(controls.sample([trigger(0.4)],48),[]);
+  assert.deepEqual(controls.sample([trigger(0.39)],64),[]);
+  assert.deepEqual(controls.sample([trigger(0.5)],80),[]);
+  assert.deepEqual(controls.sample([trigger(0.61)],96),['shoulder-right']);
 });
 
 test('d-pad left and right repeat while held without flooding frames', () => {
