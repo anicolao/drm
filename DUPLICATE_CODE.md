@@ -56,7 +56,7 @@ Color Cure owns:
 
 Block Stack owns:
 
-- `tetris/1` engine, state, hashing, replay adapter, scoring and top-out;
+- `tetris/2` engine, state, hashing, replay adapter, scoring and top-out;
 - tetromino geometry, seven-bag, SRS kicks, ghost and next rendering;
 - Block Stack board/stat presentation and music;
 - its current single-round survivor result.

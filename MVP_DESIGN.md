@@ -26,12 +26,12 @@ from immutable journals plus optional local caches.
   leases/takeover, local checkpoints, observer rewind/replay, and cast lag UI.
 - Responsive phone/tablet controllers, compact replayed opponents, shared display,
   music routing, persistent mute, results, readiness, and successor games.
-- Versioned `pill-bottle/3`, `tetris/1`, `quarry-match/3`, `crystal-canopy/1`, and `stax/1` engines with unit, Firebase Rules, and
+- Versioned `pill-bottle/3`, `tetris/2`, `quarry-match/3`, `crystal-canopy/1`, and `stax/1` engines with unit, Firebase Rules, and
   emulator-backed browser coverage.
 - Static GitHub Pages production deploys and per-PR previews.
 
 The shipped MVP goes beyond the initial proposal in several areas: Color Cure
-has three-round scoring and rain attacks; all games share routes and runtime
+has first-to-three round wins and rain attacks; all games share routes and runtime
 infrastructure; controllers support Bluetooth gamepads; and E2E screenshots use
 zero-pixel tolerance.
 
@@ -101,13 +101,14 @@ engine state is restricted to versioned browser-local caches.
 
 Color Cure ships the frozen rules documented in
 [PILL_BOTTLE.md](PILL_BOTTLE.md): seeded equal bottles, levels, next pills,
-cascades, three-round points, readiness/rematch, and deterministic rain.
+cascades, first-to-three round wins, readiness/rematch, and deterministic rain.
 
-Block Stack ships the `tetris/1` baseline documented in
+Block Stack ships the `tetris/2` baseline documented in
 [TETRIS_ROTATION.md](TETRIS_ROTATION.md): 10×20 plus hidden rows, seven-bag, SRS,
 next/ghost, gravity, bounded lock delay, basic line/drop scoring, levels, top-out,
-durable replay, cast, and one-round survivor lifecycle. Hold, advanced scoring,
-garbage, and multi-round formats remain follow-ons.
+durable replay, cast, and a first-to-three race whose round objective is reaching
+five levels above the selected start. Hold, advanced scoring, and garbage remain
+follow-ons.
 
 Quarry Match and Crystal Canopy ship the related but distinct contracts in
 [QUARRY_RULES.md](QUARRY_RULES.md) and

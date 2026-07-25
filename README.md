@@ -48,11 +48,12 @@ single-writer leases, immutable tick-tagged RTDB journals, local checkpoints,
 late-record rewind/replay, lifecycle records, responsive controller/cast layouts,
 audio routing and mute controls. No materialized board state crosses the network.
 
-Color Cure uses the frozen `pill-bottle/3` engine, three-round replay-derived
-scoring, next-level/rematch voting, next-pill previews, and deterministic rain
-attacks. Block Stack uses `tetris/1` with a seeded seven-bag, SRS rotation, ghost
+Color Cure uses the frozen `pill-bottle/3` engine, first-to-three round wins,
+next-level/rematch voting, next-pill previews, and deterministic rain
+attacks. Block Stack uses `tetris/2` with a seeded seven-bag, SRS rotation, ghost
 and next pieces, gravity, lock delay, line scoring, top-out, multiplayer
-last-survivor results, controller replay, and cast replay. Quarry Match uses
+round wins at five levels above each player’s selected start, first-to-three
+scoring, controller replay, and cast replay. Quarry Match uses
 solver-verified seeded five-column puzzles, moved-column match-three cascade
 stages, restarts, first-clear race arbitration, first-to-three scoring,
 controller/cast replay, and its original Prismatic Descent score and combo
@@ -62,8 +63,9 @@ first-to-three rounds, and its Glacial Vault score and effects. Stax uses a
 Threlte-rendered five-lane ramp, LIFO paddle, 5×5 line bin, seeded wave
 objectives, a first-to-three completed-wave race with individual level
 advancement defaults and between-wave level selection, replayed controller/cast
-views, and its original fast-piano Ivory Avalanche score. Block Stack hold,
-advanced scoring, garbage attacks, and multi-round matches remain future work.
+views, and its original fast-piano Ivory Avalanche score. Every between-round
+screen presents the same three-star race leaderboard. Block Stack hold, advanced
+scoring, and garbage attacks remain future work.
 
 The player route accepts touch and keyboard controls plus standard browser
 gamepads. Falling-block games use the D-pad or primary stick for movement/drop,

@@ -45,7 +45,7 @@
 **Verifications:**
 - [x] Each controller enters at its independently selected next level
 - [x] D-pad changes level and any non-directional gamepad button activates the default action
-- [x] The survivor scores the viruses left by the player who topped out
+- [x] The survivor earns one race win
 - [x] Neither controller reports a permission failure
 
 ---
@@ -56,18 +56,18 @@
 
 **Verifications:**
 - [x] Both controllers reach round three at independent levels
-- [x] Survivor points accumulate across rounds
+- [x] Round wins accumulate across the race
 - [x] The reversed ready order produces no permission failure
 
 ---
 
-## Match complete centers the final standings for every player
+## Race complete centers the three-star leaderboard for every player
 
-![Match complete centers the final standings for every player](./screenshots/005-final-standings.png)
+![Race complete centers the three-star leaderboard for every player](./screenshots/005-final-standings.png)
 
 **Verifications:**
-- [x] Final standings appear directly under Match Complete
-- [x] Players are ordered by accumulated points
+- [x] The race leaderboard appears directly under Race Complete
+- [x] Players are ordered by wins with a three-star track
 - [x] The rematch action remains available below the standings
 
 ---

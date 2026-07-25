@@ -19,6 +19,7 @@ import {
   hashState,
   PillBottleObserver,
   PILL_BOTTLE_RULES,
+  PILL_WINS_TO_MATCH,
   type BottleState,
   type ControllerRecord,
   type PillClearEvent,
@@ -93,7 +94,12 @@ export function subscribePillBottleLifecycle(
     if (!startDefinition) return receive(lifecycle);
     const roundPoints = derivePillRoundPoints(startDefinition, lifecycle, histories);
     const scores = Object.fromEntries(playerIds.map((playerId) => [playerId, (previousPoints[playerId] ?? 0) + roundPoints[playerId]]));
-    receive({ ...lifecycle, roundPoints, scores });
+    receive({
+      ...lifecycle,
+      roundPoints,
+      scores,
+      matchComplete: Boolean(lifecycle.winnerId && scores[lifecycle.winnerId] >= PILL_WINS_TO_MATCH)
+    });
   };
 
   void (async () => {
@@ -170,8 +176,10 @@ export async function requestPillBottleRematch(gameId: string,level:number) {
 }
 
 export async function startPillBottleRematch(gameId: string) {
+  const race = await loadPillRace(gameId);
   return startRematch(gameId, parsePillStart, start => ({
-    advance: Object.keys(start.players).length > 1 && start.round + 1 < PILL_BOTTLE_RULES.matchRounds
+    advance: !race.matchComplete,
+    round: Math.min(PILL_BOTTLE_RULES.matchRounds - 1, start.round + 1)
   }));
 }
 
@@ -325,6 +333,29 @@ async function loadPreviousPillScores(previousGameId: string | undefined, matchI
   return totals;
 }
 
+async function loadPillRace(gameId: string) {
+  if (!realtimeDatabase) throw new Error('Firebase is unavailable.');
+  const startSnapshot = await get(ref(realtimeDatabase, `games/${gameId}/start`));
+  if (!startSnapshot.exists()) throw new Error('The previous game no longer exists.');
+  const start = parsePillStart(startSnapshot.val());
+  const terminalSnapshot = await get(ref(realtimeDatabase, `games/${gameId}/terminals`));
+  const terminals: Array<{ playerId: string; result: 'cleared' | 'lost'; tick: number }> = [];
+  terminalSnapshot.forEach((child) => { terminals.push(parsePillTerminal(child.val())); });
+  const playerIds = Object.keys(start.players);
+  const lifecycle = derivePillMatchLifecycle(playerIds, terminals, [], start.round);
+  const previousScores = await loadPreviousPillScores(start.previousGameId, start.matchId);
+  const roundPoints = derivePillRoundPoints(start, lifecycle, new Map());
+  const scores = Object.fromEntries(
+    playerIds.map((playerId) => [playerId, (previousScores[playerId] ?? 0) + roundPoints[playerId]])
+  );
+  return {
+    ...lifecycle,
+    roundPoints,
+    scores,
+    matchComplete: Boolean(lifecycle.winnerId && scores[lifecycle.winnerId] >= PILL_WINS_TO_MATCH)
+  };
+}
+
 export function createPillBottleController(gameId: string, receive: (state: ControllerState) => void) {
   if (!auth?.currentUser || !realtimeDatabase) throw new Error('Firebase is unavailable.');
   const playerId = auth.currentUser.uid;
@@ -445,8 +476,7 @@ export function createPillBottleController(gameId: string, receive: (state: Cont
 
   async function declareTerminal() {
     if (!bottle || terminalDeclared) return;
-    const multiplayer = (lifecycle?.playerIds.length ?? 0) > 1;
-    const result = bottle.phase === 'lost' ? 'lost' : multiplayer && bottle.phase === 'countdown' ? 'cleared' : undefined;
+    const result = bottle.phase === 'lost' ? 'lost' : bottle.phase === 'countdown' ? 'cleared' : undefined;
     if (!result) return;
     terminalDeclared = true;
     try {

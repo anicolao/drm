@@ -156,7 +156,7 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await tester.step('both-ready', { description: 'Both ready controllers enter the next round regardless of click order', networkStatus: 'skip', verifications: [
     { spec: 'Each controller enters at its independently selected next level', check: async () => {await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '20');await expect(returningPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '15')} },
     { spec: 'D-pad changes level and any non-directional gamepad button activates the default action', check: async () => await expect(playerPage.getByRole('button', { name: 'NEXT LEVEL' })).not.toBeVisible() },
-    { spec: 'The survivor scores the viruses left by the player who topped out', check: async () => await expect(playerPage.getByLabel('Scores')).toContainText('Sam 15') },
+    { spec: 'The survivor earns one race win', check: async () => await expect(playerPage.getByLabel('Scores')).toContainText('Sam 1') },
     { spec: 'Neither controller reports a permission failure', check: async () => { await expect(playerPage.getByText(/permission/i)).not.toBeVisible(); await expect(returningPage.getByText(/permission/i)).not.toBeVisible(); } }
   ]});
   const nextGamesResponse = await fetch('http://127.0.0.1:9000/games.json?ns=drm-e2e', { headers: { authorization: 'Bearer owner' } });
@@ -173,7 +173,7 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await expect(returningPage.getByRole('button', { name: 'NEXT LEVEL' })).not.toBeVisible();
   await tester.step('reverse-ready-order', { description: 'Reversing ready order starts the final round without a permission race', networkStatus: 'skip', verifications: [
     { spec: 'Both controllers reach round three at independent levels', check: async () => { await expect(playerPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '25'); await expect(returningPage.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '20'); } },
-    { spec: 'Survivor points accumulate across rounds', check: async () => { await expect(playerPage.getByLabel('Scores')).toContainText('Jo 15'); await expect(playerPage.getByLabel('Scores')).toContainText('Sam 15'); } },
+    { spec: 'Round wins accumulate across the race', check: async () => { await expect(playerPage.getByLabel('Scores')).toContainText('Jo 1'); await expect(playerPage.getByLabel('Scores')).toContainText('Sam 1'); } },
     { spec: 'The reversed ready order produces no permission failure', check: async () => { await expect(playerPage.getByText(/permission/i)).not.toBeVisible(); await expect(returningPage.getByText(/permission/i)).not.toBeVisible(); } }
   ]});
   const finalGamesResponse=await fetch('http://127.0.0.1:9000/games.json?ns=drm-e2e',{headers:{authorization:'Bearer owner'}});
@@ -182,10 +182,22 @@ test('US-002: a second authenticated device joins the room', async ({ browser, p
   await fetch(`http://127.0.0.1:9000/games/${finalGameId}/terminals/${playerIds[0]}.json?ns=drm-e2e`,{
     method:'PUT',headers:{authorization:'Bearer owner','content-type':'application/json'},body:JSON.stringify({type:'player/terminal',playerId:playerIds[0],tick:5,result:'lost',stateHash:'pb3-00000000',serverTime:Date.now()})
   });
-  await expect(playerPage.getByRole('heading',{name:'MATCH COMPLETE'})).toBeVisible();
-  await tester.step('final-standings',{description:'Match complete centers the final standings for every player',networkStatus:'skip',verifications:[
-    {spec:'Final standings appear directly under Match Complete',check:async()=>await expect(playerPage.getByLabel('Final standings')).toBeVisible()},
-    {spec:'Players are ordered by accumulated points',check:async()=>{const rows=playerPage.getByLabel('Final standings').locator('li');await expect(rows.nth(0)).toContainText('Sam');await expect(rows.nth(0)).toContainText('40');await expect(rows.nth(1)).toContainText('Jo');await expect(rows.nth(1)).toContainText('15')}},
+  await expect(playerPage.getByRole('heading',{name:'ROUND COMPLETE'})).toBeVisible();
+  await expect(playerPage.getByLabel('Race to three').getByLabel('2 of 3 wins')).toBeVisible();
+  await playerPage.getByRole('button',{name:'NEXT LEVEL'}).click();
+  await returningPage.getByRole('button',{name:'NEXT LEVEL'}).click();
+  await expect(playerPage.getByRole('button',{name:'NEXT LEVEL'})).not.toBeVisible();
+  await expect(returningPage.getByRole('button',{name:'NEXT LEVEL'})).not.toBeVisible();
+  const raceGamesResponse=await fetch('http://127.0.0.1:9000/games.json?ns=drm-e2e',{headers:{authorization:'Bearer owner'}});
+  const raceGames=await raceGamesResponse.json() as Record<string,{start:{players:Record<string,unknown>;previousGameId?:string}}>;
+  const [raceGameId]=Object.entries(raceGames).find(([,game])=>game.start.previousGameId===finalGameId&&playerIds.every(playerId=>playerId! in game.start.players))!;
+  await fetch(`http://127.0.0.1:9000/games/${raceGameId}/terminals/${playerIds[0]}.json?ns=drm-e2e`,{
+    method:'PUT',headers:{authorization:'Bearer owner','content-type':'application/json'},body:JSON.stringify({type:'player/terminal',playerId:playerIds[0],tick:5,result:'lost',stateHash:'pb3-00000000',serverTime:Date.now()})
+  });
+  await expect(playerPage.getByRole('heading',{name:'RACE COMPLETE'})).toBeVisible();
+  await tester.step('final-standings',{description:'Race complete centers the three-star leaderboard for every player',networkStatus:'skip',verifications:[
+    {spec:'The race leaderboard appears directly under Race Complete',check:async()=>await expect(playerPage.getByLabel('Race to three')).toBeVisible()},
+    {spec:'Players are ordered by wins with a three-star track',check:async()=>{const rows=playerPage.getByLabel('Race to three').locator('li');await expect(rows.nth(0)).toContainText('Sam');await expect(rows.nth(0).getByLabel('3 of 3 wins')).toBeVisible();await expect(rows.nth(1)).toContainText('Jo');await expect(rows.nth(1).getByLabel('1 of 3 wins')).toBeVisible()}},
     {spec:'The rematch action remains available below the standings',check:async()=>await expect(playerPage.getByRole('button',{name:'PLAY AGAIN'})).toBeEnabled()}
   ]});
   await returningContext.close(); await context.close(); tester.generateDocs();

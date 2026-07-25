@@ -275,7 +275,7 @@
         level={selectedLevel}
         changeLevel={(level) => (selectedLevel = level)}
         activate={nextRound}
-        >{#if state.lifecycle.matchComplete && standings.length > 1}<MatchStandings
+        >{#if standings.length > 0}<MatchStandings
             entries={standings}
           />{/if}</MatchResult
       >{/if}{#if !gamepadActive}<section class="controls">

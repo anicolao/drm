@@ -139,7 +139,7 @@
         interactive={false}
         ready={lifecycle.readyPlayerIds.length}
         total={lifecycle.playerIds.length}
-        >{#if lifecycle.matchComplete && standings.length > 1}<MatchStandings
+        >{#if standings.length > 0}<MatchStandings
             entries={standings}
           />{/if}</MatchResult
       >{/if}{/if}

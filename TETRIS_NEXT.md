@@ -2,7 +2,7 @@
 
 ## Current baseline
 
-Block Stack is a playable `tetris/1` ruleset inside DRM's shared real-time game
+Block Stack is a playable `tetris/2` ruleset inside DRM's shared real-time game
 framework. It currently provides:
 
 - a 10×20 visible matrix and two hidden rows;
@@ -15,12 +15,12 @@ framework. It currently provides:
 - durable controller journals, local recovery, one-writer leases, checkpointed
   replay/rewind, progress hashes, controller opponent boards, and cast replay;
 - shared touch, keyboard, D-pad, analog-stick, A/B controls, audio/mute, lag,
-  responsive layouts, lifecycle, and single-round last-survivor results.
+  responsive layouts, first-to-three lifecycle, and three-star standings.
 
-The network never carries a Tetris board. Identical `tetris/1` seeds and journals
+The network never carries a Tetris board. Identical `tetris/2` seeds and journals
 must remain replayable forever; state-affecting changes require another version.
 
-## Correctness work for `tetris/1`
+## Correctness work for `tetris/2`
 
 - Fixture all orientations of all pieces and every ordered JLSTZ/I kick path,
   including each selected offset and total failure.
@@ -52,7 +52,7 @@ work is validation rather than another Tetris runtime:
 ## Next rules version
 
 These mechanics change deterministic state and should be designed together under
-a new rules version rather than added silently to `tetris/1`.
+a new rules version rather than added silently to `tetris/2`.
 
 ### Hold and advanced scoring
 
@@ -73,10 +73,10 @@ a new rules version rather than added silently to `tetris/1`.
 
 ### Match format
 
-Block Stack currently uses one round (`matchRounds: 1`). Choose single round,
-best-of-N wins, or points across N rounds before expanding lifecycle UI. Reuse the
-shared ready/rematch/successor-game machinery with Tetris-specific score/result
-projection. Define simultaneous top-out and disconnect outcomes explicitly.
+Block Stack now uses a first-to-three race. A player wins a round by reaching
+five levels above their selected starting level; top-outs do not award a win.
+The shared ready/rematch/successor-game machinery carries the star leaderboard
+between rounds. Disconnect outcomes remain to be defined explicitly.
 
 ## Input and presentation follow-ons
 
