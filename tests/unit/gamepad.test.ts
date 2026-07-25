@@ -54,17 +54,37 @@ test('trigger-contaminated horizontal axes stay suppressed until neutral',()=>{
     controls.sample([triggerPad(7,1)],0),
     ['shoulder-right'],
   );
-  assert.deepEqual(controls.sample([triggerPad(undefined,1)],240),[]);
+  assert.deepEqual(controls.sample([triggerPad(undefined,1)],16),[]);
+  assert.deepEqual(controls.sample([triggerPad(undefined,1)],96),[]);
   assert.deepEqual(
-    controls.sample([triggerPad(6,-1)],256),
+    controls.sample([triggerPad(6,-1)],112),
     ['shoulder-left'],
   );
-  assert.deepEqual(controls.sample([triggerPad(undefined,1)],500),[]);
-  assert.deepEqual(controls.sample([triggerPad(undefined,0)],516),[]);
+  assert.deepEqual(controls.sample([triggerPad(undefined,1)],128),[]);
+  assert.deepEqual(controls.sample([triggerPad(undefined,0)],144),[]);
   assert.deepEqual(
-    controls.sample([triggerPad(undefined,1)],532),
+    controls.sample([triggerPad(undefined,1)],160),
     ['move-right'],
   );
+});
+
+test('releasing one trigger cannot create a phantom opposite edge jump',()=>{
+  const controls=new StandardGamepadControls();
+  const triggers=(left:number,right:number):GamepadLike=>{
+    const gamepad=pad();
+    const buttons=Array.from(gamepad.buttons);
+    buttons[6]={pressed:left>0.5,value:left};
+    buttons[7]={pressed:right>0.5,value:right};
+    return {...gamepad,buttons};
+  };
+  assert.deepEqual(controls.sample([triggers(0,1)],0),['shoulder-right']);
+  assert.deepEqual(controls.sample([triggers(0,0)],16),[]);
+  assert.deepEqual(controls.sample([triggers(0,0)],96),[]);
+  assert.deepEqual(controls.sample([triggers(1,0)],112),['shoulder-left']);
+  assert.deepEqual(controls.sample([triggers(0,1)],128),[]);
+  assert.deepEqual(controls.sample([triggers(0,0)],144),[]);
+  assert.deepEqual(controls.sample([triggers(0,0)],224),[]);
+  assert.deepEqual(controls.sample([triggers(0,1)],240),['shoulder-right']);
 });
 
 test('d-pad left and right repeat while held without flooding frames', () => {

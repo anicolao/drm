@@ -60,11 +60,8 @@ function buttonPressure(gamepads: readonly (GamepadLike | null)[], button: numbe
 export class StandardGamepadControls {
   private previous = Array(16).fill(false) as boolean[];
   private nextRepeat = new Map<number, number>();
-  private triggerArmed = new Map<number, boolean>([
-    [STANDARD_GAMEPAD_BUTTON.leftTrigger, true],
-    [STANDARD_GAMEPAD_BUTTON.rightTrigger, true],
-  ]);
-  private triggerReleaseStarted = new Map<number, number>();
+  private triggersArmed = true;
+  private triggersReleaseStarted: number | undefined;
   private horizontalAxisSuppressed = false;
 
   sample(gamepads: readonly (GamepadLike | null)[], now: number) {
@@ -79,6 +76,13 @@ export class StandardGamepadControls {
     const triggerActive =
       leftTriggerPressure > TRIGGER_RELEASE_THRESHOLD ||
       rightTriggerPressure > TRIGGER_RELEASE_THRESHOLD;
+    if (!triggerActive) {
+      this.triggersReleaseStarted ??= now;
+      if (now - this.triggersReleaseStarted >= TRIGGER_RELEASE_DELAY_MS)
+        this.triggersArmed = true;
+    } else {
+      this.triggersReleaseStarted = undefined;
+    }
     const horizontalAxis = gamepads.reduce(
       (largest, gamepad) => {
         if (!gamepad?.connected) return largest;
@@ -107,20 +111,12 @@ export class StandardGamepadControls {
     };
     const trigger = (button: number, action: GamepadControlAction) => {
       const pressure = buttonPressure(gamepads, button);
-      if (pressure <= TRIGGER_RELEASE_THRESHOLD) {
-        const started = this.triggerReleaseStarted.get(button) ?? now;
-        this.triggerReleaseStarted.set(button, started);
-        if (now - started >= TRIGGER_RELEASE_DELAY_MS)
-          this.triggerArmed.set(button, true);
-        return;
-      }
-      this.triggerReleaseStarted.delete(button);
       if (
         pressure >= TRIGGER_PRESS_THRESHOLD &&
-        this.triggerArmed.get(button)
+        this.triggersArmed
       ) {
         actions.push(action);
-        this.triggerArmed.set(button, false);
+        this.triggersArmed = false;
       }
     };
     const repeat = (button: number, action: GamepadControlAction) => {
@@ -161,9 +157,8 @@ export class StandardGamepadControls {
     const wasSoftDropping = this.previous[STANDARD_GAMEPAD_BUTTON.down];
     this.previous.fill(false);
     this.nextRepeat.clear();
-    this.triggerArmed.set(STANDARD_GAMEPAD_BUTTON.leftTrigger, true);
-    this.triggerArmed.set(STANDARD_GAMEPAD_BUTTON.rightTrigger, true);
-    this.triggerReleaseStarted.clear();
+    this.triggersArmed = true;
+    this.triggersReleaseStarted = undefined;
     this.horizontalAxisSuppressed = false;
     return wasSoftDropping ? ['dpad-down-end'] as GamepadControlAction[] : [];
   }
