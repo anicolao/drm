@@ -46,6 +46,27 @@ test('analog trigger chatter cannot re-arm an edge jump',()=>{
   assert.deepEqual(controls.sample([trigger(1)],144),['shoulder-right']);
 });
 
+test('trigger-contaminated horizontal axes stay suppressed until neutral',()=>{
+  const controls=new StandardGamepadControls();
+  const triggerPad=(button:number|undefined,axis:number):GamepadLike =>
+    pad(button===undefined?[]:[button],[axis,0]);
+  assert.deepEqual(
+    controls.sample([triggerPad(7,1)],0),
+    ['shoulder-right'],
+  );
+  assert.deepEqual(controls.sample([triggerPad(undefined,1)],240),[]);
+  assert.deepEqual(
+    controls.sample([triggerPad(6,-1)],256),
+    ['shoulder-left'],
+  );
+  assert.deepEqual(controls.sample([triggerPad(undefined,1)],500),[]);
+  assert.deepEqual(controls.sample([triggerPad(undefined,0)],516),[]);
+  assert.deepEqual(
+    controls.sample([triggerPad(undefined,1)],532),
+    ['move-right'],
+  );
+});
+
 test('d-pad left and right repeat while held without flooding frames', () => {
   const controls = new StandardGamepadControls();
   assert.deepEqual(controls.sample([pad([14])], 0), ['move-left']);
