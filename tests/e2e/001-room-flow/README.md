@@ -34,12 +34,12 @@
 
 ---
 
-## A terminal bottle declares the round result
+## A terminal solo bottle offers another level
 
-![A terminal bottle declares the round result](./screenshots/003-game-over.png)
+![A terminal solo bottle offers another level](./screenshots/003-game-over.png)
 
 **Verifications:**
-- [x] Single-player top-out ends the round without awarding a win
-- [x] The player can request the next round
+- [x] Single-player top-out ends the level without declaring a race result
+- [x] The player can retry or select another level
 
 ---

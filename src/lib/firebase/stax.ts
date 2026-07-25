@@ -139,17 +139,18 @@ export async function startStaxRematch(gameId: string) {
   ]);
   const start = parseStart(startSnap.val());const terminals:StaxTerminal[]=[];terminalSnap.forEach(child=>{terminals.push(parseStaxTerminal(child.val()))});const lifecycle=deriveStaxLifecycle(Object.keys(start.players),start.scores,terminals,[],start.round);
   return startRematch(gameId, parseStart, (current) => {
+    const solo = Object.keys(current.players).length === 1;
     const scores = Object.fromEntries(
       Object.keys(current.players).map((id) => [
         id,
         lifecycle.scores[id]??0,
       ]),
     );
-    const complete = lifecycle.matchComplete;
+    const complete = !solo && lifecycle.matchComplete;
     return {
-      advance: !complete,
-      round: Math.min(2, current.round + 1),
-      scores: complete
+      advance: !solo && !complete,
+      round: solo ? 0 : Math.min(2, current.round + 1),
+      scores: solo || complete
         ? Object.fromEntries(Object.keys(current.players).map((id) => [id, 0]))
         : scores,
     };

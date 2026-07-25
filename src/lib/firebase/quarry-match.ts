@@ -154,6 +154,7 @@ export async function startQuarryRematch(gameId: string) {
   const start = parseStart(startSnap.val()),
     winnerId = winnerSnap.val()?.playerId as string | undefined;
   return startRematch(gameId, parseStart, (current) => {
+    const solo = Object.keys(current.players).length === 1;
     const scores = Object.fromEntries(
       Object.keys(current.players).map((id) => [
         id,
@@ -161,11 +162,13 @@ export async function startQuarryRematch(gameId: string) {
       ]),
     );
     const complete = Boolean(
+      !solo &&
       winnerId && scores[winnerId] >= current.settings.targetWins,
     );
     return {
-      advance: !complete,
-      scores: complete
+      advance: !solo && !complete,
+      round: solo ? 0 : current.round + 1,
+      scores: solo || complete
         ? Object.fromEntries(Object.keys(current.players).map((id) => [id, 0]))
         : scores,
     };

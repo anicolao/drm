@@ -62,6 +62,7 @@
     !state.lifecycle?.finished,
   );
   $: actionEnabled = movementEnabled && (variant === "canopy" || presentationComplete);
+  $: solo = state.lifecycle?.playerIds.length === 1;
   $: audioPhase = state.state?.phase === "cleared" && presentationComplete ? "cleared" : "playing";
   $: standings = (state.lifecycle?.playerIds ?? [])
     .map((playerId, index) => ({
@@ -161,6 +162,9 @@
     error = "";
     controller?.destroy();
     controller = createQuarryController(id, (next) => {
+      const justFinished = !state.lifecycle?.finished && next.lifecycle?.finished;
+      if (justFinished && next.lifecycle?.playerIds.length === 1 && next.state)
+        selectedLevel = Math.min(20, next.state.level + 1);
       if (next.state && state.state && next.state.cascades > state.state.cascades && next.state.lastCascadeWaves.length)
         presentationComplete = false;
       state = next;
@@ -263,19 +267,21 @@
       /><small>{(opponent as QuarryProgress).state.total - (opponent as QuarryProgress).state.removed} LEFT</small
       ></OpponentList
     >{#if state.lifecycle?.finished && presentationComplete}<MatchResult
-        title={state.lifecycle.winnerId === state.playerId
+        title={solo
+          ? "LEVEL COMPLETE"
+          : state.lifecycle.winnerId === state.playerId
           ? "ROUND WIN"
           : state.lifecycle.matchComplete
             ? "MATCH COMPLETE"
             : "ROUND COMPLETE"}
-        action={state.lifecycle.matchComplete ? "PLAY AGAIN" : "NEXT ROUND"}
+        action={solo ? "NEXT LEVEL" : state.lifecycle.matchComplete ? "PLAY AGAIN" : "NEXT ROUND"}
         ready={state.lifecycle.readyPlayerIds.length}
         total={state.lifecycle.playerIds.length}
         disabled={state.lifecycle.readyPlayerIds.includes(state.playerId ?? "")}
         level={selectedLevel}
         changeLevel={(level) => (selectedLevel = level)}
         activate={nextRound}
-        >{#if standings.length > 0}<MatchStandings
+        >{#if !solo && standings.length > 0}<MatchStandings
             entries={standings}
           />{/if}</MatchResult
       >{/if}{#if !gamepadActive}<section class="controls">

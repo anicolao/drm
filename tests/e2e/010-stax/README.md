@@ -77,7 +77,7 @@
 ![A manual between-wave level selection starts the successor wave](./screenshots/006-stax-next-level.png)
 
 **Verifications:**
-- [x] The completed wave remains credited in the race to three
+- [x] Solo progression starts without race standings
 - [x] The successor wave uses the manually selected level
 - [x] The next level starts as a fresh deterministic wave
 

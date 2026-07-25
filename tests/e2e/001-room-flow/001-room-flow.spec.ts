@@ -40,13 +40,13 @@ test('US-001: host creates and configures a real room', async ({ page }, testInf
   await clickAndWaitForUrl(page, page.getByRole('button', { name: 'Play', exact: true }), /\/play\?code=TEST$/);
   await expect(page.getByLabel('Pill Bottle controller')).toBeVisible();
   await declareColorCureLoss(page);
-  await expect(page.getByText('ROUND COMPLETE')).toBeVisible();
-  await tester.step('game-over', { description: 'A terminal bottle declares the round result', networkStatus: 'skip', verifications: [
-    { spec: 'Single-player top-out ends the round without awarding a win', check: async () => await expect(page.getByText('ROUND COMPLETE')).toBeVisible() },
-    { spec: 'The player can request the next round', check: async () => await expect(page.getByRole('button', { name: 'NEXT LEVEL' })).toBeEnabled() }
+  await expect(page.getByText('LEVEL LOST')).toBeVisible();
+  await tester.step('game-over', { description: 'A terminal solo bottle offers another level', networkStatus: 'skip', verifications: [
+    { spec: 'Single-player top-out ends the level without declaring a race result', check: async () => await expect(page.getByText('LEVEL LOST')).toBeVisible() },
+    { spec: 'The player can retry or select another level', check: async () => await expect(page.getByRole('button', { name: 'TRY AGAIN' })).toBeEnabled() }
   ]});
-  await page.getByRole('button', { name: 'NEXT LEVEL' }).click();
-  await expect(page.getByText('ROUND COMPLETE')).not.toBeVisible();
+  await page.getByRole('button', { name: 'TRY AGAIN' }).click();
+  await expect(page.getByText('LEVEL LOST')).not.toBeVisible();
   await expect(page.getByLabel('Pill bottle', { exact: true })).toHaveAttribute('data-virus-count', '10');
   tester.generateDocs();
 });

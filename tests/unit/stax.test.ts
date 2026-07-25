@@ -341,3 +341,16 @@ test("only players who complete a wave advance a level", () => {
   assert.equal(defaultStaxSuccessorLevel(7, "lost"), 7);
   assert.equal(defaultStaxSuccessorLevel(20, "cleared"), 20);
 });
+
+test("solo Stax waves never complete a race", () => {
+  const level = deriveStaxLifecycle(
+    ["solo"],
+    { solo: 9 },
+    [{ playerId: "solo", result: "cleared", tick: 50, score: 500, misses: 1, seat: 0 }],
+    ["solo"],
+    2,
+  );
+  assert.equal(level.finished, true);
+  assert.equal(level.matchComplete, false);
+  assert.equal(level.winnerId, "solo");
+});

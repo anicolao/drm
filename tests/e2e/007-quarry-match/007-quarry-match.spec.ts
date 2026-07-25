@@ -4,7 +4,7 @@ import { resetEmulators } from "../helpers/reset-emulators";
 import { expectViewportFits, finishStagedPresentation } from "../helpers/deterministic-state";
 import { QUARRY_PRESENTATION_MS } from "../../../src/lib/presentation/quarry";
 test.beforeEach(resetEmulators);
-test("US-007: Quarry Match plays a solver-backed puzzle race", async ({
+test("US-007: Quarry Match plays a solver-backed puzzle level", async ({
   page,
 }, testInfo) => {
   const tester = new TestStepHelper(page, testInfo);
@@ -110,11 +110,11 @@ test("US-007: Quarry Match plays a solver-backed puzzle race", async ({
   await expect(board).toHaveAttribute("data-remaining", "18");
   await expect(page.getByText("GROUP 0/3")).toBeVisible();
   await playAndPresent(plan.slice(3));
-  await expect(page.getByText("ROUND WIN")).toBeVisible();
+  await expect(page.getByText("LEVEL COMPLETE")).toBeVisible();
   await page.clock.pauseAt(Date.now());
   await tester.step("quarry-clear", {
       description:
-        "Direct shots and horizontal cascades empty the replayed board and claim the round",
+        "Direct shots and horizontal cascades empty the replayed solo level",
     networkStatus: "skip",
     verifications: [
       {
@@ -123,16 +123,14 @@ test("US-007: Quarry Match plays a solver-backed puzzle race", async ({
           await expect(board).toHaveAttribute("data-remaining", "0"),
       },
       {
-        spec: "The first clear is the immutable round winner",
+        spec: "The clear completes the solo level without declaring a race winner",
         check: async () =>
-          await expect(page.getByText("ROUND WIN")).toBeVisible(),
+          await expect(page.getByText("LEVEL COMPLETE")).toBeVisible(),
       },
       {
-        spec: "The shared next-round flow is ready",
+        spec: "The next-level flow defaults one level higher",
         check: async () =>
-          await expect(
-            page.getByRole("button", { name: "NEXT ROUND" }),
-          ).toBeEnabled(),
+          await expect(page.getByLabel("Starting level")).toContainText("1"),
       },
     ],
   });

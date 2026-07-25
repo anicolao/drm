@@ -98,7 +98,7 @@ export function subscribePillBottleLifecycle(
       ...lifecycle,
       roundPoints,
       scores,
-      matchComplete: Boolean(lifecycle.winnerId && scores[lifecycle.winnerId] >= PILL_WINS_TO_MATCH)
+      matchComplete: Boolean(playerIds.length > 1 && lifecycle.winnerId && scores[lifecycle.winnerId] >= PILL_WINS_TO_MATCH)
     });
   };
 
@@ -177,10 +177,13 @@ export async function requestPillBottleRematch(gameId: string,level:number) {
 
 export async function startPillBottleRematch(gameId: string) {
   const race = await loadPillRace(gameId);
-  return startRematch(gameId, parsePillStart, start => ({
-    advance: !race.matchComplete,
-    round: Math.min(PILL_BOTTLE_RULES.matchRounds - 1, start.round + 1)
-  }));
+  return startRematch(gameId, parsePillStart, start => {
+    const solo = Object.keys(start.players).length === 1;
+    return {
+      advance: !solo && !race.matchComplete,
+      round: solo ? 0 : Math.min(PILL_BOTTLE_RULES.matchRounds - 1, start.round + 1)
+    };
+  });
 }
 
 function withoutServerTime(record: ReturnType<typeof parsePillControllerRecord>): ControllerRecord {
@@ -352,7 +355,7 @@ async function loadPillRace(gameId: string) {
     ...lifecycle,
     roundPoints,
     scores,
-    matchComplete: Boolean(lifecycle.winnerId && scores[lifecycle.winnerId] >= PILL_WINS_TO_MATCH)
+    matchComplete: Boolean(playerIds.length > 1 && lifecycle.winnerId && scores[lifecycle.winnerId] >= PILL_WINS_TO_MATCH)
   };
 }
 

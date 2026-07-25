@@ -48,9 +48,9 @@ export function deriveStaxLifecycle(
   const scores = Object.fromEntries(
     playerIds.map((id) => [id, (baseScores[id] ?? 0) + points[id]]),
   );
-  const contenders = playerIds.filter(
+  const contenders = playerIds.length > 1 ? playerIds.filter(
     (id) => scores[id] >= STAX_WAVES_TO_WIN,
-  );
+  ) : [];
   const winningTick = Math.min(
     ...contenders.map((id) => byId.get(id)?.tick ?? Number.MAX_SAFE_INTEGER),
   );
