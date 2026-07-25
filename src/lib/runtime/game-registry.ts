@@ -6,7 +6,7 @@ import{STAX_RULES}from'$lib/game/stax';
 export type GameRuleset='doctor'|'tetris'|'quarry'|'canopy'|'stax';
 const definitions:Record<GameRuleset,RealtimeGameDefinition<object>>={
  doctor:{ruleset:'pill-bottle',rulesVersion:PILL_BOTTLE_RULES_VERSION,tickRate:PILL_BOTTLE_RULES.tickRate,settings:PILL_BOTTLE_SETTINGS},
- tetris:{ruleset:'tetris',rulesVersion:'tetris/1',tickRate:TETRIS_RULES.tickRate,settings:{width:10,height:20,hiddenRows:2,matchRounds:1}},
+ tetris:{ruleset:'tetris',rulesVersion:'tetris/2',tickRate:TETRIS_RULES.tickRate,settings:{width:10,height:20,hiddenRows:2,targetWins:3,matchRounds:3}},
  quarry:{ruleset:'quarry-match',rulesVersion:QUARRY_RULES.version,tickRate:QUARRY_RULES.tickRate,settings:{width:5,height:12,targetWins:3,matchRounds:5}},
  canopy:{ruleset:'crystal-canopy',rulesVersion:'crystal-canopy/1',tickRate:CANOPY_RULES.tickRate,settings:{width:5,height:12,targetWins:3,matchRounds:5}},
  stax:{ruleset:'stax',rulesVersion:'stax/1',tickRate:STAX_RULES.tickRate,settings:{width:5,height:5,targetWins:3,matchRounds:3}}

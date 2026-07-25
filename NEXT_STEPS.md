@@ -33,10 +33,11 @@ The architectural constraints remain non-negotiable:
   opponent boards, shared displays, mute controls, and routed music.
 - Default-deny Firestore and RTDB rules plus emulator-backed rules tests.
 - `pill-bottle/3`: deterministic levels, shared seed stream, next pill, cascades,
-  three-round scoring, survivor fallback, rain attacks, countdowns, and rematches.
-- `tetris/1`: 10×20 visible board plus two hidden rows, seeded seven-bag, SRS,
+  first-to-three round wins, survivor fallback, rain attacks, countdowns, and rematches.
+- `tetris/2`: 10×20 visible board plus two hidden rows, seeded seven-bag, SRS,
   next queue, ghost, gravity, lock delay/reset cap, basic scoring/levels, top-out,
-  durable journals, replay, cast, and single-round survivor result.
+  durable journals, replay, cast, and a first-to-three race where each round is
+  won by reaching five levels above the selected start.
 - `quarry-match/3`: level-scaled, seeded solver-verified five-column puzzles, causal
   moved-column triples, staged adjacent-column cascades with repeated effects,
   manual restart, shared race boards, first-clear arbitration, first-to-three

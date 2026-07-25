@@ -3,12 +3,12 @@ import test from 'node:test';
 import { authoritativeScoringTick, derivePillMatchLifecycle, derivePillRoundPoints } from '../../src/lib/game/pill-bottle.ts';
 import { parsePillRematchReady, parsePillTerminal } from '../../src/lib/protocol/pill-bottle.ts';
 
-test('the last surviving multiplayer controller is the winner', () => {
+test('the first clearer wins immediately, while losses still leave a sole survivor', () => {
   const active = derivePillMatchLifecycle(['one', 'two', 'three'], [{ playerId: 'one', result: 'lost', tick: 1 }], []);
   assert.equal(active.finished, false);
   const finished = derivePillMatchLifecycle(['one', 'two', 'three'], [{ playerId: 'one', result: 'lost', tick: 1 }, { playerId: 'three', result: 'cleared', tick: 2 }], ['one']);
   assert.equal(finished.finished, true);
-  assert.equal(finished.winnerId, 'two');
+  assert.equal(finished.winnerId, 'three');
   assert.equal(finished.terminalResults.three, 'cleared');
   assert.equal(finished.matchComplete, false);
   assert.equal(finished.draw, false);
@@ -16,10 +16,10 @@ test('the last surviving multiplayer controller is the winner', () => {
   assert.equal(derivePillMatchLifecycle(['one', 'two', 'three'], [{ playerId: 'one', result: 'lost', tick: 1 }, { playerId: 'three', result: 'cleared', tick: 2 }], ['one', 'two', 'three']).allReady, true);
 });
 
-test('a three-round match completes only after the third round', () => {
+test('round number does not complete the race', () => {
   const terminals = [{ playerId: 'one', result: 'cleared' as const, tick: 40 }];
   assert.equal(derivePillMatchLifecycle(['one', 'two'], terminals, [], 1).matchComplete, false);
-  assert.equal(derivePillMatchLifecycle(['one', 'two'], terminals, [], 2).matchComplete, true);
+  assert.equal(derivePillMatchLifecycle(['one', 'two'], terminals, [], 2).matchComplete, false);
   assert.equal(derivePillMatchLifecycle(['one', 'two'], terminals, [], 2).terminalTicks.one, 40);
 });
 
@@ -52,22 +52,22 @@ test('scoring never advances an opponent beyond an authoritative controller chec
   assert.equal(authoritativeScoringTick([], 100), 0);
 });
 
-test('a sole survivor scores viruses left by opponents who topped out', () => {
+test('a Color Cure round awards exactly one race win', () => {
   const start = { seed: 123, round: 0, players: { one: { seat: 0,level:0 }, two: { seat: 1,level:0 }, three: { seat: 2,level:0 } } };
   const twoPlayer = derivePillMatchLifecycle(['one', 'two'], [{ playerId: 'one', result: 'lost', tick: 20 }], []);
-  assert.deepEqual(derivePillRoundPoints(start, twoPlayer, new Map()), { one: 0, two: 5 });
+  assert.deepEqual(derivePillRoundPoints(start, twoPlayer, new Map()), { one: 0, two: 1 });
 
   const threePlayer = derivePillMatchLifecycle(['one', 'two', 'three'], [
     { playerId: 'one', result: 'lost', tick: 20 },
     { playerId: 'two', result: 'lost', tick: 30 }
   ], []);
-  assert.deepEqual(derivePillRoundPoints(start, threePlayer, new Map()), { one: 0, two: 0, three: 10 });
+  assert.deepEqual(derivePillRoundPoints(start, threePlayer, new Map()), { one: 0, two: 0, three: 1 });
 });
 
 test('survivor fallback does not replace clear scoring or award a draw', () => {
   const start = { seed: 123, round: 0, players: { one: { seat: 0,level:0 }, two: { seat: 1,level:0 } } };
   const cleared = derivePillMatchLifecycle(['one', 'two'], [{ playerId: 'one', result: 'cleared', tick: 20 }], []);
-  assert.deepEqual(derivePillRoundPoints(start, cleared, new Map()), { one: 5, two: 0 });
+  assert.deepEqual(derivePillRoundPoints(start, cleared, new Map()), { one: 1, two: 0 });
 
   const draw = derivePillMatchLifecycle(['one', 'two'], [
     { playerId: 'one', result: 'lost', tick: 20 },
