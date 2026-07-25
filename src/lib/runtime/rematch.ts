@@ -31,21 +31,20 @@ export async function startRematch<Start extends RematchStart>(
   if (!Object.keys(start.players).every(id=>ready.has(id))) return;
   const proposed=crypto.randomUUID(),reservation=ref(realtimeDatabase,`games/${gameId}/rematch/nextGameId`);
   const claim=await runTransaction(reservation,current=>current===null?proposed:undefined,{applyLocally:false});
-  const nextGameId=claim.committed?claim.snapshot.val():(await get(reservation)).val();
+  const nextGameId=claim.snapshot.val()??(await get(reservation)).val();
   if(typeof nextGameId!=='string')throw new Error('Could not reserve the rematch.');
+  // Every controller observes the all-ready transition. Only the controller that
+  // won the reservation may create the successor; the others follow the room's
+  // activeGameId update instead of attempting a write that rules must reject.
+  if(!claim.committed)return nextGameId;
   const policy=nextRound(start),nextStart=ref(realtimeDatabase,`games/${nextGameId}/start`);
-  try {
-    await set(nextStart,{type:'game/started',roomId:start.roomId,ruleset:start.ruleset,rulesVersion:start.rulesVersion,
-      seed:randomGameSeed(),tickRate:start.tickRate,hostUid:start.hostUid,members:start.members,
-      players:Object.fromEntries(Object.entries(start.players).map(([id,player])=>[id,{...player,level:start.ruleset==='quarry-match'?Math.max(...ready.values()):ready.get(id)!}])),
-      settings:policy.settings??start.settings,audioOutput:start.audioOutput,
-      ...(policy.scores??start.scores?{scores:policy.scores??start.scores}:{}),
-      matchId:policy.advance?start.matchId:nextGameId,round:policy.advance?(policy.round??start.round+1):0,
-      previousGameId:gameId,serverTime:serverTimestamp()});
-  } catch(cause) {
-    const existing=await get(nextStart).catch(()=>undefined);
-    if(!existing?.exists()||parse(existing.val()).roomId!==start.roomId)throw cause;
-  }
+  await set(nextStart,{type:'game/started',roomId:start.roomId,ruleset:start.ruleset,rulesVersion:start.rulesVersion,
+    seed:randomGameSeed(),tickRate:start.tickRate,hostUid:start.hostUid,members:start.members,
+    players:Object.fromEntries(Object.entries(start.players).map(([id,player])=>[id,{...player,level:start.ruleset==='quarry-match'?Math.max(...ready.values()):ready.get(id)!}])),
+    settings:policy.settings??start.settings,audioOutput:start.audioOutput,
+    ...(policy.scores??start.scores?{scores:policy.scores??start.scores}:{}),
+    matchId:policy.advance?start.matchId:nextGameId,round:policy.advance?(policy.round??start.round+1):0,
+    previousGameId:gameId,serverTime:serverTimestamp()});
   await updateDoc(doc(firestore,'rooms',start.roomId),{status:'active',activeGameId:nextGameId,startedAt:firestoreTimestamp()});
   return nextGameId as string;
 }

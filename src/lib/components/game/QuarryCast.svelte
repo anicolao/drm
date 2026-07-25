@@ -105,6 +105,7 @@
     }))
     .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
   $: solo = lifecycle?.playerIds.length === 1;
+  $: boardWidth = Math.min(22, 80 / Math.max(progress.length, 1));
   $: phase = progress.some((player) => player.state.phase === "cleared")
     ? "cleared"
     : "playing";
@@ -117,7 +118,7 @@
 {#if variant==='canopy'}<CanopyAudio enabled={audioEnabled} {phase} {shotSignal} {tripleSignal} {resetSignal}/>{:else}<QuarryAudio enabled={audioEnabled} phase={audioPhase} {cascadeSignal} {resetSignal} />{/if}
 <main>
   <header>{variant==='canopy'?'CRYSTAL CANOPY':'QUARRY MATCH'} · ROOM {code}</header>
-  {#if error}<h1 role="alert">{error}</h1>{:else}<section>
+  {#if error}<h1 role="alert">{error}</h1>{:else}<section style={`--board-width:${boardWidth}vw`}>
       {#each progress as player}<CastPlayerFrame
           name={name(player.playerId)}
           lost={false}
@@ -163,14 +164,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: clamp(0.75rem, 3vw, 3rem);
-    flex-wrap: wrap;
+    gap: clamp(0.5rem, 1vw, 1rem);
+    flex-wrap: nowrap;
   }
   section :global(article) {
-    min-width: 120px;
+    min-width: 0;
   }
   section :global(article .quarry-shell) {
-    width: min(22vw, 31dvh, 430px);
+    width: min(var(--board-width), 31dvh, 430px);
   }
   p {
     margin: 0.25rem;

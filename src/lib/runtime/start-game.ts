@@ -20,8 +20,10 @@ export async function startRealtimeGame<Settings extends object>(
   definition: RealtimeGameDefinition<Settings>, roomId: string, members: RoomPlayer[], hostMode: 'player' | 'display'
 ) {
   if (!auth?.currentUser || !firestore || !realtimeDatabase) throw new Error('Firebase is unavailable.');
-  const minimum = definition.minimumPlayers ?? 1, maximum = definition.maximumPlayers ?? 4;
-  if (members.length < minimum || members.length > maximum) throw new Error(`A game requires between ${minimum} and ${maximum} room members.`);
+  const minimum = definition.minimumPlayers ?? 1;
+  if (members.length < minimum) throw new Error(`A game requires at least ${minimum} room member${minimum === 1 ? '' : 's'}.`);
+  if (definition.maximumPlayers !== undefined && members.length > definition.maximumPlayers)
+    throw new Error(`A game supports at most ${definition.maximumPlayers} room members.`);
   const hostUid = auth.currentUser.uid;
   const participants = members.filter((member) => hostMode === 'player' || member.uid !== hostUid)
     .sort((left, right) => left.uid.localeCompare(right.uid));

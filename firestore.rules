@@ -15,7 +15,6 @@ service cloud.firestore {
         || request.auth != null && resource.data.status == 'lobby'
         && request.resource.data.diff(resource.data).changedKeys().hasOnly(['playerCount'])
         && request.resource.data.playerCount == resource.data.playerCount + 1
-        && request.resource.data.playerCount <= 4
         && getAfter(/databases/$(database)/documents/rooms/$(roomId)/players/$(request.auth.uid)).data.uid == request.auth.uid;
     }
     match /rooms/{roomId}/players/{uid} {

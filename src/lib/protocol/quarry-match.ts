@@ -85,7 +85,7 @@ export function parseQuarryStart(value: unknown): QuarryStartRecord {
         members[id] === true &&
         isObject(player) &&
         hasOnlyKeys(player, ["seat", "level"]) &&
-        isInteger(player.seat, 0, 3) &&
+        isInteger(player.seat, 0) &&
         isInteger(player.level, 0, 20),
     ) ||
     (scores !== undefined &&
