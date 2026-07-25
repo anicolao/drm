@@ -1,6 +1,6 @@
 import { TETRIS_HEIGHT, TETRIS_HIDDEN_ROWS, TETRIS_WIDTH, type Orientation, type TetrisActive, type TetrisInput, type TetrisRecord, type TetrisState, type Tetromino } from './types.ts';
 
-export const TETRIS_RULES=Object.freeze({version:'tetris/2' as const,tickRate:60,gravityTicks:48,minimumGravityTicks:2,softDropTicks:2,lockDelayTicks:30,maxLockResets:15,linesPerLevel:10,levelsToWin:5,targetWins:3});
+export const TETRIS_RULES=Object.freeze({version:'tetris/2' as const,tickRate:60,gravityTicks:48,minimumGravityTicks:2,softDropTicks:2,lockDelayTicks:30,maxLockResets:15,linesPerLevel:10,levelsToWin:3,targetWins:3});
 const PIECES:Tetromino[]=['I','J','L','O','S','T','Z'];
 const CELLS:Record<Tetromino,Array<Array<[number,number]>>>={
  I:[[[1,0],[1,1],[1,2],[1,3]],[[0,2],[1,2],[2,2],[3,2]],[[2,0],[2,1],[2,2],[2,3]],[[0,1],[1,1],[2,1],[3,1]]],

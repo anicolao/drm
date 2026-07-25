@@ -29,4 +29,6 @@ test('Realtime Database exposes only the unified controller record journal', () 
   assert.match(rules.rules.games.$gameId.terminals.$playerId['.validate'], /misses/);
   assert.match(rules.rules.games.$gameId.terminals.$playerId['.validate'], /t1-/);
   assert.match(rules.rules.games.$gameId.terminals.$playerId['.validate'], /t2-/);
+  assert.doesNotMatch(rules.rules.games.$gameId.start.players.$playerId['.validate'], /<= 3/);
+  assert.doesNotMatch(rules.rules.games.$gameId.terminals.$playerId['.validate'], /seat'\)\\.val\\(\\) <= 3/);
 });

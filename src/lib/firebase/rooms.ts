@@ -81,7 +81,6 @@ export async function joinRoom(code: string, displayName: string) {
     const roomData = currentRoom.data() as { status: 'lobby' | 'active'; hostUid: string; playerCount?: number };
     if (!currentPlayer.exists()) {
       if (roomData.status !== 'lobby') throw new Error('This game has already started.');
-      if ((roomData.playerCount ?? 0) >= 4) throw new Error('This room already has four players.');
       transaction.update(roomRef, { playerCount: (roomData.playerCount ?? 0) + 1 });
     }
     transaction.set(playerRef, {

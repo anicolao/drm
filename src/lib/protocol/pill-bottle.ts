@@ -118,10 +118,10 @@ export function parsePillStart(value: unknown): PillStartRecord {
   const playerEntries = Object.entries(value.players);
   const seats = playerEntries.map(([, player]) => isObject(player) ? player.seat : undefined);
   const settings = value.settings;
-  if (memberEntries.length < 1 || memberEntries.length > 4 || !memberEntries.every(([uid, included]) => isString(uid) && included === true)
+  if (memberEntries.length < 1 || !memberEntries.every(([uid, included]) => isString(uid) && included === true)
     || members[value.hostUid as string] !== true
-    || playerEntries.length < 1 || playerEntries.length > 4
-    || !playerEntries.every(([uid, player]) => isString(uid) && isObject(player) && hasOnlyKeys(player, ['seat','level']) && isInteger(player.seat, 0, 3) && isInteger(player.level,0,20) && members[uid] === true)
+    || playerEntries.length < 1
+    || !playerEntries.every(([uid, player]) => isString(uid) && isObject(player) && hasOnlyKeys(player, ['seat','level']) && isInteger(player.seat, 0) && isInteger(player.level,0,20) && members[uid] === true)
     || new Set(seats).size !== seats.length
     || !hasOnlyKeys(settings, ['initialVirusCount', 'initialGravityTicks', 'hardDrop', 'matchRounds'])
     || settings.initialVirusCount !== PILL_BOTTLE_SETTINGS.initialVirusCount
