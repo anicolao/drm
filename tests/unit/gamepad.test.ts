@@ -21,7 +21,13 @@ test('standard right-cluster positions map to Color Cure controls once per press
   assert.deepEqual(controls.sample([pad([1,2,3])], 80), ['face-right','face-left','face-top']);
 });
 
-test('shoulder positions emit distinct one-shot actions',()=>{const controls=new StandardGamepadControls();assert.deepEqual(controls.sample([pad([4])],0),['shoulder-left']);assert.deepEqual(controls.sample([pad([4])],300),[]);assert.deepEqual(controls.sample([pad()],316),[]);assert.deepEqual(controls.sample([pad([5])],332),['shoulder-right'])});
+test('front and rear shoulder positions emit the same side-specific one-shot actions',()=>{
+  const controls=new StandardGamepadControls();
+  assert.deepEqual(controls.sample([pad([4,6])],0),['shoulder-left','shoulder-left']);
+  assert.deepEqual(controls.sample([pad([4,6])],300),[]);
+  assert.deepEqual(controls.sample([pad()],316),[]);
+  assert.deepEqual(controls.sample([pad([5,7])],332),['shoulder-right','shoulder-right']);
+});
 
 test('d-pad left and right repeat while held without flooding frames', () => {
   const controls = new StandardGamepadControls();
@@ -70,6 +76,19 @@ test('each game assigns intentional actions to Nintendo-labeled face positions',
   assert.deepEqual(staxGamepadInput('face-bottom'),{type:'input/throw-back',payload:{}});
   assert.deepEqual(staxGamepadInput('face-top'),{type:'input/restart',payload:{}});
   assert.equal(staxGamepadInput('shoulder-left'),undefined);
+});
+
+test('both shoulder rows jump Match Puzzle controls to the matching edge',()=>{
+  const controls=new StandardGamepadControls();
+  assert.deepEqual(
+    controls.sample([pad([4,6])],0).map(matchPuzzleGamepadIntent),
+    ['edge-left','edge-left'],
+  );
+  controls.sample([pad()],16);
+  assert.deepEqual(
+    controls.sample([pad([5,7])],32).map(matchPuzzleGamepadIntent),
+    ['edge-right','edge-right'],
+  );
 });
 
 test('menu controls reserve vertical directions for levels and accept every other button',()=>{
