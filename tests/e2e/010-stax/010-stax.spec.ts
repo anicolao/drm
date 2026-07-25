@@ -372,7 +372,7 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
     verifications: [
       {
         spec: "The completed wave remains credited in the race to three",
-        check: async () => await expect(page.getByText("WAVES 1/3")).toBeVisible(),
+        check: async () => await expect(page.getByText("WINS 1/3")).toBeVisible(),
       },
       {
         spec: "The successor wave uses the manually selected level",
