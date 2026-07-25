@@ -26,7 +26,24 @@ test('front and rear shoulder positions emit the same side-specific one-shot act
   assert.deepEqual(controls.sample([pad([4,6])],0),['shoulder-left','shoulder-left']);
   assert.deepEqual(controls.sample([pad([4,6])],300),[]);
   assert.deepEqual(controls.sample([pad()],316),[]);
-  assert.deepEqual(controls.sample([pad([5,7])],332),['shoulder-right','shoulder-right']);
+  assert.deepEqual(controls.sample([pad()],400),[]);
+  assert.deepEqual(controls.sample([pad([5,7])],416),['shoulder-right','shoulder-right']);
+});
+
+test('analog trigger chatter cannot re-arm an edge jump',()=>{
+  const controls=new StandardGamepadControls();
+  const trigger=(value:number):GamepadLike=>{
+    const gamepad=pad();
+    const buttons=Array.from(gamepad.buttons);
+    buttons[7]={pressed:value>0.5,value};
+    return {...gamepad,buttons};
+  };
+  assert.deepEqual(controls.sample([trigger(1)],0),['shoulder-right']);
+  assert.deepEqual(controls.sample([trigger(0.49)],16),[]);
+  assert.deepEqual(controls.sample([trigger(0.51)],32),[]);
+  assert.deepEqual(controls.sample([trigger(0)],48),[]);
+  assert.deepEqual(controls.sample([trigger(0)],128),[]);
+  assert.deepEqual(controls.sample([trigger(1)],144),['shoulder-right']);
 });
 
 test('d-pad left and right repeat while held without flooding frames', () => {
@@ -85,8 +102,9 @@ test('both shoulder rows jump Match Puzzle controls to the matching edge',()=>{
     ['edge-left','edge-left'],
   );
   controls.sample([pad()],16);
+  controls.sample([pad()],96);
   assert.deepEqual(
-    controls.sample([pad([5,7])],32).map(matchPuzzleGamepadIntent),
+    controls.sample([pad([5,7])],112).map(matchPuzzleGamepadIntent),
     ['edge-right','edge-right'],
   );
 });
