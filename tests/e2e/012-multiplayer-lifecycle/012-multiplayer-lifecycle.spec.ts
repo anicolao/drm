@@ -30,8 +30,9 @@ test('US-012: an unbounded roster survives a cast round transition', async ({ br
   await expect(page.getByText('Joined players · 5')).toBeVisible();
 
   const castOpened = page.context().waitForEvent('page');
+  const hostNavigated = page.waitForURL(/\/play\?code=TEST$/);
   await page.getByRole('button', { name: 'Play + cast' }).click();
-  const cast = await castOpened;
+  const [cast] = await Promise.all([castOpened, hostNavigated]);
   const tester = new TestStepHelper(cast, testInfo);
   await expect(page).toHaveURL(/\/play\?code=TEST$/);
   await expect(page.getByLabel('Block Stack controller')).toBeVisible();
