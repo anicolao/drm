@@ -41,6 +41,7 @@ test('US-001: host creates and configures a real room', async ({ page }, testInf
   await expect(page.getByLabel('Pill Bottle controller')).toBeVisible();
   await declareColorCureLoss(page);
   await expect(page.getByText('LEVEL LOST')).toBeVisible();
+  await expect(page.getByLabel('Starting level')).toContainText('1');
   await tester.step('game-over', { description: 'A terminal solo bottle offers another level', networkStatus: 'skip', verifications: [
     { spec: 'Single-player top-out ends the level without declaring a race result', check: async () => await expect(page.getByText('LEVEL LOST')).toBeVisible() },
     { spec: 'The player can retry or select another level', check: async () => await expect(page.getByRole('button', { name: 'TRY AGAIN' })).toBeEnabled() }
