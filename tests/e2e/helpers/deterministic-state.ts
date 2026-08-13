@@ -95,3 +95,21 @@ export async function advanceVisualTo(
   }
   await expect(surface).toHaveAttribute('data-visual-progress', String(target));
 }
+
+/** Stop when the WebGL canvas, rather than only its source state, renders a named visual frame. */
+export async function advanceRenderedVisualTo(
+  page: Page,
+  surface: Locator,
+  target: number,
+): Promise<void> {
+  for (let attempt = 0; attempt < target + 32; attempt++) {
+    const attribute = await surface.getAttribute('data-rendered-visual-progress');
+    const current = attribute === null || attribute === '' ? -1 : Number(attribute);
+    if (current === target) return;
+    if (!Number.isInteger(current) || current > target) {
+      throw new Error(`Cannot advance rendered visual transition from ${attribute} to ${target}`);
+    }
+    await advanceToTick(page, await gameTick(page, surface) + 1, surface);
+  }
+  await expect(surface).toHaveAttribute('data-rendered-visual-progress', String(target));
+}

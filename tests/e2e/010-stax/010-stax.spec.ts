@@ -1,7 +1,7 @@
 import { expect, test, type Locator } from "@playwright/test";
 import { TestStepHelper } from "../helpers/test-step-helper";
 import { resetEmulators } from "../helpers/reset-emulators";
-import { advanceToTick, advanceVisualTo, expectViewportFits } from "../helpers/deterministic-state";
+import { advanceRenderedVisualTo, advanceToTick, advanceVisualTo, expectViewportFits } from "../helpers/deterministic-state";
 import { waitForGameSurface } from "../helpers/application-readiness";
 import {
   advanceStax,
@@ -94,7 +94,7 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
   });
   const initialPhase = await ramp.getAttribute("data-phase");
   expect(initialPhase).toMatch(/playing|countdown/);
-  await page.clock.pauseAt(Date.now());
+  await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1_000);
   await page.keyboard.press("r");
   await expectFreshCountdown(ramp);
   const restartTick = await tick();
@@ -183,7 +183,7 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
   await expect(ramp).toHaveAttribute("data-paddle-count", "1");
   await expect(ramp).toHaveAttribute("data-visual-transitions", /catch/);
   await expect(ramp).toHaveAttribute("data-visual-progress", "0");
-  await advanceVisualTo(page, ramp, 12);
+  await advanceRenderedVisualTo(page, ramp, 11);
   await tester.step("stax-catch", {
     description:
       "A seeded tile rotates into place while depressing the aligned paddle",
@@ -203,7 +203,7 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
         spec: "The catch is rendered as a settling transition rather than a resize",
         check: async () => {
           await expect(ramp).toHaveAttribute("data-visual-transitions", /catch/);
-          await expect(ramp).toHaveAttribute("data-visual-progress", "12");
+          await expect(ramp).toHaveAttribute("data-rendered-visual-progress", "11");
         },
       },
       {
@@ -366,6 +366,9 @@ test("US-010: Stax tumbles tiles down a deterministic 3D ramp", async ({
   await page.clock.resume();
   await page.getByRole("button", { name: "NEXT LEVEL" }).click();
   await page.getByText("LEVEL 2").waitFor({ state: "visible" });
+  await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1_000);
+  await page.keyboard.press("r");
+  await expectFreshCountdown(ramp);
   await tester.step("stax-next-level", {
     description: "A manual between-wave level selection starts the successor wave",
     networkStatus: "skip",

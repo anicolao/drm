@@ -18,7 +18,7 @@
   import { commandForGamepadAction,commandForKey,HeldInputGate } from '$lib/runtime/core-input';
 
   let code=''; let joined=false; let joining=false; let needsName=false; let playerName=''; let error='';
-  let roomId=''; let activeGameId=''; let controller: ReturnType<typeof createPillBottleController> | undefined;
+  let roomId=''; let activeGameId=''; let completionLevelHandled=false; let controller: ReturnType<typeof createPillBottleController> | undefined;
   let writerLeaseStatus:'pending'|'owned'|'conflict'='pending';
   let roomUnsubscribe=()=>{}; let playersUnsubscribe=()=>{}; let players:RoomPlayer[]=[]; let state: ControllerState={tick:0,ready:false}; let downHeld=false;
   let gamepadFrame=0; let gamepadConnected=false; let gamepadName=''; let gamepadActive=false; let online=true; const gamepadControls=new StandardGamepadControls(); const dropSources=new Set<'pointer'|'keyboard'|'gamepad'>();
@@ -63,7 +63,7 @@
     joining=true;error='';
     try{
       const room=await joinRoom(code,playerName);roomId=room.id;joined=true;needsName=false;
-      playersUnsubscribe=subscribeRoomPlayers(room.id,next=>{players=next;selectedLevel=next.find(player=>player.uid===auth?.currentUser?.uid)?.level??selectedLevel},cause=>error=cause.message);
+      playersUnsubscribe=subscribeRoomPlayers(room.id,next=>{players=next;if(!activeGameId)selectedLevel=next.find(player=>player.uid===auth?.currentUser?.uid)?.level??selectedLevel},cause=>error=cause.message);
       if(room.activeGameId){if(room.ruleset==='tetris'){window.location.assign(`${base}/play?code=${code}`);return}startController(room.activeGameId);}
       roomUnsubscribe=subscribeRoom(room.id,(next)=>{if(next.activeGameId){if(next.ruleset==='tetris')window.location.assign(`${base}/play?code=${code}`);else startController(next.activeGameId);}},(cause)=>error=cause.message);
     }catch(cause){error=cause instanceof Error?cause.message:String(cause);}
@@ -74,8 +74,8 @@
     playerName=name;localStorage.setItem('drm-player-name',name);await performJoin();
   }
   function startController(gameId:string){
-    if(controller&&activeGameId===gameId)return;controller?.destroy();activeGameId=gameId;state={tick:0,ready:false};error='';writerLeaseStatus='pending';
-    controller=createPillBottleController(gameId,(next)=>{const leaseStatus=next.ownershipConflict?'conflict':next.ready?'owned':'pending';if(leaseStatus!=='pending'&&leaseStatus!==writerLeaseStatus){writerLeaseStatus=leaseStatus;window.dispatchEvent(new CustomEvent('drm:writer-lease',{detail:leaseStatus}))}const justFinished=!state.lifecycle?.finished&&next.lifecycle?.finished;if(justFinished&&next.bottle)selectedLevel=next.lifecycle?.matchComplete?next.bottle.level:Math.min(20,next.bottle.level+1);state=next;if(next.error)error=next.error;});
+    if(controller&&activeGameId===gameId)return;controller?.destroy();activeGameId=gameId;completionLevelHandled=false;state={tick:0,ready:false};error='';writerLeaseStatus='pending';
+    controller=createPillBottleController(gameId,(next)=>{const leaseStatus=next.ownershipConflict?'conflict':next.ready?'owned':'pending';if(leaseStatus!=='pending'&&leaseStatus!==writerLeaseStatus){writerLeaseStatus=leaseStatus;window.dispatchEvent(new CustomEvent('drm:writer-lease',{detail:leaseStatus}))}if(!next.lifecycle?.finished)completionLevelHandled=false;if(next.lifecycle?.finished&&next.bottle&&!completionLevelHandled){completionLevelHandled=true;selectedLevel=next.lifecycle.matchComplete?next.bottle.level:Math.min(20,next.bottle.level+1)}state=next;if(next.error)error=next.error;});
   }
   function send(input:PillCommand){
     if(!controlsEnabled)return;
