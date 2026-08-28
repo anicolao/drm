@@ -2,7 +2,8 @@ import { browser } from '$app/environment';
 import { getApps, initializeApp } from 'firebase/app';
 import { connectAuthEmulator, getAuth } from 'firebase/auth';
 import { connectDatabaseEmulator, getDatabase } from 'firebase/database';
-import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
+import { connectFirestoreEmulator, initializeFirestore, type FirestoreSettings } from 'firebase/firestore';
+import { shouldUseFetchStreams } from './firestore-transport';
 
 export const firebaseConfigured = Boolean(import.meta.env.VITE_FIREBASE_API_KEY);
 
@@ -20,7 +21,12 @@ export const app = browser && firebaseConfigured
   ? (getApps()[0] ?? initializeApp(firebaseConfig))
   : undefined;
 export const auth = app ? getAuth(app) : undefined;
-export const firestore = app ? getFirestore(app) : undefined;
+export const firestore = app ? initializeFirestore(app, {
+  // Safari 26.4+ can buffer Firestore Fetch Streams updates until a later
+  // keep-alive. Route WebKit through the XHR transport in the meantime:
+  // https://github.com/firebase/firebase-js-sdk/issues/9789
+  useFetchStreams: shouldUseFetchStreams(typeof navigator === 'undefined' ? undefined : navigator)
+} as FirestoreSettings & { useFetchStreams: boolean }) : undefined;
 export const realtimeDatabase = app ? getDatabase(app) : undefined;
 
 if (browser && import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true' && auth && firestore && realtimeDatabase) {
